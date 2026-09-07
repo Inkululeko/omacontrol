@@ -1,0 +1,327 @@
+#!/bin/bash
+# omacontrol-migrate — carry an OmaSettings install over to OmaControl.
+#
+# OmaControl is the same window under a new name, but a rename is not a no-op
+# for a program that writes into other people's files. Six things on disk are
+# keyed by the old name, and the new window recognises none of them:
+#
+#   the store          what was changed and what it was before. Without it,
+#                      "Undo all" has nothing to put back — the settings stay
+#                      applied and the memory of the originals is gone.
+#   the managed Lua    the generated file every Hyprland setting lives in.
+#   the require line   in hyprland.lua. This one *breaks the desktop* if it is
+#                      left alone and the file it names is renamed: Hyprland
+#                      fails the config on the next reload.
+#   the bindings block a marked region in bindings.lua. Unrecognised, the new
+#                      window appends a second block and the bindings you added
+#                      are orphaned in the first.
+#   the .bak files     the pristine copy taken before the first write. Left
+#                      under the old name, the new window takes a *fresh*
+#                      backup of the already-modified file and the true
+#                      original stops being what gets restored.
+#   the bar widget     which slot the gear sits in.
+#
+# So this is a rename on disk, done in place, with every original copied into
+# one rollback directory first. Nothing is parsed and rewritten: the edits are
+# targeted line substitutions, the same promise the window itself makes.
+#
+# Prints a plan and changes nothing unless given --apply.
+
+set -uo pipefail
+
+OLD_ID="io.github.twiking.omasettings"
+NEW_ID="io.github.twiking.omacontrol"
+
+HOME_DIR=${HOME:?}
+CONFIG_DIR="$HOME_DIR/.config/omarchy"
+HYPR_DIR="${OMACONTROL_HYPR_DIR:-$HOME_DIR/.config/hypr}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy"
+SHELL_JSON="${OMARCHY_SHELL_JSON:-$CONFIG_DIR/shell.json}"
+APPLICATIONS="$HOME_DIR/.local/share/applications"
+PLUGINS="$CONFIG_DIR/plugins"
+
+APPLY=0
+FORCE=0
+REMOVE_OLD=0
+
+for arg in "$@"; do
+  case $arg in
+    --apply) APPLY=1 ;;
+    --force) FORCE=1 ;;
+    # Removing deletes the old plugin's directory and its launcher entry.
+    # Disabling is the default because it is one command to undo.
+    --remove-old) REMOVE_OLD=1 ;;
+    -h|--help)
+      cat <<'USAGE'
+usage: omacontrol-migrate [--apply] [--force] [--remove-old]
+
+  (no flags)     print what would change and exit
+  --apply        carry it out, copying every original into a rollback directory
+  --force        proceed even though OmaControl state already exists
+  --remove-old   remove the OmaSettings plugin rather than disabling it
+
+Run it once, before opening the OmaControl window for the first time.
+USAGE
+      exit 0 ;;
+    *) echo "omacontrol-migrate: unknown option $arg" >&2; exit 1 ;;
+  esac
+done
+
+# ---------------------------------------------------------------- reporting
+PLAN=()
+plan() { PLAN+=("$*"); }
+note() { printf '  %s\n' "$*"; }
+die() { printf 'omacontrol-migrate: %s\n' "$*" >&2; exit 1; }
+
+command -v jq >/dev/null 2>&1 || die "jq is required"
+
+ROLLBACK="$HOME_DIR/.local/state/omacontrol/migration-$(date +%Y%m%d-%H%M%S)"
+
+# Every original is copied here before it is touched, keeping its path, so the
+# whole migration is one directory and one script to undo.
+keep() {
+  local file=$1 dest
+  [[ -e $file ]] || return 0
+  ((APPLY)) || return 0
+  dest="$ROLLBACK/files${file#"$HOME_DIR"}"
+  # First copy only. A second one would be of our own output.
+  [[ -e $dest ]] && return 0
+  # And nothing this run brought into being: the header rewrites land on the
+  # file the store was just renamed to, and a rollback copy of *that* is an
+  # original the undo would restore straight after deleting it.
+  [[ -f $ROLLBACK/created ]] \
+    && grep -qxF -e "${file#"$HOME_DIR"/}" -- "$ROLLBACK/created" && return 0
+  mkdir -p "$(dirname "$dest")" || die "could not write the rollback copy of $file"
+  # -a, because one of the things being carried over is a directory.
+  cp -a "$file" "$dest" || die "could not copy $file"
+  printf '%s\n' "${file#"$HOME_DIR"/}" >>"$ROLLBACK/manifest"
+}
+
+# A substitution that has to match something. A rename that silently changes
+# nothing is the failure mode this whole script exists to prevent, so a miss is
+# an error rather than a quiet success.
+substitute() {
+  local file=$1 from=$2 to=$3 tmp
+  [[ -f $file ]] || return 0
+  # `--` first: every marker here begins with a Lua comment, which grep would
+  # otherwise read as an option and reject. Silently, from this function's
+  # point of view — the guard just says "not present" and the rename is
+  # skipped, which is how the bindings markers came through a test migration
+  # untouched.
+  grep -qF -e "$from" -- "$file" || return 0
+  ((APPLY)) || return 0
+  keep "$file"
+  tmp=$(mktemp "$file.omacontrol-migrate.XXXXXX") || die "could not write beside $file"
+  # Fixed strings, not patterns: these lines contain dots and parentheses.
+  python3 - "$file" "$from" "$to" >"$tmp" <<'PY' || { rm -f "$tmp"; die "could not rewrite $file"; }
+import sys
+path, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, encoding='utf-8') as fh:
+    sys.stdout.write(fh.read().replace(old, new))
+PY
+  chmod --reference="$file" "$tmp" 2>/dev/null
+  mv "$tmp" "$file" || die "could not replace $file"
+}
+
+move() {
+  local from=$1 to=$2
+  [[ -e $from ]] || return 0
+  ((APPLY)) || return 0
+  [[ -e $to ]] && die "$to already exists; move it aside or pass --force"
+  keep "$from"
+  mkdir -p "$(dirname "$to")"
+  mv "$from" "$to" || die "could not move $from to $to"
+  created "$to"
+}
+
+# Paths that did not exist before this ran.
+created() {
+  ((APPLY)) || return 0
+  printf '%s\n' "${1#"$HOME_DIR"/}" >>"$ROLLBACK/created"
+}
+
+# ---------------------------------------------------------------- already done?
+if [[ -e $CONFIG_DIR/omacontrol.json || -e $HYPR_DIR/omacontrol.lua ]] && ((!FORCE)); then
+  die "OmaControl already has state here. Migrating over it would overwrite what
+it has since written. Pass --force if that is what you mean."
+fi
+
+if [[ ! -e $CONFIG_DIR/omasettings.json && ! -e $HYPR_DIR/omasettings.lua ]]; then
+  echo "Nothing to migrate: no OmaSettings store or generated config found."
+  echo "A fresh OmaControl install needs no migration."
+  exit 0
+fi
+
+# ---------------------------------------------------------------- the plan
+[[ -e $CONFIG_DIR/omasettings.json ]] && plan \
+  "store           omasettings.json -> omacontrol.json ($(jq -r '.hypr // {} | keys | length' "$CONFIG_DIR/omasettings.json" 2>/dev/null || echo '?') Hyprland settings, and what they were before)"
+[[ -e $HYPR_DIR/omasettings.lua ]] && plan "generated Lua   omasettings.lua -> omacontrol.lua, header marker rewritten"
+[[ -e $HYPR_DIR/omasettings.conf ]] && plan "generated conf  omasettings.conf -> omacontrol.conf"
+grep -qF -e 'require("hypr.omasettings")' "$HYPR_DIR/hyprland.lua" 2>/dev/null && plan \
+  "hyprland.lua    require(\"hypr.omasettings\") -> require(\"hypr.omacontrol\")"
+grep -qF -e 'omasettings.conf' "$HYPR_DIR/hyprland.conf" 2>/dev/null && plan \
+  "hyprland.conf   source = ...omasettings.conf -> ...omacontrol.conf"
+grep -qF -e 'omasettings bindings' "$HYPR_DIR/bindings.lua" 2>/dev/null && plan \
+  "bindings.lua    the marked block's begin/end markers rewritten"
+grep -qF -e '-- omasettings' "$HYPR_DIR/monitors.lua" 2>/dev/null && plan \
+  "monitors.lua    the laptop-panel scale marker rewritten"
+
+mapfile -t BACKUPS < <(find "$HYPR_DIR" "$CONFIG_DIR" "$HOME_DIR" -maxdepth 1 \
+  -name '*.omasettings.bak' 2>/dev/null | sort -u)
+((${#BACKUPS[@]})) && plan "backups         ${#BACKUPS[@]} *.omasettings.bak -> *.omacontrol.bak"
+
+[[ -d $CACHE_DIR/omasettings ]] && plan "cache           ~/.cache/omarchy/omasettings -> .../omacontrol"
+[[ -e $APPLICATIONS/omasettings.desktop ]] && plan "launcher        omasettings.desktop removed (OmaControl writes its own)"
+grep -qF -e "$OLD_ID" -- "$SHELL_JSON" 2>/dev/null && plan \
+  "shell.json      bar widget $OLD_ID -> $NEW_ID, keeping its slot"
+
+if [[ -d $PLUGINS/$OLD_ID ]]; then
+  ((REMOVE_OLD)) && plan "old plugin      removed" || plan "old plugin      disabled (both enabled would fight over hyprland.lua)"
+fi
+
+if ((${#PLAN[@]} == 0)); then
+  echo "Nothing left to migrate."
+  exit 0
+fi
+
+echo "OmaSettings -> OmaControl"
+echo
+for line in "${PLAN[@]}"; do note "$line"; done
+echo
+
+if ((!APPLY)); then
+  echo "Nothing has been changed. Run again with --apply to carry it out."
+  echo "Every original is copied into ~/.local/state/omacontrol/migration-<time>/ first."
+  exit 0
+fi
+
+mkdir -p "$ROLLBACK" || die "could not create $ROLLBACK"
+
+# ---------------------------------------------------------------- carry it out
+#
+# Order matters in one place: the require line is rewritten *before* the file it
+# names is renamed, so there is no moment where hyprland.lua points at a file
+# that is not there. A reload landing mid-migration then finds either the old
+# pair or the new one, never half of each.
+substitute "$HYPR_DIR/hyprland.lua" \
+  '-- Load settings written by OmaSettings (omasettings:managed).' \
+  '-- Load settings written by OmaControl (omacontrol:managed).'
+substitute "$HYPR_DIR/hyprland.lua" 'require("hypr.omasettings")' 'require("hypr.omacontrol")'
+substitute "$HYPR_DIR/hyprland.conf" 'omasettings.conf' 'omacontrol.conf'
+
+move "$HYPR_DIR/omasettings.lua" "$HYPR_DIR/omacontrol.lua"
+move "$HYPR_DIR/omasettings.conf" "$HYPR_DIR/omacontrol.conf"
+substitute "$HYPR_DIR/omacontrol.lua" 'Generated by OmaSettings (omasettings:managed)' \
+  'Generated by OmaControl (omacontrol:managed)'
+substitute "$HYPR_DIR/omacontrol.lua" 'set from the OmaSettings window' 'set from the OmaControl window'
+substitute "$HYPR_DIR/omacontrol.conf" 'Generated by OmaSettings (omasettings:managed)' \
+  'Generated by OmaControl (omacontrol:managed)'
+
+# Both markers, and the sentence inside the begin marker, have to match what
+# lib/bindings.sh now looks for exactly — it finds its block by fixed string.
+substitute "$HYPR_DIR/bindings.lua" \
+  '-- >>> omasettings bindings (generated; edit them in OmaSettings)' \
+  '-- >>> omacontrol bindings (generated; edit them in OmaControl)'
+substitute "$HYPR_DIR/bindings.lua" '-- <<< omasettings bindings' '-- <<< omacontrol bindings'
+substitute "$HYPR_DIR/monitors.lua" '-- omasettings' '-- omacontrol'
+
+move "$CONFIG_DIR/omasettings.json" "$CONFIG_DIR/omacontrol.json"
+
+for bak in "${BACKUPS[@]}"; do
+  move "$bak" "${bak%.omasettings.bak}.omacontrol.bak"
+done
+
+# Soft: a cache is rebuilt on demand, and a migration that stops here would
+# leave the parts that actually matter already done and the rest not.
+if [[ -d $CACHE_DIR/omasettings && ! -e $CACHE_DIR/omacontrol ]]; then
+  keep "$CACHE_DIR/omasettings"
+  if mv "$CACHE_DIR/omasettings" "$CACHE_DIR/omacontrol" 2>/dev/null; then
+    created "$CACHE_DIR/omacontrol"
+  else
+    note "could not move the cache; it will be rebuilt"
+  fi
+fi
+
+if [[ -e $APPLICATIONS/omasettings.desktop ]]; then
+  # Ours to delete: OmaSettings wrote it and marked it as its own.
+  if grep -qF -e 'X-OmaSettings-Managed=true' -- "$APPLICATIONS/omasettings.desktop" 2>/dev/null; then
+    keep "$APPLICATIONS/omasettings.desktop"
+    rm -f "$APPLICATIONS/omasettings.desktop"
+  else
+    note "left $APPLICATIONS/omasettings.desktop alone: it is not one OmaSettings wrote"
+  fi
+fi
+
+# The gear keeps its slot in the bar. Walked rather than string-replaced, so a
+# widget that merely mentions the id in some other field is left alone.
+if [[ -f $SHELL_JSON ]] && grep -qF -e "$OLD_ID" -- "$SHELL_JSON"; then
+  keep "$SHELL_JSON"
+  tmp=$(mktemp "$SHELL_JSON.omacontrol-migrate.XXXXXX") || die "could not write beside $SHELL_JSON"
+  jq --arg old "$OLD_ID" --arg new "$NEW_ID" \
+    'walk(if type == "object" and .id == $old then .id = $new else . end)' \
+    "$SHELL_JSON" >"$tmp" || { rm -f "$tmp"; die "could not rewrite $SHELL_JSON"; }
+  # A shell.json that does not parse is a bar that does not draw.
+  jq -e . >/dev/null 2>&1 <"$tmp" || { rm -f "$tmp"; die "the rewritten $SHELL_JSON is not valid JSON"; }
+  chmod --reference="$SHELL_JSON" "$tmp" 2>/dev/null
+  mv "$tmp" "$SHELL_JSON" || die "could not replace $SHELL_JSON"
+fi
+
+# ---------------------------------------------------------------- the old plugin
+# Both enabled would mean two windows writing two require lines into one
+# hyprland.lua, each generating its own file and neither aware of the other.
+if [[ -d $PLUGINS/$OLD_ID ]]; then
+  if ((REMOVE_OLD)); then
+    omarchy-plugin-remove "$OLD_ID" >/dev/null 2>&1 \
+      || note "could not remove $OLD_ID; do it with: omarchy plugin remove $OLD_ID"
+  else
+    omarchy-plugin-disable "$OLD_ID" >/dev/null 2>&1 \
+      || note "could not disable $OLD_ID; do it with: omarchy plugin disable $OLD_ID"
+  fi
+fi
+
+# ---------------------------------------------------------------- the way back
+cat >"$ROLLBACK/undo.sh" <<'UNDO'
+#!/bin/bash
+# Puts back every file this migration touched, from the copies beside this
+# script, and removes the OmaControl-named files it created. It restores files;
+# it does not re-enable the OmaSettings plugin —
+# `omarchy plugin enable io.github.twiking.omasettings` does that.
+set -uo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+[[ -f $here/manifest ]] || { echo "no manifest beside this script" >&2; exit 1; }
+
+# Created first, restored second: an original and the copy made from it can be
+# the same path under two names, and removing after restoring would take the
+# restored file away again.
+if [[ -f $here/created ]]; then
+  while IFS= read -r rel; do
+    [[ -n $rel ]] || continue
+    target="$HOME/$rel"
+    [[ -e $target ]] || continue
+    rm -rf "$target" && echo "removed ~/$rel"
+  done <"$here/created"
+fi
+
+while IFS= read -r rel; do
+  [[ -n $rel ]] || continue
+  src="$here/files/$rel"
+  [[ -e $src ]] || continue
+  mkdir -p "$(dirname "$HOME/$rel")"
+  cp -a "$src" "$HOME/$rel" && echo "restored ~/$rel"
+done <"$here/manifest"
+
+echo
+echo "Back as it was. If OmaControl is installed, disable it:"
+echo "  omarchy plugin disable io.github.twiking.omacontrol"
+echo "  omarchy plugin enable io.github.twiking.omasettings"
+echo "  omarchy restart shell"
+UNDO
+chmod +x "$ROLLBACK/undo.sh"
+
+echo "Done. Originals and a way back are in:"
+note "$ROLLBACK"
+note "$ROLLBACK/undo.sh"
+echo
+echo "Now install OmaControl and restart the shell:"
+note "omarchy plugin add <path-or-url> --enable"
+note "omarchy restart shell"
