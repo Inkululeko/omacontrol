@@ -94,16 +94,28 @@ Item {
   implicitHeight: Math.max(labelColumn.implicitHeight, controlHolder.implicitHeight)
   opacity: enabled ? 1 : 0.45
 
+  // The card the row sits in, when it sits in one. The cursor band runs to
+  // the card's inside edges rather than to the row's, so a walked cursor
+  // reads as a band across the card instead of a box drawn around the text —
+  // and it has to stop exactly at the edge, since overshooting a card is
+  // visible in a way that overshooting a bare page never was.
+  property real bandInset: {
+    var node = settingRow.parent
+    while (node) {
+      if (node.pad !== undefined) return node.pad
+      node = node.parent
+    }
+    return Style.space(10)
+  }
+
   Rectangle {
-    // Wider than the row itself, so the cursor reads as a band across the
-    // page rather than a box drawn around the text.
     anchors.fill: parent
-    anchors.leftMargin: -Style.space(10)
-    anchors.rightMargin: -Style.space(10)
+    anchors.leftMargin: -settingRow.bandInset
+    anchors.rightMargin: -settingRow.bandInset
     anchors.topMargin: -Style.space(6)
     anchors.bottomMargin: -Style.space(6)
-    radius: Style.cornerRadius
-    color: Qt.rgba(Local.Palette.accent.r, Local.Palette.accent.g, Local.Palette.accent.b, 0.14)
+    radius: Local.Palette.chipRadius
+    color: Local.Palette.tint(0.14)
     visible: settingRow.current
   }
 
@@ -164,7 +176,11 @@ Item {
         text: settingRow.label
         color: Local.Palette.foreground
         font.family: Local.Palette.fontFamily
-        font.pixelSize: Style.font.body
+        font.pixelSize: Style.font.subtitle
+        // A setting's name carries the row. Against a card the old weight
+        // sat level with its own description, and the pair read as two lines
+        // of prose rather than as a name and a note about it.
+        font.bold: true
       }
 
       Text {

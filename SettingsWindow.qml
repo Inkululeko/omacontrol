@@ -59,6 +59,11 @@ Item {
   readonly property color accent: Color.accent
   readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.6)
   readonly property color hairline: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.16)
+  // The rail beside the page, and the two strips of chrome that frame both
+  // columns. Three steps off the window and no more: anything finer stops
+  // being visible once a theme supplies the colours.
+  readonly property color surface: Ui.Palette.surface
+  readonly property color chrome: Ui.Palette.chrome
   readonly property string fontFamily: Style.font.family
 
   readonly property string helperPath: String(Qt.resolvedUrl("bin/omacontrol")).replace(/^file:\/\//, "")
@@ -374,6 +379,16 @@ Item {
   // that name, and the two would collide.
   readonly property var changedSettings: state.hyprChanged !== undefined ? state.hyprChanged : []
   function isChanged(key) { return changedSettings.indexOf(key) !== -1 }
+
+  // Said the same way in both places it appears — beside the window's name and
+  // beside the page's — so the two read as one fact rather than two counts.
+  readonly property string changedLabel: changedSettings.length === 0 ? ""
+    : (changedSettings.length === 1 ? "1 setting changed"
+                                    : changedSettings.length + " settings changed")
+
+  // The far end of the keyhint bar, and only when something is actually
+  // happening. "Ready" was none of those — it reported that nothing was.
+  readonly property string statusNote: busy ? "Applying\u2026" : (!loaded ? "Loading\u2026" : "")
   // Both families: a Hyprland key is dropped, anything else is written back
   // the way it was found. The helper knows which is which.
   function resetSetting(key) { run(["reset", key]) }
@@ -418,14 +433,16 @@ Item {
     return hay.indexOf(searchTerm) !== -1
   }
 
-  // The menu names for a page: its own, and its parent's if it has one.
+  // The menu names for a page: its own, the cluster it is drawn under, and
+  // what it sits under in the header. All three are names a reader could
+  // plausibly type — "configs" should find Tmux — and none of them is written
+  // anywhere on the page itself.
   function pageNames(pageId) {
     for (var i = 0; i < sections.length; i++) {
-      if (sections[i].id === pageId) return String(sections[i].title || "")
-      var children = sections[i].children || []
-      for (var c = 0; c < children.length; c++)
-        if (children[c].id === pageId)
-          return String(children[c].title || "") + " " + String(sections[i].title || "")
+      if (sections[i].id !== pageId) continue
+      return String(sections[i].title || "") + " "
+        + String(sections[i].cluster || "") + " "
+        + String(sections[i].crumb || "")
     }
     return ""
   }
@@ -471,30 +488,9 @@ Item {
     return n
   }
 
-  // A parent stands or falls with its children.
-  function sectionMatchCount(section) {
-    var children = section.children || []
-    if (children.length === 0) return pageMatchCount(section.id)
-    var n = 0
-    for (var i = 0; i < children.length; i++) n += pageMatchCount(children[i].id)
-    return n
-  }
-
-  // Whether a page belongs in the menu at all: something on it matched, or it
-  // is itself what was searched for.
   // An application removed while its page is open leaves the window on a page
   // that is no longer there; step off it.
-  onStateChanged: if (!pageAvailable(pageId)) pageId = "appearance"
-
-  function sectionShows(section) {
-    if (!searching) return true
-    if (sectionMatchCount(section) > 0) return true
-    if (pageTitleMatches(section.id)) return true
-    var children = section.children || []
-    for (var i = 0; i < children.length; i++)
-      if (pageAvailable(children[i].id) && pageTitleMatches(children[i].id)) return true
-    return false
-  }
+  onStateChanged: if (!pageAvailable(pageId)) pageId = "overview"
 
   function pageShows(pageId) {
     if (!pageAvailable(pageId)) return false
@@ -510,15 +506,8 @@ Item {
     // binding on this very term, and read from inside the change it is still
     // the list for the term before, which lands you on a page that no longer
     // matches.
-    for (var i = 0; i < sections.length; i++) {
-      var children = sections[i].children || []
-      if (children.length === 0) {
-        if (pageShows(sections[i].id)) { pageId = sections[i].id; return }
-        continue
-      }
-      for (var c = 0; c < children.length; c++)
-        if (pageShows(children[c].id)) { pageId = children[c].id; return }
-    }
+    for (var i = 0; i < sections.length; i++)
+      if (pageShows(sections[i].id)) { pageId = sections[i].id; return }
   }
 
   // ---------------- keyboard navigation ------------------------------------
@@ -627,9 +616,12 @@ Item {
   function navActivate() {
     if (navInSidebar) {
       var entry = sidebarRows[sidebarIndex]
-      if (!entry) return
-      if (entry.expandable) toggleSection(entry.id)
-      else pageId = entry.id
+      if (entry) pageId = entry.id
+      // Enter on the sidebar takes the keyboard into the page it just opened,
+      // which is the only thing left for it to mean once walking already
+      // opened the page.
+      navInSidebar = false
+      navSync()
       return
     }
     var row = navCurrent()
@@ -653,28 +645,41 @@ Item {
   // The legend at the foot of the window. Everything the keyboard can do here
   // would be fourteen keys and unreadable, so it says what the keys do *here*:
   // the ones that always apply, plus whatever the cursor is resting on.
+  // Rows name their keys the way they read them — "\u2190\u2192" for the pair of
+  // arrows — and the foot of the window draws one cap per key. A pair of
+  // arrows in a single cap is a cap with two keys printed on it, so a string
+  // of nothing but arrows is taken apart into the keys it names. Anything
+  // with a name of its own ("Space") is one key however long it is.
+  function navCaps(entry) {
+    if (entry.keys !== undefined) return entry
+    var key = String(entry.key || "")
+    if (!/^[\u2190-\u2193]+$/.test(key) || key.length < 2)
+      return { keys: [key], label: entry.label }
+    return { keys: key.split(""), label: entry.label }
+  }
+
   readonly property var navLegend: {
     var keys = []
 
     if (searchFocused) {
-      keys.push({ key: "\u21b5", label: "To settings" })
-      keys.push({ key: "Esc", label: "Clear" })
+      keys.push({ keys: ["\u21b5"], label: "To settings" })
+      keys.push({ keys: ["esc"], label: "Clear" })
       return keys
     }
 
     var row = navBlocker !== null ? navBlocker : navCurrent()
     var own = row && row.navKeys ? row.navKeys : []
-    for (var i = 0; i < own.length; i++) keys.push(own[i])
+    for (var i = 0; i < own.length; i++) keys.push(navCaps(own[i]))
 
     // Only offered when there is something to hand back.
-    if (row && row.changed === true) keys.push({ key: "\u232b", label: "Reset" })
+    if (row && row.changed === true) keys.push({ keys: ["\u232b"], label: "Reset" })
 
     if (navBlocked) return keys
 
-    keys.push({ key: "\u2191\u2193", label: "Move" })
-    keys.push({ key: "Alt \u2191\u2193", label: "Page" })
-    keys.push({ key: "/", label: "Search" })
-    keys.push({ key: "Esc", label: "Close" })
+    keys.push({ keys: ["\u2191", "\u2193"], label: "Move" })
+    keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
+    keys.push({ keys: ["/"], label: "Search" })
+    keys.push({ keys: ["esc"], label: "Close" })
     return keys
   }
 
@@ -684,9 +689,9 @@ Item {
     if (row) row.navStep(delta)
   }
 
-  // Alt walks the sidebar as it is drawn, submenu entries included. Landing on
-  // a page opens it; landing on a parent waits for Enter, since opening a
-  // submenu is not the same as opening a page.
+  // Alt walks the sidebar as it is drawn. Every row is a page, so landing on
+  // one opens it — there is nothing left that could be walked onto without
+  // something happening.
   function navSidebar(delta) {
     var rows = sidebarRows
     if (rows.length === 0) return
@@ -698,7 +703,7 @@ Item {
     sidebarIndex = Math.max(0, Math.min(rows.length - 1, sidebarIndex + delta))
     sidebarReveal()
     navSync()
-    if (rows[sidebarIndex].selectable) pageId = rows[sidebarIndex].id
+    pageId = rows[sidebarIndex].id
   }
 
   // A row that has taken the keyboard — an open dropdown, a field being typed
@@ -901,7 +906,7 @@ Item {
   // ---------------- sections ----------------------------------------------
   // A section is either a page of its own or a parent holding pages; the
   // sidebar renders parents as headings and only pages are selectable.
-  property string pageId: "appearance"
+  property string pageId: "overview"
   // A new page brings new rows, so the cursor starts at its top rather than
   // wherever it happened to be on the page before.
   onPageIdChanged: {
@@ -915,125 +920,129 @@ Item {
   readonly property string pageHeaderNote: bodyLoader.item && bodyLoader.item.headerNote !== undefined
     ? String(bodyLoader.item.headerNote) : ""
 
-  // Ordered the way settings apps are: how it looks, what you type with, the
-  // devices, the system, and what extends it. Appearance leads rather than
-  // the network, which is where GNOME and macOS start — their top task is
-  // getting online, and this window is opened to change how the desktop looks.
-  readonly property var sections: [
-    // Look and feel
-    { id: "appearance", title: "Appearance", icon: "\uf1fc" },
-    { id: "bar", title: "Bar", icon: "\uf0ca" },
-    { id: "workspaces", title: "Workspaces", icon: "\uf24d" },
-    { id: "windows", title: "Windows", icon: "\uf2d0" },
-    { id: "layout", title: "Layout", icon: "\uf009" },
-    { id: "effects", title: "Effects", icon: "\uf0eb" },
-    { id: "groups", title: "Groups", icon: "\uf009" },
+  // Clustered, and flat inside a cluster: every page is its own row, and the
+  // only thing between one cluster and the next is whitespace. Nothing folds
+  // open. A tree earns its keep when a branch holds more than a screenful;
+  // these hold four rows each, and the fold was one click between the reader
+  // and a page they could otherwise have hit directly.
+  //
+  // Connectivity leads. Getting online is the top task on a machine that is
+  // not online yet, and it is the one that cannot wait for the reader to go
+  // looking. Overview sits above it as the page that answers "what needs me".
+  //
+  // `crumb` is what the page sits *under* in the reader's head, which is not
+  // always its cluster: Displays is filed with the desktop but a reader
+  // arriving there is thinking about screens.
+  readonly property var clusters: [
+    { label: "Overview", pages: [
+      { id: "overview", title: "Overview", icon: "\uf0e4", crumb: "Overview" }
+    ] },
 
-    // Input
-    { id: "keyboard", title: "Keyboard", icon: "\uf11c" },
-    { id: "bindings", title: "Keybindings", icon: "\uf11c" },
-    { id: "compose", title: "Compose Keys", icon: "\uf031" },
-    { id: "pointer", title: "Mouse & Touchpad", icon: "\uf245" },
+    { label: "Connectivity", pages: [
+      { id: "network", title: "Network", icon: "\uf1eb", crumb: "Connections" },
+      { id: "bluetooth", title: "Bluetooth", icon: "\uf294", crumb: "Connections" }
+    ] },
 
-    // Devices
-    { id: "displays", title: "Displays", icon: "\uf108" },
-    { id: "audio", title: "Audio", icon: "\uf028" },
-    { id: "network", title: "Network", icon: "\uf1eb" },
-    { id: "bluetooth", title: "Bluetooth", icon: "\uf294" },
-    { id: "power", title: "Power", icon: "\uf0e7" },
+    { label: "Sound & power", pages: [
+      { id: "audio", title: "Audio", icon: "\uf028", crumb: "Screen & sound" },
+      { id: "power", title: "Power", icon: "\uf0e7", crumb: "Power" }
+    ] },
 
-    // System
-    { id: "idle", title: "Idle & Lock", icon: "\uf023" },
-    { id: "datetime", title: "Date & Time", icon: "\uf017" },
+    { label: "Desktop", pages: [
+      { id: "appearance", title: "Appearance", icon: "\uf1fc", crumb: "Theme" },
+      { id: "bar", title: "Bar", icon: "\uf0ca", crumb: "Theme" },
+      { id: "displays", title: "Displays", icon: "\uf108", crumb: "Screen & sound" },
+      { id: "effects", title: "Effects", icon: "\uf0eb", crumb: "Windows" }
+    ] },
 
-    // What extends it
-    { id: "plugins", title: "Plugins", icon: "\uf1e6" },
-    { id: "apps", title: "Applications", icon: "\uf085", children: [
-      { id: "apps.defaults", title: "Defaults" },
-      { id: "apps.herdr", title: "Herdr" },
-      { id: "apps.tmux", title: "Tmux" },
-      { id: "apps.nvim", title: "Neovim" }
+    { label: "Windows", pages: [
+      { id: "windows", title: "Windows", icon: "\uf2d0", crumb: "Windows" },
+      { id: "layout", title: "Layout", icon: "\uf009", crumb: "Windows" },
+      { id: "workspaces", title: "Workspaces", icon: "\uf24d", crumb: "Windows" },
+      { id: "groups", title: "Groups", icon: "\uf247", crumb: "Windows" }
+    ] },
+
+    { label: "Input", pages: [
+      { id: "keyboard", title: "Keyboard", icon: "\uf11c", crumb: "Keyboard" },
+      { id: "bindings", title: "Keybindings", icon: "\uf11c", crumb: "Keyboard" },
+      { id: "compose", title: "Compose Keys", icon: "\uf031", crumb: "Keyboard" },
+      { id: "pointer", title: "Mouse & Touchpad", icon: "\uf245", crumb: "Pointer" }
+    ] },
+
+    { label: "System", pages: [
+      { id: "disk", title: "Disk", icon: "\uf0a0", crumb: "Storage" },
+      { id: "processes", title: "Processes", icon: "\uf080", crumb: "Storage" },
+      { id: "idle", title: "Idle & Lock", icon: "\uf023", crumb: "Session" },
+      { id: "datetime", title: "Date & Time", icon: "\uf017", crumb: "Session" }
+    ] },
+
+    { label: "Applications", pages: [
+      { id: "apps.defaults", title: "Defaults", icon: "\uf009", crumb: "Applications" },
+      { id: "plugins", title: "Plugins", icon: "\uf1e6", crumb: "Plugins" },
+      { id: "apps.herdr", title: "Herdr", icon: "\uf120", crumb: "Configs" },
+      { id: "apps.tmux", title: "Tmux", icon: "\uf120", crumb: "Configs" },
+      { id: "apps.nvim", title: "Neovim", icon: "\uf121", crumb: "Configs" }
     ] }
   ]
 
-  // Which parents are open. A parent holding the current page is always
-  // open — collapsing the branch you are looking at would leave the sidebar
-  // with nothing highlighted.
-  property var expandedSections: ({})
-
-  function isExpanded(section) {
-    var children = section.children || []
-    for (var c = 0; c < children.length; c++)
-      if (children[c].id === pageId) return true
-    return expandedSections[section.id] === true
-  }
-
-  function toggleSection(id) {
-    var next = ({})
-    for (var k in expandedSections) next[k] = expandedSections[k]
-    next[id] = !next[id]
-    expandedSections = next
-  }
-
-  // One flat list the sidebar Repeater can walk: parents that open and close,
-  // pages for everything selectable, each carrying the depth it renders at.
-  readonly property var sidebarRows: {
-    var rows = []
-    for (var i = 0; i < sections.length; i++) {
-      var section = sections[i]
-      var children = section.children || []
-      var open = children.length > 0 && isExpanded(section)
-      var sectionCount = sectionMatchCount(section)
-      // A page with no matches is not dimmed or emptied, it is gone: that is
-      // what says "there is nothing here for what you typed".
-      if (!sectionShows(section)) continue
-      rows.push({
-        id: section.id,
-        title: section.title,
-        icon: section.icon || "",
-        selectable: children.length === 0,
-        expandable: children.length > 0,
-        // A parent holds its children open while searching, or its matches
-        // would be counted but unreachable.
-        expanded: open || (searching && children.length > 0),
-        indented: false,
-        matches: sectionCount
-      })
-      if (!(open || (searching && children.length > 0))) continue
-      for (var c = 0; c < children.length; c++) {
-        if (!pageAvailable(children[c].id)) continue
-        var childCount = pageMatchCount(children[c].id)
-        if (!pageShows(children[c].id)) continue
-        rows.push({
-          id: children[c].id,
-          title: children[c].title,
-          icon: "",
-          selectable: true,
-          expandable: false,
-          expanded: false,
-          indented: true,
-          matches: childCount
+  // Every page, in the order the sidebar draws them, each carrying the cluster
+  // it came from. Most of the window wants the pages and not the clustering,
+  // and walking two levels everywhere it asked was how the tree version grew
+  // its bugs.
+  readonly property var sections: {
+    var pages = []
+    for (var i = 0; i < clusters.length; i++)
+      for (var p = 0; p < clusters[i].pages.length; p++) {
+        var page = clusters[i].pages[p]
+        pages.push({
+          id: page.id,
+          title: page.title,
+          icon: page.icon,
+          crumb: page.crumb,
+          cluster: clusters[i].label,
+          // Which of the eight tints the icon square is drawn in.
+          tint: Ui.Palette.clusterTint(i, clusters.length)
         })
       }
+    return pages
+  }
+
+  // One list the sidebar Repeater can walk. A row knows whether it opens a
+  // cluster, which is the whole of the grouping: the gap above it is the only
+  // thing saying "new cluster", so it has to survive a search that empties the
+  // rows either side of it.
+  readonly property var sidebarRows: {
+    var rows = []
+    var lastCluster = ""
+    for (var i = 0; i < sections.length; i++) {
+      var page = sections[i]
+      if (!pageShows(page.id)) continue
+      rows.push({
+        id: page.id,
+        title: page.title,
+        icon: page.icon,
+        tint: page.tint,
+        matches: pageMatchCount(page.id),
+        opensCluster: page.cluster !== lastCluster && rows.length > 0
+      })
+      lastCluster = page.cluster
     }
     return rows
   }
 
   function pageFor(id) {
-    for (var i = 0; i < sections.length; i++) {
-      var section = sections[i]
-      if (section.id === id) return section
-      var children = section.children || []
-      for (var c = 0; c < children.length; c++)
-        if (children[c].id === id) return children[c]
-    }
-    return { title: "" }
+    for (var i = 0; i < sections.length; i++)
+      if (sections[i].id === id) return sections[i]
+    return { title: "", crumb: "", cluster: "" }
   }
 
   // Pages live one to a file under sections/; the window only has to know
   // which file answers to which id.
   function sectionSource(id) {
     switch (id) {
+    case "overview": return "sections/OverviewSection.qml"
+    case "disk": return "sections/DiskSection.qml"
+    case "processes": return "sections/ProcessesSection.qml"
     case "appearance": return "sections/AppearanceSection.qml"
     case "bar": return "sections/BarSection.qml"
     case "workspaces": return "sections/WorkspacesSection.qml"
@@ -1227,6 +1236,94 @@ Item {
         anchors.fill: parent
         spacing: 0
 
+      // ---------------- window header --------------------------------------
+      // Above both columns, because what it holds belongs to the window and
+      // not to either of them: what this window is, what it has changed, and
+      // the two keys that are true on every page. The name used to sit at the
+      // top of the sidebar, where it was read as a heading for the menu under
+      // it rather than as the name of the window.
+      Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: Style.spacing.controlHeight + Style.space(8)
+        color: root.chrome
+
+        Row {
+          anchors.left: parent.left
+          anchors.leftMargin: Style.spacing.panelPadding
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(8)
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "OmaControl"
+            color: root.foreground
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.title
+            font.bold: true
+          }
+
+          // A number in the name's own weight would be read as part of it.
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.selfVersion !== ""
+            text: root.selfVersion
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+        }
+
+        Row {
+          anchors.right: parent.right
+          anchors.rightMargin: Style.spacing.panelPadding
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(8)
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.changedLabel !== ""
+            text: root.changedLabel
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.changedLabel !== ""
+            width: Style.spacing.hairline
+            height: Style.space(14)
+            color: root.hairline
+          }
+
+          Ui.KeyCap {
+            anchors.verticalCenter: parent.verticalCenter
+            key: "/"
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Search"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
+
+          Ui.KeyCap {
+            anchors.verticalCenter: parent.verticalCenter
+            key: "esc"
+          }
+        }
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: Style.spacing.hairline
+        color: root.hairline
+      }
+
       RowLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -1235,74 +1332,55 @@ Item {
         // ---------------- sidebar ------------------------------------------
         Rectangle {
           Layout.fillHeight: true
-          Layout.preferredWidth: Style.space(220)
-          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.04)
+          Layout.preferredWidth: Style.space(250)
+          color: root.surface
 
           ColumnLayout {
             anchors.fill: parent
-            anchors.margins: Style.spacing.panelPadding
-            spacing: Style.space(4)
-
-            // The version sits beside the name rather than in it: the name is
-            // what the reader looks for, and a number in the same weight and
-            // size would be read as part of it.
-            RowLayout {
-              spacing: Style.space(6)
-              Layout.bottomMargin: Style.space(10)
-
-              Text {
-                text: "OmaControl"
-                color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.heading
-                font.bold: true
-                Layout.alignment: Qt.AlignBaseline
-              }
-
-              // Sitting on the same baseline rather than the same top edge:
-              // two sizes aligned by their tops read as two things, and this
-              // is one thing said twice over.
-              Text {
-                visible: root.selfVersion !== ""
-                text: root.selfVersion
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                Layout.alignment: Qt.AlignBaseline
-              }
-            }
+            anchors.margins: Style.space(10)
+            spacing: Style.space(10)
 
             // Above the menu, because what it filters is the menu as much as
             // the page: pages with nothing to show leave the list entirely.
-            TextField {
-              id: searchField
+            RowLayout {
               Layout.fillWidth: true
-              Layout.bottomMargin: Style.space(10)
-              placeholderText: "Search settings"
-              foreground: root.foreground
-              accent: root.accent
-              font.family: root.fontFamily
-              onTextChanged: root.searchQuery = text
-              // Escape gives the keyboard back to the list rather than closing
-              // the window out from under a search.
-              Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Escape) {
-                  if (text !== "") text = ""
-                  root.navTakeFocus()
-                  event.accepted = true
-                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
-                           || event.key === Qt.Key_Down) {
-                  root.navTakeFocus()
-                  root.navMove(1)
-                  event.accepted = true
+              spacing: Style.space(8)
+
+              Text {
+                text: ""
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.iconSmall
+              }
+
+              TextField {
+                id: searchField
+                Layout.fillWidth: true
+                placeholderText: "Search every setting"
+                foreground: root.foreground
+                accent: root.accent
+                font.family: root.fontFamily
+                onTextChanged: root.searchQuery = text
+                // Escape gives the keyboard back to the list rather than
+                // closing the window out from under a search.
+                Keys.onPressed: function(event) {
+                  if (event.key === Qt.Key_Escape) {
+                    if (text !== "") text = ""
+                    root.navTakeFocus()
+                    event.accepted = true
+                  } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                             || event.key === Qt.Key_Down) {
+                    root.navTakeFocus()
+                    root.navMove(1)
+                    event.accepted = true
+                  }
                 }
               }
             }
 
             // The menu is as long as the settings are; on a tall list it ran
-            // past the foot of the window, taking the reset button and the
-            // update notice with it. Only the menu scrolls — the title, the
-            // search box and the corner stay put.
+            // past the foot of the window. Only the menu scrolls — the search
+            // box and the corner notices stay put.
             Flickable {
               id: sidebarScroll
               Layout.fillWidth: true
@@ -1316,150 +1394,117 @@ Item {
               ColumnLayout {
                 id: sidebarMenu
                 width: sidebarScroll.width
-                spacing: Style.space(4)
+                spacing: Style.space(2)
 
                 Repeater {
-                model: root.sidebarRows
-                delegate: Rectangle {
-                  required property var modelData
-                  required property int index
+                  model: root.sidebarRows
+                  delegate: Item {
+                    required property var modelData
+                    required property int index
 
-                  readonly property bool current: modelData.selectable && modelData.id === root.pageId
-                  // Where the keyboard is, which is not always the open page:
-                  // Alt can walk onto a parent without opening anything.
-                  readonly property bool cursored: root.navInSidebar && index === root.sidebarIndex
+                    readonly property bool current: modelData.id === root.pageId
+                    // Where the keyboard is, which is not always the open
+                    // page: Alt can walk the cursor without a click.
+                    readonly property bool cursored: root.navInSidebar && index === root.sidebarIndex
 
-                  Layout.fillWidth: true
-                  implicitHeight: Style.spacing.controlHeight + Style.space(4)
-                  radius: Style.cornerRadius
-                  border.width: cursored ? Style.normalBorderWidth : 0
-                  border.color: root.accent
-                  color: current
-                    ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
-                    : (cursored
-                       ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
-                       : (navMouse.containsMouse
-                          ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
-                          : "transparent"))
+                    Layout.fillWidth: true
+                    // The gap above a cluster is the only thing marking one
+                    // off from the next, so it is part of the row's height
+                    // rather than list spacing — spacing cannot vary per row.
+                    implicitHeight: rowFill.height + (modelData.opensCluster ? Style.space(14) : 0)
 
-                  Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: Style.space(10) + (modelData.indented ? Style.space(18) : 0)
-                    spacing: Style.space(10)
+                    Rectangle {
+                      id: rowFill
+                      anchors.bottom: parent.bottom
+                      width: parent.width
+                      height: Style.spacing.controlHeight + Style.space(6)
+                      radius: Ui.Palette.chipRadius
+                      border.width: cursored ? Style.normalBorderWidth : 0
+                      border.color: root.accent
+                      color: current
+                        ? root.accent
+                        : (cursored ? Ui.Palette.tint(0.12)
+                                    : (navMouse.containsMouse ? Ui.Palette.hover : "transparent"))
 
-                    Text {
-                      anchors.verticalCenter: parent.verticalCenter
-                      visible: !modelData.indented
-                      text: modelData.icon
-                      color: current ? root.accent : root.muted
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.body
-                      width: Style.space(18)
-                    }
+                      Row {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Style.space(8)
+                        anchors.right: parent.right
+                        anchors.rightMargin: Style.space(10)
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Style.space(10)
 
-                    Text {
-                      anchors.verticalCenter: parent.verticalCenter
-                      text: modelData.title
-                      color: root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.body
-                      font.bold: current
-                    }
+                        Ui.NavIcon {
+                          anchors.verticalCenter: parent.verticalCenter
+                          glyph: modelData.icon
+                          tint: modelData.tint
+                          inverted: current
+                        }
 
-                    // How much of what you typed is in there.
-                    Text {
-                      anchors.verticalCenter: parent.verticalCenter
-                      visible: root.searching && modelData.matches > 0
-                      text: modelData.matches
-                      color: root.accent
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                    }
-                  }
+                        Text {
+                          anchors.verticalCenter: parent.verticalCenter
+                          // Whatever the icon and the count leave over. A
+                          // long page name elides rather than pushing the
+                          // count off the end of the row.
+                          width: parent.width - Style.space(34)
+                            - (matchCount.visible ? matchCount.width + Style.space(10) : 0)
+                          text: modelData.title
+                          elide: Text.ElideRight
+                          color: current ? Ui.Palette.onAccent : root.foreground
+                          font.family: root.fontFamily
+                          font.pixelSize: Style.font.body
+                          font.bold: true
+                        }
 
-                  // Chevron only on parents, pointing the way the branch will
-                  // move when clicked.
-                  Text {
-                    anchors.right: parent.right
-                    anchors.rightMargin: Style.space(10)
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: modelData.expandable
-                    text: modelData.expanded ? "\uf077" : "\uf078"
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
+                        // How much of what you typed is in there.
+                        Text {
+                          id: matchCount
+                          anchors.verticalCenter: parent.verticalCenter
+                          visible: root.searching && modelData.matches > 0
+                          text: modelData.matches
+                          color: current ? Ui.Palette.onAccent : root.muted
+                          font.family: root.fontFamily
+                          font.pixelSize: Style.font.caption
+                          font.bold: true
+                        }
+                      }
 
-                  MouseArea {
-                    id: navMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                      if (modelData.expandable) root.toggleSection(modelData.id)
-                      else root.pageId = modelData.id
+                      MouseArea {
+                        id: navMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.pageId = modelData.id
+                      }
                     }
                   }
                 }
               }
-              }
             }
 
-            // What this window has changed, and the way to undo the lot. Only
-            // when there is something to undo — a button that mostly does
-            // nothing teaches you to ignore it.
-            Column {
-              visible: root.changedSettings.length > 0
-              spacing: Style.space(2)
-
-              Text {
-                text: root.changedSettings.length === 1
-                  ? "1 setting changed" : root.changedSettings.length + " settings changed"
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // A button, not a link: it is an action on the whole window
-              // rather than a place to go, and it should look like the other
-              // things that do something.
-              Button {
-                text: "Reset all settings"
-                bordered: true
-                foreground: root.foreground
-                accent: root.accent
-                fontFamily: root.fontFamily
-                fontSize: Style.font.caption
-                onClicked: resetAllDialog.opened = true
-              }
-            }
-
-            // The corner says something only when there is something to say:
-            // while a write is in flight, before the first state lands, or
-            // when this window is itself behind its remote. "Ready" was none
-            // of those — it reported that nothing was happening.
+            // The list is empty rather than dimmed when nothing matched, so
+            // something has to say why — an empty rail otherwise reads as a
+            // window that failed to load.
             Text {
-              visible: root.busy || !root.loaded
-              text: root.busy ? "Applying…" : "Loading…"
+              Layout.fillWidth: true
+              visible: root.searching && root.sidebarRows.length === 0
+              text: "Nothing here for what you typed."
+              wrapMode: Text.WordWrap
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
             }
 
-            // Two unrelated notices, one under the other: the gap keeps the
-            // update from reading as part of the reset above it.
-            Item {
-              Layout.preferredHeight: Style.space(6)
-              visible: root.changedSettings.length > 0
-                && !root.busy && root.loaded && root.selfBehind > 0
-            }
-
+            // The corner says something only when there is something to say:
+            // when this window is behind its own remote. Everything else it
+            // used to hold — what has changed, the way to undo the lot — is
+            // now beside the page name, where the reader is already looking.
             Column {
               visible: !root.busy && root.loaded && root.selfBehind > 0
               spacing: Style.space(2)
 
               Text {
-                text: "\uf0aa  Update available"
+                text: "  Update available"
                 color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -1499,43 +1544,88 @@ Item {
           Layout.fillHeight: true
           spacing: 0
 
+          // The page names itself once, here, under the thing it belongs to.
+          // The crumb is not decoration: a flat rail of twenty-six rows tells
+          // the reader where they can go and nothing about where they are, and
+          // this is the line that answers it.
           Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: Style.space(56)
+            Layout.preferredHeight: Style.space(64)
 
-            // The page names itself once, here. Where a page has a control
-            // that governs everything below it — the Bluetooth adapter, the
-            // Wi-Fi radio — that control belongs beside the name rather than
-            // repeated as the first row of the body.
             Column {
               anchors.left: parent.left
               anchors.leftMargin: Style.spacing.panelPadding
               anchors.verticalCenter: parent.verticalCenter
+              width: parent.width * 0.5
               spacing: Style.space(2)
 
               Text {
-                text: root.pageFor(root.pageId).title
-                color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.heading
-                font.bold: true
-              }
-
-              Text {
-                visible: root.pageHeaderNote !== ""
-                text: root.pageHeaderNote
+                text: root.pageFor(root.pageId).crumb || ""
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
+                font.bold: true
+                // Small caps is what makes it read as a label rather than as
+                // a first line of the page.
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: Style.space(1)
+              }
+
+              Row {
+                spacing: Style.space(10)
+
+                Text {
+                  id: pageTitleText
+                  text: root.pageFor(root.pageId).title
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.display
+                  font.bold: true
+                }
+
+                // On the title's baseline rather than centred on it: two
+                // sizes centred against each other read as two things, and
+                // this is the page said once and then qualified.
+                Text {
+                  anchors.baseline: pageTitleText.baseline
+                  visible: root.pageHeaderNote !== ""
+                  text: root.pageHeaderNote
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
               }
             }
 
-            Loader {
+            Row {
               anchors.right: parent.right
               anchors.rightMargin: Style.spacing.panelPadding
               anchors.verticalCenter: parent.verticalCenter
-              sourceComponent: bodyLoader.item && bodyLoader.item.headerControl
-                ? bodyLoader.item.headerControl : null
+              spacing: Style.space(9)
+
+              // A control that governs the whole page belongs beside the page
+              // name rather than repeated as the first row of the body.
+              Loader {
+                anchors.verticalCenter: parent.verticalCenter
+                sourceComponent: bodyLoader.item && bodyLoader.item.headerControl
+                  ? bodyLoader.item.headerControl : null
+              }
+
+              Ui.Tag {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.changedSettings.length > 0
+                text: root.changedLabel
+              }
+
+              // Beside what it undoes. In the sidebar it sat under a menu it
+              // had nothing to do with, and read as an action on the menu.
+              Ui.Chip {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.changedSettings.length > 0
+                text: "Undo all"
+                onClicked: resetAllDialog.opened = true
+              }
             }
           }
 
@@ -1579,21 +1669,22 @@ Item {
         }
       }
 
-      // ---------------- legend ---------------------------------------------
-      // Across the foot of the window, under both columns. It follows the
-      // cursor rather than listing everything: the keys that always apply,
-      // and whatever the row under the cursor answers to.
       Rectangle {
         Layout.fillWidth: true
-        implicitHeight: Style.spacing.controlHeight
-        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.04)
+        Layout.preferredHeight: Style.spacing.hairline
+        color: root.hairline
+      }
 
-        Rectangle {
-          anchors.top: parent.top
-          width: parent.width
-          height: Style.spacing.hairline
-          color: root.hairline
-        }
+      // ---------------- keyhint bar ----------------------------------------
+      // Across the foot of the window, under both columns. It follows the
+      // cursor rather than listing everything: the keys that always apply,
+      // and whatever the row under the cursor answers to. What is happening
+      // right now — a write in flight, the first state still loading — goes
+      // at the far end, where a status line goes.
+      Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: Style.spacing.controlHeight + Style.space(4)
+        color: root.chrome
 
         Row {
           anchors.left: parent.left
@@ -1601,34 +1692,50 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           // Wide enough between entries that each key and what it does read as
           // one thing, rather than the whole bar reading as one long line.
-          spacing: Style.space(28)
+          spacing: Style.space(18)
 
           Repeater {
             model: root.navLegend
 
-            // Plain text, not keycaps: the legend is there to be glanced at,
-            // and a row of boxes along the foot pulls the eye off the settings
-            // it is meant to be helping with. The key is a shade brighter than
-            // what it does, which is enough to tell them apart.
             delegate: Row {
               required property var modelData
               spacing: Style.space(5)
 
-              Text {
-                text: modelData.key
-                color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.75)
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
+              // A hint can answer to more than one key — the arrows, or Alt
+              // and an arrow — and a cap per key is what says they are
+              // pressed together rather than one key called "alt ↑".
+              Repeater {
+                model: modelData.keys
+
+                delegate: Ui.KeyCap {
+                  required property var modelData
+                  anchors.verticalCenter: parent.verticalCenter
+                  key: modelData
+                }
               }
 
               Text {
+                anchors.verticalCenter: parent.verticalCenter
                 text: modelData.label
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
+                font.bold: true
               }
             }
           }
+        }
+
+        Text {
+          anchors.right: parent.right
+          anchors.rightMargin: Style.spacing.panelPadding
+          anchors.verticalCenter: parent.verticalCenter
+          visible: root.statusNote !== ""
+          text: root.statusNote
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
         }
       }
       }

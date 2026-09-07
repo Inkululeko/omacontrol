@@ -4,6 +4,6 @@ import qs.Ui
 import "." as Local
 
 Column {
-  spacing: Style.space(24)
+  spacing: Style.space(18)
   width: parent ? parent.width : 0
 }
