@@ -25,7 +25,7 @@
 # "slack", and a Hyprland regex is case-sensitive. A running window is the
 # truth, so where one is open under the same name in any case, its class is
 # the one kept.
-APPS_CACHE="${OMASETTINGS_APPS_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/apps.json}"
+APPS_CACHE="${OMACONTROL_APPS_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/apps.json}"
 
 # The desktop entries, parsed once per change to their directories. A hundred
 # and sixty files are re-read on every state slice otherwise, and a slice is

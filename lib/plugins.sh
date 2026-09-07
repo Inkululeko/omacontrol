@@ -7,8 +7,8 @@
 # blank list waiting to be re-checked. It is derived data, re-earnable at any
 # time by checking again, so it lives in the cache rather than next to the
 # settings the user actually chose.
-OMASETTINGS_FETCH_TIMEOUT="${OMASETTINGS_FETCH_TIMEOUT:-30}"
-UPDATE_CACHE="${OMASETTINGS_UPDATE_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/plugin-updates.json}"
+OMACONTROL_FETCH_TIMEOUT="${OMACONTROL_FETCH_TIMEOUT:-30}"
+UPDATE_CACHE="${OMACONTROL_UPDATE_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/plugin-updates.json}"
 
 # The cache path is as predictable as any other, and it is read straight into
 # the window, so it is read the same bounded, descriptor-checked way as
@@ -73,7 +73,7 @@ plugin_updates() {
   # The verdicts stream out as they land and are kept at the same time; the
   # window wants them one by one, the next window wants them all at once.
   { find -L "$dir" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort |
-    PLUGINS_DIR="$dir" FETCH_TIMEOUT="$OMASETTINGS_FETCH_TIMEOUT" xargs -r -P 6 -I{} bash -c '
+    PLUGINS_DIR="$dir" FETCH_TIMEOUT="$OMACONTROL_FETCH_TIMEOUT" xargs -r -P 6 -I{} bash -c '
       id=$1
       repo="$PLUGINS_DIR/$id"
       if [[ ! -d $repo/.git ]]; then
@@ -118,17 +118,17 @@ plugin_updates() {
 # own corner rather than waiting to be noticed on the Plugins page. The id
 # comes from the manifest beside this code, so a fork or a clone reports on
 # itself rather than on whoever it was forked from.
-OMASETTINGS_DIR="${OMASETTINGS_DIR:-$(cd "$OMASETTINGS_LIB/.." 2>/dev/null && pwd)}"
+OMACONTROL_DIR="${OMACONTROL_DIR:-$(cd "$OMACONTROL_LIB/.." 2>/dev/null && pwd)}"
 
 self_id() {
-  jq -r '.id // empty' "$OMASETTINGS_DIR/manifest.json" 2>/dev/null
+  jq -r '.id // empty' "$OMACONTROL_DIR/manifest.json" 2>/dev/null
 }
 
 # The manifest is the one place a version is written, so it is the one place
 # it is read from: a copy anywhere else is a number that goes stale on the
 # release that forgets it.
 self_version() {
-  jq -r '.version // empty' "$OMASETTINGS_DIR/manifest.json" 2>/dev/null
+  jq -r '.version // empty' "$OMACONTROL_DIR/manifest.json" 2>/dev/null
 }
 
 # What the last sweep — the Plugins page, or self_check below — learned about
@@ -223,7 +223,7 @@ plugin_update_start() {
   local reopen=0
   window_open && reopen=1
 
-  setsid bash "$OMASETTINGS_BIN" plugin update-run "$id" "$reopen" >/dev/null 2>&1 &
+  setsid bash "$OMACONTROL_BIN" plugin update-run "$id" "$reopen" >/dev/null 2>&1 &
   disown 2>/dev/null || true
 
   # The window wants the spinner now, not at the next poll.

@@ -5,7 +5,7 @@
 # tmux.conf is a script, not a settings file: the same option can be set more
 # than once and the last one wins. So a value is replaced where it already
 # stands, and appended only when the option is absent.
-TMUX_CONFIG="${OMASETTINGS_TMUX_CONFIG:-$HOME_DIR/.config/tmux/tmux.conf}"
+TMUX_CONFIG="${OMACONTROL_TMUX_CONFIG:-$HOME_DIR/.config/tmux/tmux.conf}"
 
 # key, type, default, scope (server/window). tmux spells booleans on/off.
 tmux_schema() {

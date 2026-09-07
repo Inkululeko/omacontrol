@@ -7,8 +7,8 @@
 # OmaControl adds or disables is kept in its store and rendered into a marked
 # block at the end of the user's bindings file — the rest of that file, which
 # is theirs, is never parsed or rewritten.
-BINDINGS_LUA="${OMASETTINGS_BINDINGS_LUA:-$HYPR_DIR/bindings.lua}"
-BINDINGS_CONF="${OMASETTINGS_BINDINGS_CONF:-$HYPR_DIR/bindings.conf}"
+BINDINGS_LUA="${OMACONTROL_BINDINGS_LUA:-$HYPR_DIR/bindings.lua}"
+BINDINGS_CONF="${OMACONTROL_BINDINGS_CONF:-$HYPR_DIR/bindings.conf}"
 BINDINGS_BEGIN="-- >>> omacontrol bindings (generated; edit them in OmaControl)"
 BINDINGS_END="-- <<< omacontrol bindings"
 

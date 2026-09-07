@@ -6,11 +6,11 @@
 
 HOME_DIR=${HOME:?}
 SHELL_JSON="${OMARCHY_SHELL_JSON:-$HOME_DIR/.config/omarchy/shell.json}"
-STORE="${OMASETTINGS_STORE:-$HOME_DIR/.config/omarchy/omacontrol.json}"
-HYPR_DIR="${OMASETTINGS_HYPR_DIR:-$HOME_DIR/.config/hypr}"
+STORE="${OMACONTROL_STORE:-$HOME_DIR/.config/omarchy/omacontrol.json}"
+HYPR_DIR="${OMACONTROL_HYPR_DIR:-$HOME_DIR/.config/hypr}"
 MANAGED_LUA="$HYPR_DIR/omacontrol.lua"
 MANAGED_CONF="$HYPR_DIR/omacontrol.conf"
-XCOMPOSE="${OMASETTINGS_XCOMPOSE:-$HOME_DIR/.XCompose}"
+XCOMPOSE="${OMACONTROL_XCOMPOSE:-$HOME_DIR/.XCompose}"
 
 MANAGED_MARKER="omacontrol:managed"
 
@@ -20,11 +20,11 @@ die() { echo "omacontrol: $*" >&2; exit 1; }
 # reader prints, so a producer that hangs or never stops is its problem too.
 # Every read of the compositor or the system goes through here: bounded in
 # time, and bounded in bytes before any of it is held.
-OMASETTINGS_READ_TIMEOUT=${OMASETTINGS_READ_TIMEOUT:-5}
-OMASETTINGS_READ_MAX=${OMASETTINGS_READ_MAX:-4194304}
+OMACONTROL_READ_TIMEOUT=${OMACONTROL_READ_TIMEOUT:-5}
+OMACONTROL_READ_MAX=${OMACONTROL_READ_MAX:-4194304}
 
 capture() {
-  timeout "$OMASETTINGS_READ_TIMEOUT" "$@" 2>/dev/null | head -c "$OMASETTINGS_READ_MAX"
+  timeout "$OMACONTROL_READ_TIMEOUT" "$@" 2>/dev/null | head -c "$OMACONTROL_READ_MAX"
 }
 
 # ---------------------------------------------------------- asked together
@@ -64,7 +64,7 @@ par_wait() { wait; }
 # before the shell that lives as long as the bar parses them.
 par_get() {
   local file=$PAR_DIR/$1
-  [[ -s $file ]] && head -c "$OMASETTINGS_READ_MAX" "$file" && return
+  [[ -s $file ]] && head -c "$OMACONTROL_READ_MAX" "$file" && return
   printf '%s' "${2:-}"
 }
 
@@ -76,7 +76,7 @@ par_end() {
 # Same bounds, but the tool's own complaint is what the caller is after: a
 # validator that rejects a write has to be able to say why.
 capture_err() {
-  timeout "$OMASETTINGS_READ_TIMEOUT" "$@" 2>&1 | head -c "$OMASETTINGS_READ_MAX"
+  timeout "$OMACONTROL_READ_TIMEOUT" "$@" 2>&1 | head -c "$OMACONTROL_READ_MAX"
 }
 
 # Reading someone else's file means reading a name, and a name is not a
@@ -87,14 +87,14 @@ capture_err() {
 # reads, because what is verified is that the descriptor is the regular file
 # the path resolves to, and the read is bounded either way.
 read_file() {
-  timeout "$OMASETTINGS_READ_TIMEOUT" sh -c '
+  timeout "$OMACONTROL_READ_TIMEOUT" sh -c '
     exec 3<"$1" || exit 1
     [ -f /dev/fd/3 ] || exit 1
     opened=$(stat -Lc "%d:%i" /dev/fd/3 2>/dev/null) || exit 1
     named=$(stat -Lc "%d:%i" -- "$1" 2>/dev/null) || exit 1
     [ "$opened" = "$named" ] || exit 1
     head -c "$2" <&3
-  ' sh "$1" "$OMASETTINGS_READ_MAX" 2>/dev/null
+  ' sh "$1" "$OMACONTROL_READ_MAX" 2>/dev/null
 }
 
 # The first time OmaControl writes to a file the user could have edited by
@@ -150,3 +150,18 @@ write_file() {
 }
 
 lines_to_array() { jq -Rn '[inputs | select(length > 0)]'; }
+
+# A reader that ends in `jq` cannot decide what it emitted from its own exit
+# status. Under `pipefail` the status of `producer | jq` is the *producer's*
+# failure, even when jq went on to make perfectly good JSON out of the nothing
+# it was given — so `... | jq ... || echo '[]'` prints jq's answer *and* the
+# fallback, and the two together are not JSON at all. That cost a page that
+# worked in every test run by hand and failed the moment it was run through
+# bin/omacontrol, which is the only place `pipefail` is set.
+#
+# So the value decides. What is emitted is what parses.
+emit_json() {
+  local value=$1 fallback=${2:-null}
+  if jq -e . >/dev/null 2>&1 <<<"$value"; then printf '%s' "$value"
+  else printf '%s' "$fallback"; fi
+}

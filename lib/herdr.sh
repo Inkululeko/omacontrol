@@ -6,7 +6,7 @@
 # explaining every choice, so it is edited in place, one value at a time,
 # rather than regenerated: a settings window that eats your comments is worse
 # than no settings window.
-HERDR_CONFIG="${OMASETTINGS_HERDR_CONFIG:-$HOME_DIR/.config/herdr/config.toml}"
+HERDR_CONFIG="${OMACONTROL_HERDR_CONFIG:-$HOME_DIR/.config/herdr/config.toml}"
 
 # The settings this page manages: dotted key, type, and herdr's own default
 # for when the file leaves it out.
@@ -177,7 +177,7 @@ herdr_cmd() {
       local before_herdr
       before_herdr=$(setting_value_now "herdr:$key")
       herdr_write "$key" "$value" "$type"
-      [[ ${OMASETTINGS_TRACKING:-1} == 1 ]] && track_write "herdr:$key" "$value" "$before_herdr"
+      [[ ${OMACONTROL_TRACKING:-1} == 1 ]] && track_write "herdr:$key" "$value" "$before_herdr"
       true ;;
     *) die "unknown herdr action '$action'" ;;
   esac

@@ -66,7 +66,7 @@ setting_write() {
   local key=${1:-} value=${2:-} name=${key#*:}
   # The page's own command records for itself; this call is the mechanism, not
   # a change of its own.
-  local OMASETTINGS_TRACKING=0
+  local OMACONTROL_TRACKING=0
   case $key in
     monitor:*:*) monitor_set "${name%:*}" "${name##*:}" "$value" ;;
     monitor:*) monitor_set "$name" scale "$value" ;;

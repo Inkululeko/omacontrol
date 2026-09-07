@@ -22,20 +22,23 @@
 #   wifi.sh          NetworkManager
 #   bluetooth.sh     BlueZ, through Omarchy's power and device wrappers
 #   power.sh         battery reading and the per-source power profile
+#   disk.sh          what the disks hold, and their health
+#   processes.sh     what the machine is busy with
+#   overview.sh      the switches and notices on the Overview page
 #   audio.sh         outputs, inputs, volume and mute
 #   setters.sh       the `set` subcommand's routing
 #   state.sh         one JSON document assembled from all of the above
 
 set -uo pipefail
 
-OMASETTINGS_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+OMACONTROL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
 # A detached update re-enters here, so this script has to be able to name
 # itself: it is started from the window's own copy, which is not on any PATH.
-OMASETTINGS_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+OMACONTROL_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings wifi bluetooth power audio setters state; do
+for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings wifi bluetooth power audio disk processes overview setters state; do
   # shellcheck source=/dev/null
-  source "$OMASETTINGS_LIB/$module.sh"
+  source "$OMACONTROL_LIB/$module.sh"
 done
 unset module
 
@@ -61,6 +64,9 @@ case ${1:-state} in
   bluetooth) shift; bluetooth_cmd "$@" ;;
   power) shift; power_cmd "$@" ;;
   audio) shift; audio_cmd "$@" ;;
+  disk) shift; disk_cmd "$@" ;;
+  processes) shift; processes_cmd "$@" ;;
+  overview) shift; overview_cmd "$@" ;;
   menu) shift; [[ ${1:-} == run ]] || die "usage: omacontrol menu run <entry-id>"; menu_run "${2:-}" ;;
   *)
     cat >&2 <<'USAGE'
@@ -90,9 +96,12 @@ usage:
   omacontrol bluetooth state | power on|off | scan | poll | pair|connect|disconnect|forget <address>
   omacontrol wifi list | rescan | poll | connect <ssid> [password] | disconnect | forget <ssid>
                  | radio on|off | band auto|2.4|5|6
+  omacontrol disk poll | breakdown | mount|unmount <device> | trim | snapshot | open <path>
+  omacontrol processes poll [cpu|memory|name] | end|kill <pid> | renice <pid> <nice> | btop
+  omacontrol overview poll | toggle nightlight|dnd|awake|dictation | reminder | record | screenshot
 USAGE
     exit 1 ;;
 esac
 }
 
-main "$@" | head -c "$OMASETTINGS_READ_MAX"
+main "$@" | head -c "$OMACONTROL_READ_MAX"

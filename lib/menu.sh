@@ -229,7 +229,7 @@ icon_font_state() {
 # A label built from data rather than written in the source — a device name, a
 # plugin name — cannot be indexed this way and is not searchable.
 search_index() {
-  local dir="$OMASETTINGS_DIR"
+  local dir="$OMACONTROL_DIR"
   [[ -d $dir/sections ]] || { echo '{}'; return; }
 
   # Which file is which page, taken from the window's own routing rather than

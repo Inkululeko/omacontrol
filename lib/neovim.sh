@@ -4,7 +4,7 @@
 
 # LazyVim reads user options from lua/config/options.lua. Same rule as the
 # other hand-written files: replace in place, append when absent.
-NVIM_OPTIONS="${OMASETTINGS_NVIM_OPTIONS:-$HOME_DIR/.config/nvim/lua/config/options.lua}"
+NVIM_OPTIONS="${OMACONTROL_NVIM_OPTIONS:-$HOME_DIR/.config/nvim/lua/config/options.lua}"
 
 nvim_schema() {
   cat <<'SCHEMA'
@@ -126,7 +126,7 @@ app_cmd() {
       before_tmux=$(setting_value_now "tmux:$key")
       tmux_write "$key" "$value" "$type" "$scope"
       # Written from the window, so the window can say so and put it back.
-      [[ ${OMASETTINGS_TRACKING:-1} == 1 ]] && track_write "tmux:$key" "$value" "$before_tmux"
+      [[ ${OMACONTROL_TRACKING:-1} == 1 ]] && track_write "tmux:$key" "$value" "$before_tmux"
       true ;;
     nvim/state) nvim_state ;;
     nvim/set)
@@ -136,7 +136,7 @@ app_cmd() {
       local before_nvim
       before_nvim=$(setting_value_now "nvim:$key")
       nvim_write "$key" "$value" "$type"
-      [[ ${OMASETTINGS_TRACKING:-1} == 1 ]] && track_write "nvim:$key" "$value" "$before_nvim"
+      [[ ${OMACONTROL_TRACKING:-1} == 1 ]] && track_write "nvim:$key" "$value" "$before_nvim"
       true ;;
     *) die "unknown app command '$app $action'" ;;
   esac

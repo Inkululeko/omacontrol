@@ -611,11 +611,11 @@ grim -o DP-2 shot.png && magick shot.png -crop "$geom" +repage page.png
 `grim` captures physical ones.)
 
 The CLI is testable on its own, and `lib/` honours env overrides so writes can
-be aimed at a sandbox: `OMASETTINGS_STORE`, `OMASETTINGS_HYPR_DIR`,
-`OMASETTINGS_XCOMPOSE`, `OMASETTINGS_HERDR_CONFIG`, `OMASETTINGS_TMUX_CONFIG`,
-`OMASETTINGS_NVIM_OPTIONS`, `OMASETTINGS_BINDINGS_LUA`, `OMARCHY_SHELL_JSON`.
+be aimed at a sandbox: `OMACONTROL_STORE`, `OMACONTROL_HYPR_DIR`,
+`OMACONTROL_XCOMPOSE`, `OMACONTROL_HERDR_CONFIG`, `OMACONTROL_TMUX_CONFIG`,
+`OMACONTROL_NVIM_OPTIONS`, `OMACONTROL_BINDINGS_LUA`, `OMARCHY_SHELL_JSON`.
 
-**Redirecting the file does not redirect the system.** `OMASETTINGS_HYPR_DIR`
+**Redirecting the file does not redirect the system.** `OMACONTROL_HYPR_DIR`
 moves the *files*; it does not move Hyprland. A sandboxed Hyprland write still
 goes to the running compositor through `hyprctl eval`, so a "safe" demo changes
 the gaps on the screen in front of you. A sandboxed tmux write still applies to
