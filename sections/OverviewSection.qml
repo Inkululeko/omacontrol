@@ -64,8 +64,8 @@ Ui.SectionBody {
   }
 
   readonly property string headerNote: {
-    var up = app.processes.load !== undefined && app.processes.load.uptime !== undefined
-      ? "up " + app.formatDuration(app.processes.load.uptime) : ""
+    var up = app.overview.uptime !== undefined
+      ? "up " + app.formatDuration(app.overview.uptime) : ""
     if (attention.length === 0) return up
     var needs = attention.length === 1 ? "1 thing needs attention"
       : attention.length + " things need attention"
@@ -82,17 +82,6 @@ Ui.SectionBody {
     repeat: true
     triggeredOnStart: true
     onTriggered: app.pollOverview()
-  }
-
-  // Only for the uptime in the header. A page that showed CPU and memory here
-  // too would be the Processes page with fewer rows, and the reader would have
-  // two places to look at the same figure.
-  Timer {
-    interval: 30000
-    running: app.shown
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: app.pollProcesses()
   }
 
   // First, because the reader did not ask for it: anything they would want to

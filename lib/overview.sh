@@ -113,15 +113,21 @@ overview_state() {
   par_run toggles overview_toggles
   par_run attention overview_attention
   par_wait
-  local toggles attention
+  local toggles attention uptime
   toggles=$(par_get toggles '[]')
   attention=$(par_get attention '[]')
   par_end
 
+  # Read here rather than taken off the Processes page: one line of /proc, and
+  # the alternative was this page running two frames of `top` every half minute
+  # to put a single figure in its header.
+  uptime=$(cut -d. -f1 /proc/uptime 2>/dev/null)
+
   jq -cn \
     --argjson toggles "${toggles:-[]}" \
     --argjson attention "${attention:-[]}" \
-    '{ toggles: $toggles, attention: $attention }'
+    --argjson uptime "${uptime:-0}" \
+    '{ toggles: $toggles, attention: $attention, uptime: $uptime }'
 }
 
 overview_cmd() {

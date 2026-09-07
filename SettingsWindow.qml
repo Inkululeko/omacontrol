@@ -700,8 +700,22 @@ Item {
   function sidebarReveal() {
     // Computed from the index rather than read off the delegate: a Repeater
     // sits among the rows it made, so children[i] is not row i.
-    var rowHeight = Style.spacing.controlHeight + Style.space(4)
-    var top = sidebarIndex * (rowHeight + Style.space(4))
+    //
+    // Rows are no longer all the same height — the row that opens a cluster
+    // carries the gap above it — so the walk has to add those gaps up rather
+    // than multiply one height by the index. Getting this wrong does not look
+    // like a bug: the cursor simply walks off the bottom of a rail that never
+    // scrolls to follow it.
+    var rowHeight = Style.spacing.controlHeight + Style.space(6)
+    var gap = Style.space(2)
+    var clusterGap = Style.space(14)
+    var top = 0
+    for (var i = 0; i < sidebarIndex && i < sidebarRows.length; i++)
+      top += rowHeight + gap + (sidebarRows[i].opensCluster ? clusterGap : 0)
+    // The cursored row's own gap sits above it, so it belongs to what has to
+    // come into view.
+    var entry = sidebarRows[sidebarIndex]
+    if (entry && entry.opensCluster) top += clusterGap
     var bottom = top + rowHeight
     if (top < sidebarScroll.contentY) sidebarScroll.contentY = Math.max(0, top)
     else if (bottom > sidebarScroll.contentY + sidebarScroll.height)
