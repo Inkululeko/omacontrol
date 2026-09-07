@@ -195,12 +195,12 @@ Item {
   property var overviewLive: null
   readonly property var overview: overviewLive !== null ? overviewLive : ({})
   function pollOverview() { pollInto(overviewPoll, ["overview", "poll"]) }
-  Process { id: overviewPoll; stdout: LiveCollector { onParsed: root.overviewLive = value } }
+  Process { id: overviewPoll; stdout: LiveCollector { onParsed: function(value) { root.overviewLive = value } } }
 
   property var diskLive: null
   readonly property var disk: diskLive !== null ? diskLive : ({})
   function pollDisk() { pollInto(diskPoll, ["disk", "poll"]) }
-  Process { id: diskPoll; stdout: LiveCollector { onParsed: root.diskLive = value } }
+  Process { id: diskPoll; stdout: LiveCollector { onParsed: function(value) { root.diskLive = value } } }
 
   // Asked once when the page opens, not on the poll: the only way to answer it
   // is to walk directories, and doing that every five seconds would be a
@@ -212,7 +212,7 @@ Item {
     diskBreakdownAsked = true
     pollInto(breakdownPoll, ["disk", "breakdown"])
   }
-  Process { id: breakdownPoll; stdout: LiveCollector { onParsed: root.diskBreakdown = value } }
+  Process { id: breakdownPoll; stdout: LiveCollector { onParsed: function(value) { root.diskBreakdown = value } } }
 
   property var processesLive: null
   readonly property var processes: processesLive !== null ? processesLive : ({})
@@ -220,7 +220,7 @@ Item {
   // are, so it survives the next poll rather than being reapplied to it.
   property string processSort: "cpu"
   function pollProcesses() { pollInto(processPoll, ["processes", "poll", processSort]) }
-  Process { id: processPoll; stdout: LiveCollector { onParsed: root.processesLive = value } }
+  Process { id: processPoll; stdout: LiveCollector { onParsed: function(value) { root.processesLive = value } } }
 
   // A poll already in flight is not asked again. A reader that takes longer
   // than the interval between polls would otherwise queue up behind itself,

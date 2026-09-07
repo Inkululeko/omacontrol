@@ -33,7 +33,8 @@ Ui.SectionBody {
     for (var m = 0; m < app.monitors.length; m++) {
       var scale = Number(app.monitors[m].scale)
       if (isFinite(scale) && Math.round(scale * 100) % 100 !== 0)
-        fractional.push({ name: String(app.monitors[m].name || ""), scale: scale })
+        fractional.push({ name: String(app.monitors[m].output || app.monitors[m].label || ""),
+                          scale: scale })
     }
     if (fractional.length > 0) {
       var names = []

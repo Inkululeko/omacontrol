@@ -252,6 +252,24 @@ if [[ -e $APPLICATIONS/omasettings.desktop ]]; then
   fi
 fi
 
+# ---------------------------------------------------------------- the old plugin
+# Both enabled would mean two windows writing two require lines into one
+# hyprland.lua, each generating its own file and neither aware of the other.
+#
+# Before shell.json is touched, not after. Disabling goes through the *running*
+# shell, which answers by writing its own shell.json from the state it holds in
+# memory — landing after our edit, that write puts the old widget id straight
+# back. So the shell writes first and the edit lands on top of it.
+if [[ -d $PLUGINS/$OLD_ID ]]; then
+  if ((REMOVE_OLD)); then
+    omarchy-plugin-remove "$OLD_ID" >/dev/null 2>&1 \
+      || note "could not remove $OLD_ID; do it with: omarchy plugin remove $OLD_ID"
+  else
+    omarchy-plugin-disable "$OLD_ID" >/dev/null 2>&1 \
+      || note "could not disable $OLD_ID; do it with: omarchy plugin disable $OLD_ID"
+  fi
+fi
+
 # The gear keeps its slot in the bar. Walked rather than string-replaced, so a
 # widget that merely mentions the id in some other field is left alone.
 if [[ -f $SHELL_JSON ]] && grep -qF -e "$OLD_ID" -- "$SHELL_JSON"; then
@@ -264,19 +282,6 @@ if [[ -f $SHELL_JSON ]] && grep -qF -e "$OLD_ID" -- "$SHELL_JSON"; then
   jq -e . >/dev/null 2>&1 <"$tmp" || { rm -f "$tmp"; die "the rewritten $SHELL_JSON is not valid JSON"; }
   chmod --reference="$SHELL_JSON" "$tmp" 2>/dev/null
   mv "$tmp" "$SHELL_JSON" || die "could not replace $SHELL_JSON"
-fi
-
-# ---------------------------------------------------------------- the old plugin
-# Both enabled would mean two windows writing two require lines into one
-# hyprland.lua, each generating its own file and neither aware of the other.
-if [[ -d $PLUGINS/$OLD_ID ]]; then
-  if ((REMOVE_OLD)); then
-    omarchy-plugin-remove "$OLD_ID" >/dev/null 2>&1 \
-      || note "could not remove $OLD_ID; do it with: omarchy plugin remove $OLD_ID"
-  else
-    omarchy-plugin-disable "$OLD_ID" >/dev/null 2>&1 \
-      || note "could not disable $OLD_ID; do it with: omarchy plugin disable $OLD_ID"
-  fi
 fi
 
 # ---------------------------------------------------------------- the way back
