@@ -37,8 +37,14 @@ Column {
     for (var i = 0; i < kids.length; i++) {
       // A Repeater sits among the rows it made, visible and no height at all.
       // Counting it as content left every heading standing over an emptied
-      // group.
-      if (kids[i].visible === true && kids[i].height > 0) return false
+      // group — and a Repeater's implicit height is zero too, so the test
+      // still passes over it.
+      //
+      // `implicitHeight` and not `height`: a child's laid-out height is zero
+      // while its group is hidden, and the group is hidden by this very
+      // property, which is a loop. What a row *asks* for does not depend on
+      // whether anyone is showing it.
+      if (kids[i].visible === true && kids[i].implicitHeight > 0) return false
     }
     return true
   }

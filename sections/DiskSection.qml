@@ -21,6 +21,16 @@ Ui.SectionBody {
 
   property int selectedMount: -1
 
+  // On the page root, not on the card that reads it: a QML binding resolves
+  // names against its own object and the root of the file it is in, and
+  // nothing in between. Declared on the Column, this was a ReferenceError that
+  // only showed up as a note that never appeared.
+  readonly property bool breakdownHasHome: {
+    for (var i = 0; i < breakdown.length; i++)
+      if (breakdown[i].label === "Home") return true
+    return false
+  }
+
   readonly property string headerNote: summary.size !== undefined
     ? app.formatBytes(summary.used) + " used of " + app.formatBytes(summary.size) : ""
 
@@ -151,12 +161,6 @@ Ui.SectionBody {
         color: Ui.Palette.muted
         font.family: Ui.Palette.fontFamily
         font.pixelSize: Style.font.caption
-      }
-
-      readonly property bool breakdownHasHome: {
-        for (var i = 0; i < breakdown.length; i++)
-          if (breakdown[i].label === "Home") return true
-        return false
       }
     }
   }

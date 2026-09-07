@@ -138,27 +138,20 @@ Column {
 
                 width: table.columnWidth(index)
                 implicitHeight: cellText.implicitHeight
-                height: Math.max(implicitHeight, meter.visible ? meter.height : 0)
 
-                // The bar sits under the figure rather than beside it: beside
-                // it, the bar and the number each get half a column and both
-                // end up too small to read.
-                Meter {
-                  id: meter
-                  anchors.left: parent.left
-                  anchors.bottom: parent.bottom
-                  width: parent.width
-                  visible: modelData.meter !== undefined && modelData.meter !== null
-                  value: modelData.meter !== undefined && modelData.meter !== null
-                    ? modelData.meter : 0
-                  warn: modelData.warn === true
-                }
-
+                // The figure first, then the bar in what is left of the
+                // column. Stacked, the two sat a few pixels apart in a row
+                // this short and the bar read as a strikethrough across its
+                // own number.
                 Text {
                   id: cellText
                   anchors.left: parent.left
-                  anchors.right: parent.right
-                  anchors.top: parent.top
+                  anchors.verticalCenter: parent.verticalCenter
+                  // A figure with a bar beside it is sized to the figure;
+                  // one on its own has the column.
+                  width: meter.visible ? Math.min(implicitWidth + Style.space(4),
+                                                  parent.width * 0.45)
+                                       : parent.width
                   text: modelData.text !== undefined ? String(modelData.text) : ""
                   elide: Text.ElideRight
                   horizontalAlignment: column.align === "right" ? Text.AlignRight : Text.AlignLeft
@@ -167,6 +160,18 @@ Column {
                   font.family: Local.Palette.fontFamily
                   font.pixelSize: Style.font.bodySmall
                   font.bold: modelData.strong === true
+                }
+
+                Meter {
+                  id: meter
+                  anchors.left: cellText.right
+                  anchors.leftMargin: Style.space(7)
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  visible: modelData.meter !== undefined && modelData.meter !== null
+                  value: modelData.meter !== undefined && modelData.meter !== null
+                    ? modelData.meter : 0
+                  warn: modelData.warn === true
                 }
               }
             }
