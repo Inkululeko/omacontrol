@@ -57,9 +57,12 @@ Ui.SectionBody {
         // A bar per core rather than one average. The average hides the case
         // the reader is usually looking at: one core pinned by one thread,
         // which is a machine that feels slow while it reads as 6 % busy.
+        // Short and squarely cut. Tall pill-shaped tracks on a machine that is
+        // 7 % busy read as a row of empty arches with a line under each; what
+        // is wanted is a small bar chart that is mostly floor.
         Row {
           width: parent.width
-          height: Style.space(24)
+          height: Style.space(15)
           spacing: Style.space(3)
 
           Repeater {
@@ -69,7 +72,7 @@ Ui.SectionBody {
               required property var modelData
               width: (parent.width - (cores.length - 1) * Style.space(3)) / Math.max(1, cores.length)
               height: parent.height
-              radius: Ui.Palette.chipRadius
+              radius: Style.space(2)
               color: Ui.Palette.shade(0.12)
 
               Rectangle {
