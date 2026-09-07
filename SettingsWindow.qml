@@ -8,12 +8,12 @@ import qs.Commons
 import qs.Ui
 import "ui" as Ui
 
-// OmaSettings — one window for the settings that otherwise live scattered
+// OmaControl — one window for the settings that otherwise live scattered
 // across ~/.config/omarchy/shell.json, the Hyprland config in ~/.config/hypr,
 // and ~/.XCompose.
 //
 // The window never parses or rewrites those files itself. It reads one JSON
-// document from bin/omasettings and sends every change back as a `set` call;
+// document from bin/omacontrol and sends every change back as a `set` call;
 // that script owns hyprctl, the omarchy commands, the generated Lua, and the
 // one-time backup taken before any hand-written file is touched.
 Item {
@@ -61,7 +61,7 @@ Item {
   readonly property color hairline: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.16)
   readonly property string fontFamily: Style.font.family
 
-  readonly property string helperPath: String(Qt.resolvedUrl("bin/omasettings")).replace(/^file:\/\//, "")
+  readonly property string helperPath: String(Qt.resolvedUrl("bin/omacontrol")).replace(/^file:\/\//, "")
 
   // ---------------- state --------------------------------------------------
   property var state: ({})
@@ -1081,7 +1081,7 @@ Item {
     screen: root.openedOn !== null ? root.openedOn : null
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omasettings"
+    WlrLayershell.namespace: "omacontrol"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
@@ -1251,7 +1251,7 @@ Item {
               Layout.bottomMargin: Style.space(10)
 
               Text {
-                text: "OmaSettings"
+                text: "OmaControl"
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.heading

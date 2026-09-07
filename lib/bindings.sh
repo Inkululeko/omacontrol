@@ -1,16 +1,16 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 
 # --------------------------------------------------------------- keybindings
 
 # Omarchy's bindings live in Lua and are reported by `hyprctl binds` as an
 # opaque __lua dispatcher, so the list comes from Omarchy's own reader. What
-# OmaSettings adds or disables is kept in its store and rendered into a marked
+# OmaControl adds or disables is kept in its store and rendered into a marked
 # block at the end of the user's bindings file — the rest of that file, which
 # is theirs, is never parsed or rewritten.
 BINDINGS_LUA="${OMASETTINGS_BINDINGS_LUA:-$HYPR_DIR/bindings.lua}"
 BINDINGS_CONF="${OMASETTINGS_BINDINGS_CONF:-$HYPR_DIR/bindings.conf}"
-BINDINGS_BEGIN="-- >>> omasettings bindings (generated; edit them in OmaSettings)"
-BINDINGS_END="-- <<< omasettings bindings"
+BINDINGS_BEGIN="-- >>> omacontrol bindings (generated; edit them in OmaControl)"
+BINDINGS_END="-- <<< omacontrol bindings"
 
 # Normalised so "super+shift+r", "SUPER + SHIFT + R" and "Super Shift R" are
 # one binding rather than three.

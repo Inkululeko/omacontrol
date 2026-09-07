@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 #
 # Power: what the battery is doing, and the profile the machine runs at. The
 # profile is remembered per power source, the

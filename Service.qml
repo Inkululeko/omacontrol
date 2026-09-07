@@ -6,7 +6,7 @@ import Quickshell.Io
 // that opens it, and installs the launcher entry.
 //
 // The window lives here rather than in the bar widget because it is not the
-// bar's. A gear in the bar is one way in, `omarchy-shell omasettings toggle`
+// bar's. A gear in the bar is one way in, `omarchy-shell omacontrol toggle`
 // and the launcher entry are others, and the two should not depend on the
 // first: with the window in Panel.qml, taking the gear out of the bar takes
 // the plugin out of shell.json, and the plugin with it. Enabled through
@@ -17,7 +17,7 @@ import Quickshell.Io
 // registering one, so a plugin that wants to be an app has to do it itself,
 // on enable.
 //
-// Only a file carrying the X-OmaSettings-Managed marker is ever written or
+// Only a file carrying the X-OmaControl-Managed marker is ever written or
 // deleted: an entry you wrote yourself at that path is left alone.
 Scope {
   id: root
@@ -61,7 +61,7 @@ Scope {
   }
 
   IpcHandler {
-    target: "omasettings"
+    target: "omacontrol"
     function show(): void { root.show() }
     function showPage(page: string): void { root.showPage(page) }
     function hide(): void { root.hide() }
@@ -83,8 +83,8 @@ Scope {
 
   // ---------------- launcher entry -----------------------------------------
 
-  readonly property string dest: Quickshell.env("HOME") + "/.local/share/applications/omasettings.desktop"
-  readonly property string marker: "^X-OmaSettings-Managed=true$"
+  readonly property string dest: Quickshell.env("HOME") + "/.local/share/applications/omacontrol.desktop"
+  readonly property string marker: "^X-OmaControl-Managed=true$"
 
   // $1 template, $2 destination, $3 marker, $4 icon. Every failure is a quiet
   // exit: a launcher entry is a convenience, and nothing here is worth
@@ -98,7 +98,7 @@ Scope {
     + '[ -L "$2" ] && exit 0\n'
     + 'if [ -e "$2" ] && ! grep -q "$3" "$2"; then exit 0; fi\n'
     + 'mkdir -p "${2%/*}" || exit 0\n'
-    + 'tmp=$(mktemp "$2.omasettings.XXXXXX") || exit 0\n'
+    + 'tmp=$(mktemp "$2.omacontrol.XXXXXX") || exit 0\n'
     + 'sed "s|@ICON@|$4|" "$1" >"$tmp" || { rm -f "$tmp"; exit 0; }\n'
     + 'chmod 644 "$tmp"\n'
     + 'if cmp -s "$tmp" "$2"; then rm -f "$tmp"; else mv -f "$tmp" "$2"; fi\n'
@@ -117,7 +117,7 @@ Scope {
     if (installed || !dir) return
     installed = true
     Quickshell.execDetached(["sh", "-c", installScript, "sh",
-                             dir + "/omasettings.desktop", dest, marker, dir + "/icon.png"])
+                             dir + "/omacontrol.desktop", dest, marker, dir + "/icon.png"])
   }
 
   // Reached on disable and on remove alike: omarchy-plugin-remove disables

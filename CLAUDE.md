@@ -1,4 +1,4 @@
-# OmaSettings
+# OmaControl
 
 An Omarchy shell plugin: one window for the settings that otherwise live
 scattered across `~/.config/omarchy/shell.json`, the Hyprland config, the
@@ -13,13 +13,13 @@ window on first use.
 ```
 manifest.json          Plugin manifest — id, kinds, entry point
 Panel.qml              The bar gear; forwards show/hide/toggle to the service
-Service.qml            Owns the window (loaded on first use), the `omasettings`
+Service.qml            Owns the window (loaded on first use), the `omacontrol`
                        IPC target, and the launcher entry
 SettingsWindow.qml     Window chrome, sidebar, page routing, and the state
                        every page reads. Pages reach it as `app`.
 ui/                    Presentational components + the Palette singleton
 sections/              One file per page
-bin/omasettings        Subcommand routing
+bin/omacontrol        Subcommand routing
 lib/                   One module per thing being configured
 ```
 
@@ -40,15 +40,15 @@ JSON document and a getter goes on the window; the page reads `app.something`.
 **Never parse and rewrite a hand-written config.** That is how a settings app
 eats someone's setup. Every file falls into one of three patterns:
 
-1. **Generated wholly by us** — `~/.config/hypr/omasettings.lua`, rendered
-   from our store (`~/.config/omarchy/omasettings.json`). Hyprland settings are
+1. **Generated wholly by us** — `~/.config/hypr/omacontrol.lua`, rendered
+   from our store (`~/.config/omarchy/omacontrol.json`). Hyprland settings are
    applied live with `hyprctl eval` — not `keyword`, which does nothing on a Lua
    config — and recorded there; the generated file is loaded last so the user's
    own files still say what they wrote. It is created on the first write, not at
    install, and the `require` line is appended to `hyprland.lua` at the same
    moment.
 2. **A marked block inside their file** — keybindings, appended to
-   `bindings.lua` between `-- >>> omasettings bindings` markers. Everything
+   `bindings.lua` between `-- >>> omacontrol bindings` markers. Everything
    outside the markers is copied through untouched, and removing the last
    binding removes the block.
 3. **Edited in place, one value at a time** — `herdr/config.toml`, `tmux.conf`,
@@ -59,7 +59,7 @@ eats someone's setup. Every file falls into one of three patterns:
 Two invariants on top:
 
 - **First-touch backup.** `backup_once` copies any hand-written file to
-  `<file>.omasettings.bak` before the first write, and never again — later
+  `<file>.omacontrol.bak` before the first write, and never again — later
   writes must not overwrite the pristine copy. Files we generate get no backup.
 - **Validate, then roll back.** Each format is checked in its own terms:
   Herdr with `herdr config check`, Neovim by compiling the Lua, tmux by applying
@@ -146,13 +146,13 @@ setting:
 
 | Page | Lands in |
 | --- | --- |
-| Windows, Layout, Effects, Groups, Keyboard, Mouse, Workspaces | `~/.config/hypr/omasettings.lua`, loaded last |
+| Windows, Layout, Effects, Groups, Keyboard, Mouse, Workspaces | `~/.config/hypr/omacontrol.lua`, loaded last |
 | Appearance | Omarchy's own config, via `omarchy-theme-set`, `omarchy font set`, `omarchy display text size` |
 | Bar, Idle & Lock, Plugins | `~/.config/omarchy/shell.json` |
 | Keybindings | a marked block in `~/.config/hypr/bindings.lua` |
 | Compose Keys | `~/.XCompose` |
 | Herdr, Tmux, Neovim | their own configs, edited in place |
-| Displays | `~/.config/hypr/omasettings.lua`, applied with `hyprctl eval` — plus `monitors.lua` for the laptop panel's scale |
+| Displays | `~/.config/hypr/omacontrol.lua`, applied with `hyprctl eval` — plus `monitors.lua` for the laptop panel's scale |
 | Audio, Network, Bluetooth, Power | nowhere — live system state, owned by PipeWire, NetworkManager, BlueZ and power-profiles-daemon |
 
 A display is the one thing here worth writing down as well as applying: it is
@@ -188,7 +188,7 @@ So for the internal panel — and only for its scale — the number is written i
 `monitors.lua` as well, in place, the way every other hand-written config here
 is edited: the rule for the panel gets its `scale` replaced, or a marked rule is
 appended if there is none. Then the watcher enforces what this page chose. Every
-line added carries the `-- omasettings` marker, comments included, so removing
+line added carries the `-- omacontrol` marker, comments included, so removing
 the setting takes the whole block. An external display needs none of this.
 
 **Our store holds no settings of its own**, only what is needed to say what
@@ -380,7 +380,7 @@ binding it is. The legend says which, because the row does.
 
 Only the open page is instantiated, which is what keeps the window cheap and
 what makes searching awkward: the window cannot ask a page it has not built
-what it holds. `omasettings search` reads the section sources instead and
+what it holds. `omacontrol search` reads the section sources instead and
 returns every label, description and heading per page, keyed by the page ids
 taken from `SettingsWindow.qml`'s own routing — so a page renamed or a setting
 added is in the index without a second list to update.
@@ -413,7 +413,7 @@ One thing follows from that:
 Omarchy counts a plugin as enabled when its id appears anywhere in
 `shell.json` — a `bar.layout` entry or a `plugins[]` entry. When the bar
 widget hosted the window, taking the gear out of the bar was the same thing as
-uninstalling: the `omasettings` IPC target answered "Target not found", the
+uninstalling: the `omacontrol` IPC target answered "Target not found", the
 launcher entry was deleted, and a hotkey bound to it stopped working.
 
 So `Service.qml` holds the window, its `Loader` and the `IpcHandler`; the
@@ -430,12 +430,12 @@ Plugins page's summon-back dance below is still needed.
 ## The launcher entry
 
 The plugin is an app as well as a bar widget: `Service.qml` is also the
-`service` entry point that writes `~/.local/share/applications/omasettings.desktop` from
+`service` entry point that writes `~/.local/share/applications/omacontrol.desktop` from
 the template beside it, substituting the icon path, and deletes it again on
 disable or remove. Omarchy has no install hook, which is why this lives in the
 plugin rather than in a package.
 
-Both halves guard on `X-OmaSettings-Managed=true`: a file at that path without
+Both halves guard on `X-OmaControl-Managed=true`: a file at that path without
 the marker is never written and never deleted, so a hand-written entry
 survives. Every failure in the script is a quiet exit — a launcher entry is a
 convenience, and none of it is worth interrupting the shell over.
@@ -542,7 +542,7 @@ things follow, and they are the design rather than a workaround:
 - **It summons the window back.** The job that outlived the window is the only
   thing left that knows it should return, so it waits for
   `omarchy-shell shell ping` to answer, lets the teardown settle, and then
-  calls `omasettings showPage plugins` until the layer is actually there — the
+  calls `omacontrol showPage plugins` until the layer is actually there — the
   IPC call returns nothing either way, and a summon eaten by a dying panel
   looks exactly like one that worked. Whether to return is decided *before*
   the update, while the window is still up to be asked: afterwards there is no
@@ -552,7 +552,7 @@ things follow, and they are the design rather than a workaround:
 The update check fetches every plugin at
 once and prints each verdict as it lands, so spinners retire one at a time
 rather than all at the end; the verdicts outlive the sweep in
-`~/.cache/omarchy/omasettings/plugin-updates.json`, since a check costs a
+`~/.cache/omarchy/omacontrol/plugin-updates.json`, since a check costs a
 network round trip per plugin.
 
 The window is a plugin too, and says so in its own corner when it is behind:
@@ -569,8 +569,8 @@ There is no hot reload worth trusting for structural changes. The loop is:
 omarchy plugin validate .                 # manifest against the schema
 omarchy restart shell                     # ~7s; the bar is dead meanwhile
 sleep 8
-omarchy-shell omasettings show            # or hide / toggle
-journalctl --user --since "-20 s" --no-pager | grep -i omasettings
+omarchy-shell omacontrol show            # or hide / toggle
+journalctl --user --since "-20 s" --no-pager | grep -i omacontrol
 ```
 
 QML errors surface **only** in the journal — a page that fails to load leaves
@@ -582,7 +582,7 @@ focus, and the window takes focus exclusively while it is open — so check it
 is open before every burst:
 
 ```bash
-hyprctl layers -j | jq -e '..|select(.namespace?=="omasettings")' >/dev/null \
+hyprctl layers -j | jq -e '..|select(.namespace?=="omacontrol")' >/dev/null \
   && wtype "/" && wtype "blur"
 ```
 
@@ -602,7 +602,7 @@ To see a page without clicking, set `property string pageId` in
 `"appearance"` before committing.
 
 ```bash
-geom=$(hyprctl -j clients | jq -r '.[]|select(.title=="OmaSettings")
+geom=$(hyprctl -j clients | jq -r '.[]|select(.title=="OmaControl")
   |"\(((.size[0])*1.6)|floor)x\(((.size[1])*1.6)|floor)+\(((.at[0])*1.6)|floor)+\(((.at[1])*1.6)|floor)"')
 grim -o DP-2 shot.png && magick shot.png -crop "$geom" +repage page.png
 ```
@@ -624,7 +624,7 @@ the running server, and a sandboxed keybinding write still reloads Hyprland.
 Check what else a write touches before running it, and if you only want to see
 what a write *produces*, read `render_managed_lua` rather than performing one.
 
-Before refactoring, capture `bin/omasettings state | jq -S .` and diff against
+Before refactoring, capture `bin/omacontrol state | jq -S .` and diff against
 it afterwards; volatile fields (`.datetime.now`, Wi-Fi signal) need deleting
 first.
 

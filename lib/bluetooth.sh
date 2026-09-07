@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 #
 # Bluetooth, driven through Omarchy's own wrappers rather than bluetoothctl:
 # powering an adapter means clearing an rfkill soft block (bluetoothctl alone

@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 
 # ---------------------------------------------------------------- workspaces
 #
@@ -25,7 +25,7 @@
 # "slack", and a Hyprland regex is case-sensitive. A running window is the
 # truth, so where one is open under the same name in any case, its class is
 # the one kept.
-APPS_CACHE="${OMASETTINGS_APPS_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omasettings/apps.json}"
+APPS_CACHE="${OMASETTINGS_APPS_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/apps.json}"
 
 # The desktop entries, parsed once per change to their directories. A hundred
 # and sixty files are re-read on every state slice otherwise, and a slice is
@@ -297,7 +297,7 @@ workspace_setup_remove() {
     awk -v id="$id" '
       $0 ~ /^[ \t]*hl\.workspace_rule\(/ && $0 ~ ("workspace *= *\"" id "\"") {
         print "-- " $0
-        print "-- ^ removed in OmaSettings; delete the dashes to bring it back."
+        print "-- ^ removed in OmaControl; delete the dashes to bring it back."
         next
       }
       { print }
@@ -464,7 +464,7 @@ workspace_remove() {
       (index($0, "o.window(\"" class "\",") && $0 ~ /^[ \t]*o\.window\(/) \
       || (desktop != "" && index($0, "o.launch_on_start(\"" desktop "\")") && $0 ~ /^[ \t]*o\.launch_on_start\(/) {
         print "-- " $0
-        print "-- ^ removed in OmaSettings; delete the dashes to bring it back."
+        print "-- ^ removed in OmaControl; delete the dashes to bring it back."
         next
       }
       { print }
@@ -535,8 +535,8 @@ workspaces_cmd() {
         add) workspace_setup_add "${3:-}" ;;
         set) workspace_setup_set "${3:-}" "${4:-}" "${5:-}" ;;
         remove) workspace_setup_remove "${3:-}" ;;
-        *) die "usage: omasettings workspaces setup add <n> | set <n> monitor|default|persistent|name|layout|minimal <value> | remove <n>" ;;
+        *) die "usage: omacontrol workspaces setup add <n> | set <n> monitor|default|persistent|name|layout|minimal <value> | remove <n>" ;;
       esac ;;
-    *) die "usage: omasettings workspaces state | add <class> | set <class> <field> <value> | remove <class> | setup ..." ;;
+    *) die "usage: omacontrol workspaces state | add <class> | set <class> <field> <value> | remove <class> | setup ..." ;;
   esac
 }

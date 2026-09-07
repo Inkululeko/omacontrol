@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 
 # ------------------------------------------------------------------ displays
 #
@@ -398,7 +398,7 @@ monitor_is_internal() {
   [[ $output == "$internal" ]]
 }
 
-MONITOR_LUA_MARKER="-- omasettings"
+MONITOR_LUA_MARKER="-- omacontrol"
 
 # `--` removes what this window added; a number writes it. A rule the user wrote
 # themselves only ever has its scale replaced — the rest of their line, comment

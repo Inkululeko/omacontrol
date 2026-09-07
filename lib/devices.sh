@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 #
 # Per-device input settings — Hyprland's `hl.device` — for when one keyboard or
 # one mouse should not follow the global input settings. A trackball that needs
@@ -36,7 +36,7 @@ SCHEMA
   esac
 }
 
-# What the user has already written by hand. OmaSettings never rewrites their
+# What the user has already written by hand. OmaControl never rewrites their
 # config, but it has to read it: a device configured in input.lua that this
 # page did not mention would look unconfigured, and setting it here would
 # silently fight a line they wrote themselves.
@@ -143,7 +143,7 @@ devices_state() {
   ' <<<"$raw"
 }
 
-# Rendered into the generated Lua next to everything else OmaSettings sets, and
+# Rendered into the generated Lua next to everything else OmaControl sets, and
 # applied live through the same Lua parser.
 device_set() {
   local name=$1 key=$2 raw=$3 kind=$4 type formatted
@@ -171,7 +171,7 @@ device_set() {
   hyprctl eval "hl.device({ name = $(jq -Rn --arg v "$name" '$v'), $key = $formatted })" >/dev/null 2>&1
 }
 
-# With no key, everything OmaSettings set for that device goes. What the user
+# With no key, everything OmaControl set for that device goes. What the user
 # wrote in their own config is untouched — it was never ours to clear.
 device_clear() {
   local name=$1 key=${2:-}
@@ -213,7 +213,7 @@ device_remove() {
       function flush(disable,   i) {
         for (i = 1; i <= count; i++)
           print (disable ? "-- " block[i] : block[i])
-        if (disable) print "-- ^ removed in OmaSettings; delete the dashes to bring it back."
+        if (disable) print "-- ^ removed in OmaControl; delete the dashes to bring it back."
         count = 0
       }
       /hl\.device[ \t]*\(/ && !inside { inside = 1; count = 0; matched = 0 }

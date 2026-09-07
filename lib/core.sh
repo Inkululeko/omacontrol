@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 #
 # Paths, and the handful of helpers every other module leans on: how a file is
 # written, and the promise that a hand-written file is copied before it is
@@ -6,15 +6,15 @@
 
 HOME_DIR=${HOME:?}
 SHELL_JSON="${OMARCHY_SHELL_JSON:-$HOME_DIR/.config/omarchy/shell.json}"
-STORE="${OMASETTINGS_STORE:-$HOME_DIR/.config/omarchy/omasettings.json}"
+STORE="${OMASETTINGS_STORE:-$HOME_DIR/.config/omarchy/omacontrol.json}"
 HYPR_DIR="${OMASETTINGS_HYPR_DIR:-$HOME_DIR/.config/hypr}"
-MANAGED_LUA="$HYPR_DIR/omasettings.lua"
-MANAGED_CONF="$HYPR_DIR/omasettings.conf"
+MANAGED_LUA="$HYPR_DIR/omacontrol.lua"
+MANAGED_CONF="$HYPR_DIR/omacontrol.conf"
 XCOMPOSE="${OMASETTINGS_XCOMPOSE:-$HOME_DIR/.XCompose}"
 
-MANAGED_MARKER="omasettings:managed"
+MANAGED_MARKER="omacontrol:managed"
 
-die() { echo "omasettings: $*" >&2; exit 1; }
+die() { echo "omacontrol: $*" >&2; exit 1; }
 
 # The window is a long-lived shell process that retains and parses whatever a
 # reader prints, so a producer that hangs or never stops is its problem too.
@@ -97,7 +97,7 @@ read_file() {
   ' sh "$1" "$OMASETTINGS_READ_MAX" 2>/dev/null
 }
 
-# The first time OmaSettings writes to a file the user could have edited by
+# The first time OmaControl writes to a file the user could have edited by
 # hand, keep a copy of what was there. Only the first time: later writes must
 # not overwrite the pristine backup with our own output.
 # The backup path is predictable, so it is never written through: a symlink
@@ -105,10 +105,10 @@ read_file() {
 # copy is created exclusively by linking a fresh sibling into place.
 backup_once() {
   local file=$1 bak tmp
-  bak="$file.omasettings.bak"
+  bak="$file.omacontrol.bak"
   [[ -e $file || -L $file ]] || return 0
   [[ -e $bak || -L $bak ]] && return 0
-  tmp=$(mktemp "$file.omasettings.bak.XXXXXX") || return 1
+  tmp=$(mktemp "$file.omacontrol.bak.XXXXXX") || return 1
   # A file we cannot read as a bounded regular file is one we will not write
   # either: the caller aborts rather than changing something it could not copy.
   read_file "$file" >"$tmp" || { rm -f "$tmp"; return 1; }
@@ -131,7 +131,7 @@ ensure_regular_file() {
   : >"$file"
 }
 
-# `managed` marks a file OmaSettings generates in full: there is no
+# `managed` marks a file OmaControl generates in full: there is no
 # hand-written version of it worth keeping a backup of.
 write_file() {
   local file=$1 managed=${2:-} tmp target
@@ -143,7 +143,7 @@ write_file() {
   # for that to be true, which ensure_regular_file has already said.
   target=$(readlink -f -- "$file") && [[ -f $target ]] || target=$file
   mkdir -p "$(dirname "$target")"
-  tmp=$(mktemp "$target.omasettings.XXXXXX") || return 1
+  tmp=$(mktemp "$target.omacontrol.XXXXXX") || return 1
   cat >"$tmp" || { rm -f "$tmp"; return 1; }
   chmod --reference="$target" "$tmp" 2>/dev/null
   mv "$tmp" "$target"

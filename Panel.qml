@@ -2,7 +2,7 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 
-// The bar's way into OmaSettings: a gear that opens the settings window.
+// The bar's way into OmaControl: a gear that opens the settings window.
 //
 // Nothing but the button lives here. The window and the IPC route are the
 // service's (Service.qml), which runs whenever the plugin is enabled, with or
@@ -10,7 +10,7 @@ import qs.Ui
 // and nothing else.
 BarWidget {
   id: root
-  moduleName: "io.github.twiking.omasettings"
+  moduleName: "io.github.twiking.omacontrol"
 
   readonly property var service: bar && bar.shell && typeof bar.shell.serviceFor === "function"
     ? bar.shell.serviceFor(moduleName) : null

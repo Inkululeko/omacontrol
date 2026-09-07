@@ -1,12 +1,12 @@
 #!/bin/bash
-# omasettings — the state reader and mutator behind the OmaSettings window.
+# omacontrol — the state reader and mutator behind the OmaControl window.
 #
 # The window stays declarative: it asks for `state` as one JSON document and
 # calls a subcommand for every change. Everything that shells out lives in
 # lib/, one module per thing being configured:
 #
 #   core.sh          paths, file writing, first-touch backups
-#   store.sh         OmaSettings' own store of what it has set
+#   store.sh         OmaControl' own store of what it has set
 #   hypr.sh          Hyprland options, live and in a generated config
 #   devices.sh       per-device input settings (Hyprland's hl.device)
 #   monitors.sh      displays: resolution and scale, per screen (keyed by the
@@ -61,34 +61,34 @@ case ${1:-state} in
   bluetooth) shift; bluetooth_cmd "$@" ;;
   power) shift; power_cmd "$@" ;;
   audio) shift; audio_cmd "$@" ;;
-  menu) shift; [[ ${1:-} == run ]] || die "usage: omasettings menu run <entry-id>"; menu_run "${2:-}" ;;
+  menu) shift; [[ ${1:-} == run ]] || die "usage: omacontrol menu run <entry-id>"; menu_run "${2:-}" ;;
   *)
     cat >&2 <<'USAGE'
 usage:
-  omasettings state
-  omasettings set <key> <value>
-  omasettings reset <key>|--all           (puts a setting back the way it was found)
-  omasettings plugin enable|disable|remove|update <id> | plugin updates
-  omasettings compose list | add "<Multi_key> <a> <b>" "text" | remove "<Multi_key> <a> <b>"
-  omasettings agents list | run <agent-id>
-  omasettings plugin self | plugin self-check     (is this window itself behind?)
-  omasettings search                      (every setting the pages declare, for the search box)
-  omasettings bar move <widget-id> left|center|right | bar shift <widget-id> up|down
+  omacontrol state
+  omacontrol set <key> <value>
+  omacontrol reset <key>|--all           (puts a setting back the way it was found)
+  omacontrol plugin enable|disable|remove|update <id> | plugin updates
+  omacontrol compose list | add "<Multi_key> <a> <b>" "text" | remove "<Multi_key> <a> <b>"
+  omacontrol agents list | run <agent-id>
+  omacontrol plugin self | plugin self-check     (is this window itself behind?)
+  omacontrol search                      (every setting the pages declare, for the search box)
+  omacontrol bar move <widget-id> left|center|right | bar shift <widget-id> up|down
                  | bar enable|disable <widget-id>   (in or out of the bar, settings and place kept)
-  omasettings menu run <entry-id>            (runs an Omarchy menu entry's action)
-  omasettings herdr state | set <key> <value>
-  omasettings tmux state | tmux set <option> <value>
-  omasettings nvim state | nvim set <option> <value>
-  omasettings devices state | set <device> <option> <value> keyboard|pointer
+  omacontrol menu run <entry-id>            (runs an Omarchy menu entry's action)
+  omacontrol herdr state | set <key> <value>
+  omacontrol tmux state | tmux set <option> <value>
+  omacontrol nvim state | nvim set <option> <value>
+  omacontrol devices state | set <device> <option> <value> keyboard|pointer
                  | clear <device> [option] | remove <device>
-  omasettings workspaces state | add <class> | set <class> <field> <value> | remove <class>
+  omacontrol workspaces state | add <class> | set <class> <field> <value> | remove <class>
                  | setup add <n> | setup set <n> <field> <value> | setup remove <n>
-  omasettings keys list | add "<KEYS>" "<description>" "<command>" | remove "<KEYS>" | disable "<KEYS>"
-  omasettings audio state | audio watch | default output|input <device> | volume output|input <percent>
+  omacontrol keys list | add "<KEYS>" "<description>" "<command>" | remove "<KEYS>" | disable "<KEYS>"
+  omacontrol audio state | audio watch | default output|input <device> | volume output|input <percent>
                  | mute output|input on|off|toggle
-  omasettings power state | power watch | profile ac|battery <power-saver|balanced|performance>
-  omasettings bluetooth state | power on|off | scan | poll | pair|connect|disconnect|forget <address>
-  omasettings wifi list | rescan | poll | connect <ssid> [password] | disconnect | forget <ssid>
+  omacontrol power state | power watch | profile ac|battery <power-saver|balanced|performance>
+  omacontrol bluetooth state | power on|off | scan | poll | pair|connect|disconnect|forget <address>
+  omacontrol wifi list | rescan | poll | connect <ssid> [password] | disconnect | forget <ssid>
                  | radio on|off | band auto|2.4|5|6
 USAGE
     exit 1 ;;

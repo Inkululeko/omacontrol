@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 #
 # Audio devices through PulseAudio's protocol (pipewire-pulse answers it), the
 # same interface the bar's audio widget uses. Nothing here is stored: the

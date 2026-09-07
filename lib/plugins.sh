@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 
 # ----------------------------------------------------------------- plugins
 
@@ -8,7 +8,7 @@
 # time by checking again, so it lives in the cache rather than next to the
 # settings the user actually chose.
 OMASETTINGS_FETCH_TIMEOUT="${OMASETTINGS_FETCH_TIMEOUT:-30}"
-UPDATE_CACHE="${OMASETTINGS_UPDATE_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omasettings/plugin-updates.json}"
+UPDATE_CACHE="${OMASETTINGS_UPDATE_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/plugin-updates.json}"
 
 # The cache path is as predictable as any other, and it is read straight into
 # the window, so it is read the same bounded, descriptor-checked way as
@@ -197,7 +197,7 @@ reopen_window() {
   done
   sleep 0.6
   for i in $(seq 1 20); do
-    omarchy-shell omasettings showPage plugins >/dev/null 2>&1
+    omarchy-shell omacontrol showPage plugins >/dev/null 2>&1
     window_open && return 0
     sleep 0.5
   done
@@ -206,7 +206,7 @@ reopen_window() {
 # The layer, not the exit code: the IPC call returns nothing either way, and a
 # summon eaten by a dying panel looks exactly like one that worked.
 window_open() {
-  capture hyprctl layers -j | jq -e '..|select(.namespace? == "omasettings")' >/dev/null 2>&1
+  capture hyprctl layers -j | jq -e '..|select(.namespace? == "omacontrol")' >/dev/null 2>&1
 }
 
 plugin_update_start() {

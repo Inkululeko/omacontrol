@@ -1,4 +1,4 @@
-# Part of OmaSettings. Sourced by bin/omasettings; not run on its own.
+# Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 
 # ----------------------------------------------------------------- agents
 
@@ -75,7 +75,7 @@ menu_entries() {
   printf '%s\n' "$MENU_ENTRIES_CACHE"
 }
 
-# Every direct child of a menu id, in menu order: the entries OmaSettings
+# Every direct child of a menu id, in menu order: the entries OmaControl
 # renders as a pick-one group.
 menu_group() {
   local prefix=$1

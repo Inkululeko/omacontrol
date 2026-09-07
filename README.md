@@ -1,8 +1,8 @@
-# OmaSettings
+# OmaControl
 
 One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 
-<p align="center"><img src="preview.png" alt="The OmaSettings window" width="800"></p>
+<p align="center"><img src="preview.png" alt="The OmaControl window" width="800"></p>
 
 - **Find anything.** Type "blur" or "gaps" and every setting that touches it
   appears with its current value, whatever file it normally lives in.
@@ -39,13 +39,13 @@ out of. And hopefully someone else finds it useful too.
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/twiking/omasettings.git --enable
+omarchy plugin add https://github.com/twiking/omacontrol.git --enable
 ```
 
 ## Usage
 
 Click the gear in the bar to open the window, or find it in the launcher as
-OmaSettings.
+OmaControl.
 
 ## How it writes
 
@@ -53,7 +53,7 @@ Your config files are never parsed and rewritten, since that is how a settings
 app eats someone's setup. Instead:
 
 - **Hyprland settings** are applied live with `hyprctl eval` and written to a
-  file of its own, `~/.config/hypr/omasettings.lua`, loaded last from a single
+  file of its own, `~/.config/hypr/omacontrol.lua`, loaded last from a single
   `require` line appended to your `hyprland.lua`. Your own files keep saying
   exactly what you wrote.
 - **Keybindings** live in a marked block in `bindings.lua`. Everything outside
@@ -62,7 +62,7 @@ app eats someone's setup. Instead:
   time, in place, keeping the comment attached to the line it belongs to.
 
 Before the first write to any file you could have written yourself, a copy is
-kept beside it as `<file>.omasettings.bak`. Every write is checked in the
+kept beside it as `<file>.omacontrol.bak`. Every write is checked in the
 format's own terms, with `herdr config check`, by compiling the Lua, or by
 applying the tmux option, and rolled back if it fails.
 
@@ -85,7 +85,7 @@ Nothing here needs root, and nothing is installed on your behalf.
 ## Remove
 
 ```sh
-omarchy plugin remove io.github.twiking.omasettings
+omarchy plugin remove io.github.twiking.omacontrol
 ```
 
 The launcher entry it wrote is deleted with it.
