@@ -6,6 +6,15 @@ One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 
 - **Find anything.** Type "blur" or "gaps" and every setting that touches it
   appears with its current value, whatever file it normally lives in.
+- **Overview.** Opens on what needs you: a partition filling up, a display on a
+  fractional scale, an update waiting. Plus the switches you reach for daily —
+  night light, do not disturb, stay awake, dictation — and a reminder, a
+  screenshot or a screen recording started from here.
+- **Disk.** What is holding the space, every mount and how full it is, the
+  drive's SMART health, and your snapshots. Mount a stick, trim the drive,
+  take a snapshot.
+- **Processes.** Per-core CPU, memory, load, and what is heaviest right now —
+  sorted by CPU, memory or name. End something without leaving for a terminal.
 - **Look and feel.** Theme, font, text size, gaps, borders, rounding, opacity,
   blur, shadows, animations and their speed, window group tabs, tiling layout.
 - **The bar.** Position, transparency, which widgets sit where, and which
@@ -61,6 +70,11 @@ app eats someone's setup. Instead:
 - **Everything else**, meaning Herdr, tmux and Neovim, is edited one value at a
   time, in place, keeping the comment attached to the line it belongs to.
 
+Overview, Disk and Processes write nothing at all. They report, and where
+there is something to *do* they hand off to the command that owns it — the same
+`omarchy-toggle-nightlight` the bar uses, `udisksctl` for a mount, `snapper` for
+a snapshot. That is why those pages cannot disagree with the bar.
+
 Before the first write to any file you could have written yourself, a copy is
 kept beside it as `<file>.omacontrol.bak`. Every write is checked in the
 format's own terms, with `herdr config check`, by compiling the Lua, or by
@@ -78,6 +92,9 @@ applying the tmux option, and rolled back if it fails.
 | `timedatectl`                | Date & Time                                           |
 | `tmux`, `nvim`, `herdr`      | Their own pages under Applications                    |
 | `xkbcli`                     | Checking a keyboard layout compiles before writing it |
+| `lsblk`, `df`                | Disk                                                  |
+| `smartctl`, `snapper`        | The Disk page's health and snapshot panels             |
+| `top`                        | Processes                                             |
 
 Only `jq` is required. A page whose tool is missing says so instead of failing.
 Nothing here needs root, and nothing is installed on your behalf.

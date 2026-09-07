@@ -180,6 +180,102 @@ Item {
     }
   }
 
+  // ---------------- live pages ---------------------------------------------
+  //
+  // Overview, Disk and Processes are readings rather than settings, and none of
+  // them is in the state document: a state read happens after every write in
+  // the window, and `df` on a machine with a network mount, or two frames of
+  // `top`, would be paid for by every switch on every other page. Each polls
+  // for itself while it is the page on screen.
+  //
+  // One shape, three pages. A reader that fails leaves the last good answer on
+  // screen rather than blanking the page — the previous reading is a second
+  // old and still true enough to look at, and a page that empties itself on a
+  // dropped read flickers every time the machine is busy.
+  property var overviewLive: null
+  readonly property var overview: overviewLive !== null ? overviewLive : ({})
+  function pollOverview() { pollInto(overviewPoll, ["overview", "poll"]) }
+  Process { id: overviewPoll; stdout: LiveCollector { onParsed: root.overviewLive = value } }
+
+  property var diskLive: null
+  readonly property var disk: diskLive !== null ? diskLive : ({})
+  function pollDisk() { pollInto(diskPoll, ["disk", "poll"]) }
+  Process { id: diskPoll; stdout: LiveCollector { onParsed: root.diskLive = value } }
+
+  // Asked once when the page opens, not on the poll: the only way to answer it
+  // is to walk directories, and doing that every five seconds would be a
+  // window that spins a disk for as long as the reader looks at it.
+  property var diskBreakdown: null
+  property bool diskBreakdownAsked: false
+  function fetchDiskBreakdown() {
+    if (diskBreakdownAsked) return
+    diskBreakdownAsked = true
+    pollInto(breakdownPoll, ["disk", "breakdown"])
+  }
+  Process { id: breakdownPoll; stdout: LiveCollector { onParsed: root.diskBreakdown = value } }
+
+  property var processesLive: null
+  readonly property var processes: processesLive !== null ? processesLive : ({})
+  // Which column the reader is sorting on. The sort happens where the rows
+  // are, so it survives the next poll rather than being reapplied to it.
+  property string processSort: "cpu"
+  function pollProcesses() { pollInto(processPoll, ["processes", "poll", processSort]) }
+  Process { id: processPoll; stdout: LiveCollector { onParsed: root.processesLive = value } }
+
+  // A poll already in flight is not asked again. A reader that takes longer
+  // than the interval between polls would otherwise queue up behind itself,
+  // and the queue never gets shorter.
+  function pollInto(process, argv) {
+    if (process.running) return
+    var command = ["bash", root.helperPath]
+    for (var i = 0; i < argv.length; i++) command.push(argv[i])
+    process.command = command
+    process.running = true
+  }
+
+  component LiveCollector: StdioCollector {
+    signal parsed(var value)
+    waitForEnd: true
+    onStreamFinished: {
+      try {
+        var next = JSON.parse(text)
+        if (next !== null && typeof next === "object") parsed(next)
+      } catch (e) {
+        // A failed read leaves the last good answer on screen.
+      }
+    }
+  }
+
+  // ---------------- reading numbers out loud -------------------------------
+  //
+  // Sizes and spans, said the way a person would say them. Both live here
+  // rather than in the pages because two pages ask the same questions of them
+  // and the answers have to match: 1.4 GB on the Disk page and 1.4 GB on the
+  // Processes page cannot be arrived at two different ways.
+  function formatBytes(bytes) {
+    var n = Number(bytes)
+    if (!isFinite(n) || n < 0) return ""
+    var units = ["B", "kB", "MB", "GB", "TB", "PB"]
+    var unit = 0
+    while (n >= 1000 && unit < units.length - 1) { n = n / 1000; unit++ }
+    // One decimal up to a hundred, none past it: "255.2 GB" is a size someone
+    // reads, "255.23 GB" is a measurement, and "1004 GB" should have been TB.
+    var digits = unit === 0 ? 0 : (n < 100 ? 1 : 0)
+    return n.toFixed(digits) + " " + units[unit]
+  }
+
+  // Whole units, largest first, and never more than two of them: "6 d 3 h" is
+  // an uptime, "6 d 3 h 14 m 22 s" is a stopwatch.
+  function formatDuration(seconds) {
+    var total = Math.max(0, Math.floor(Number(seconds) || 0))
+    var days = Math.floor(total / 86400)
+    var hours = Math.floor((total % 86400) / 3600)
+    var minutes = Math.floor((total % 3600) / 60)
+    if (days > 0) return days + " d" + (hours > 0 ? " " + hours + " h" : "")
+    if (hours > 0) return hours + " h" + (minutes > 0 ? " " + minutes + " m" : "")
+    return minutes + " m"
+  }
+
   // What the switch says underneath itself: the devices in hand, or why there
   // are none.
   readonly property string bluetoothSummary: {
@@ -780,6 +876,13 @@ Item {
       case "bluetooth": return ["bluetooth"]
       case "audio": return ["audio"]
       case "power": return ["power"]
+      // The three live pages keep their own readings and poll for them, so a
+      // command of theirs has nothing in the state document to re-read — bar
+      // the night light, which the bar's own indicator shares with them.
+      case "overview": return args.length > 2 && String(args[2]) === "nightlight"
+        ? ["nightlight"] : []
+      case "disk": return []
+      case "processes": return []
       case "set": return slicesForKey(args.length > 1 ? args[1] : "")
     }
     return []
@@ -790,7 +893,13 @@ Item {
   // rules, and nothing else this window shows.
   function slicesSuffice(args) {
     if (!args || args.length === 0) return false
-    return String(args[0]) === "workspaces"
+    var command = String(args[0])
+    if (command === "workspaces") return true
+    // Ending a process or trimming a drive changes nothing this window holds:
+    // the page that asked for it polls, and it is the only thing that has to
+    // hear back. Re-reading the whole document for a mount would be seconds
+    // spent to learn nothing.
+    return command === "overview" || command === "disk" || command === "processes"
   }
 
   // `set` is the one command that is many: what it touches is named by its

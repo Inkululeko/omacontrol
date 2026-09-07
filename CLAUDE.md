@@ -18,6 +18,8 @@ Service.qml            Owns the window (loaded on first use), the `omacontrol`
 SettingsWindow.qml     Window chrome, sidebar, page routing, and the state
                        every page reads. Pages reach it as `app`.
 ui/                    Presentational components + the Palette singleton
+                       NavRow is the base: one row the cursor can land on.
+                       SettingRow and the table rows are layouts on top of it.
 sections/              One file per page
 bin/omacontrol        Subcommand routing
 lib/                   One module per thing being configured
@@ -127,6 +129,53 @@ fails — silently, if stderr is dropped — so nothing here uses it; and
 only to a window on the wrong side of the rule. `fullscreen_state` and `move`
 do set rather than toggle.
 
+## The three pages that are not settings
+
+Overview, Disk and Processes report rather than configure, and that changes
+where their data lives. **None of them is in the state document.** A state read
+happens after every write anywhere in the window, and `df` on a machine with a
+network mount — or two frames of `top` — would be paid for by every switch on
+every other page. Each polls for itself instead, while it is the page on screen
+and the window is open, exactly as Network and Bluetooth do.
+
+`slicesSuffice` names all three, so a command of theirs re-reads *nothing*: the
+page that asked for it polls, and it is the only thing that has to hear back.
+Ending a process or trimming a drive changes nothing this window holds.
+
+**Overview keeps no state of its own.** Every switch on it is Omarchy's —
+`omarchy-toggle-nightlight`, `omarchy-shell notifications dndState`,
+`omarchy-toggle-idle`, voxtype — asked on the poll and relayed on the flip,
+side effects and all. That is what stops the page disagreeing with the bar,
+which shows the same four things. Its "needs attention" list is two sources on
+purpose: what only the shell can answer cheaply (how full `/boot` is) comes
+from the reader, and what the window already holds (its own version, the
+monitor list) is derived in the page rather than read a second time.
+
+**What is not on Overview, and why.** A package-update notice. Answering that
+means `checkupdates`, which syncs a database over the network, and nothing in
+this window may wait on the network. Omarchy's own update indicator already
+says it.
+
+**The Disk breakdown is not on the poll.** The only way to answer "what is
+holding the space" is to walk directories, so it is its own subcommand, asked
+once when the page opens. A walk that does not finish inside the read timeout
+reports `null` rather than what it had got to — a partial `du` is not a small
+number, it is a wrong one — and the page says so instead of quietly showing a
+slice that is missing.
+
+**Two samples, not one.** `/proc/stat` holds totals since boot, so a single
+read gives the average since the machine came up: on a six-day uptime, a number
+that never moves. Both the overall figure and the per-core bars are the delta
+between two reads a fifth of a second apart. For the process list it is `top -b
+-n 2` and the *second* frame, because `ps` reports a process's lifetime average
+and would rank the browser that pinned a core an hour ago above the one doing
+it now.
+
+**A per-process CPU figure is a share of one core.** `top` calls a thread using
+a whole core 100 %, which on sixteen cores is 6 % of the machine. The bars in
+the table are scaled by the core count so they mean the same thing as the CPU
+card above them.
+
 ## Pages for applications you may not have
 
 Tmux, Neovim and Herdr get a page each, and an application you do not have is
@@ -154,6 +203,8 @@ setting:
 | Herdr, Tmux, Neovim | their own configs, edited in place |
 | Displays | `~/.config/hypr/omacontrol.lua`, applied with `hyprctl eval` — plus `monitors.lua` for the laptop panel's scale |
 | Audio, Network, Bluetooth, Power | nowhere — live system state, owned by PipeWire, NetworkManager, BlueZ and power-profiles-daemon |
+| Overview | nowhere — every switch is Omarchy's own command, asked and relayed |
+| Disk, Processes | nowhere — readings, plus the two or three things there are to *do* |
 
 A display is the one thing here worth writing down as well as applying: it is
 unplugged and plugged back in, and Hyprland matches its monitor rules again on
@@ -749,6 +800,61 @@ Two things the first version got wrong, both worth keeping in mind:
 
 The window is a settings app, so it follows what settings apps have settled on.
 
+**Theme first, always.** The design this window is drawn from has a warm
+palette of its own. What is taken from it is the *hierarchy* — which surface
+sits on which, how far apart two greys are, what is a pill and what is a card —
+and every one of those is expressed in `ui/Palette.qml` as an alpha over the
+theme's own foreground or accent. So a Catppuccin desktop and a Gruvbox one
+each get the design in their own colours. Never hardcode a colour in a page.
+
+**Three surfaces and no more:** the window, the rail beside it, and the cards
+on it. Anything finer stops being visible once a theme supplies the colours.
+
+**The rail is flat and clustered.** Every page is its own row; the only thing
+between one cluster and the next is whitespace. Nothing folds open. A tree
+earns its keep when a branch holds more than a screenful, and these hold four
+rows each — the fold was one click between the reader and a page they could
+otherwise have hit directly. The gap above a cluster is part of the *row's*
+height rather than list spacing, so it survives a search that empties the rows
+either side of it.
+
+**A tinted square in front of every row.** Eight tints, one per cluster, is
+what lets someone find "the network one" without reading the list — and it
+carries the grouping even after a search has pulled the clusters apart. One
+accent cannot make eight distinguishable colours, so the clusters are spread
+along the distance between the accent and the foreground.
+
+**The page says where it is, not just what it is.** A flat rail of twenty-six
+rows tells the reader where they can *go* and nothing about where they *are*,
+so every page carries a `crumb` and the header prints it over the page name.
+It is not always the cluster: Displays is filed under Desktop, but a reader
+arriving there is thinking about screens.
+
+**What has changed sits beside what it undoes.** The count and "Undo all" are
+in the page header. In the rail they sat under a menu they had nothing to do
+with and read as an action on the menu.
+
+**A card, not an indent.** `SettingGroup` used to step its rows in from its
+heading. A card says the same thing better: an indent has to be compared
+against the heading above it to be read at all, while an edge is visible on its
+own — and it holds where the rows are a table or a list rather than settings.
+A row's cursor band runs to the card's inside edges, since overshooting a card
+is visible in a way that overshooting a bare page never was.
+
+**One table, used three times.** `DataTable` draws the mounts, the processes
+and the snapshots. A table and not a list of rows because the reader is
+comparing down a column — which partition is fullest, what is eating the CPU —
+and that only works if the figures line up. Actions go *under* the table and
+act on the selected row: five rows each carrying four buttons is twenty
+buttons, nineteen of which are about a row nobody is looking at.
+
+**Keycaps, at last.** The legend along the foot is drawn as keys. It was plain
+text on the grounds that a row of boxes pulls the eye off the settings, and
+that holds only if the caps are large or loud — small, low-contrast and all one
+size, the bar reads as one band of chrome. It still *follows the cursor* rather
+than listing everything, which the mockup did not: the keys that always apply,
+plus whatever the row under the cursor answers to.
+
 **Name a thing once.** A page called Bluetooth should not then contain a group
 called Bluetooth containing a row called Bluetooth. If a heading and the thing
 under it would carry the same word, the heading goes.
@@ -816,7 +922,17 @@ after itself.
 ## Shell conventions
 
 Bash with `set -uo pipefail` (not `-e`; several reads exit non-zero normally).
-`jq` for all JSON. Two `jq` habits worth remembering:
+`jq` for all JSON.
+
+**`... | jq ... || echo '[]'` is a bug under `pipefail`.** The status of
+`producer | jq` is the *producer's* failure, even when jq went on to make
+perfectly good JSON out of the nothing it was given — so the fallback fires
+*as well*, and jq's answer with `[]` stapled to it is not JSON at all. It fails
+only when run through `bin/omacontrol`, which is the one place `pipefail` is
+set, so it passes every test run by hand. Use `emit_json "$(...)" '[]'` from
+`core.sh`: the value decides, not the exit status.
+
+Two `jq` habits worth remembering:
 
 - Inside `($list | index(.x))` the `.` is now `$list` — bind the value first
   (`. as $row | ... index($row[1])`) or every row matches.
