@@ -35,16 +35,22 @@ Column {
     if (!group.nav || group.nav.searching !== true) return false
     var kids = groupContent.children
     for (var i = 0; i < kids.length; i++) {
-      // A Repeater sits among the rows it made, visible and no height at all.
-      // Counting it as content left every heading standing over an emptied
-      // group — and a Repeater's implicit height is zero too, so the test
-      // still passes over it.
+      // Asked of the row itself, never of its `visible`. QML's `visible` is
+      // *effective* visibility — false whenever any ancestor is hidden — so a
+      // group deciding its own `visible` from its children's `visible` is
+      // reading a value that depends on the answer. That is the binding loop,
+      // and it was here from the start; it only ever showed up as a warning
+      // because Qt breaks the cycle itself and carries on with whichever value
+      // it had.
       //
-      // `implicitHeight` and not `height`: a child's laid-out height is zero
-      // while its group is hidden, and the group is hidden by this very
-      // property, which is a loop. What a row *asks* for does not depend on
-      // whether anyone is showing it.
-      if (kids[i].visible === true && kids[i].implicitHeight > 0) return false
+      // `searchHidden` is the row's own verdict on the search term and depends
+      // on nothing above it. A child that is not a row does not have one,
+      // which is the right answer for a table or a button: they are content.
+      //
+      // `implicitHeight` and not `height` for the same reason: a laid-out
+      // height is zero while the group is hidden. A Repeater asks for no
+      // height either way, which is what keeps it from counting as content.
+      if (kids[i].searchHidden !== true && kids[i].implicitHeight > 0) return false
     }
     return true
   }
