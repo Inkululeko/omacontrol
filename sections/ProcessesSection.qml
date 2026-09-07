@@ -65,17 +65,19 @@ Ui.SectionBody {
           Repeater {
             model: cores
 
-            Item {
+            Rectangle {
               required property var modelData
               width: (parent.width - (cores.length - 1) * Style.space(3)) / Math.max(1, cores.length)
               height: parent.height
+              radius: Ui.Palette.chipRadius
+              color: Ui.Palette.shade(0.12)
 
               Rectangle {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: Math.max(Style.spacing.hairline,
-                                 parent.height * Math.max(0, Math.min(100, Number(modelData))) / 100)
-                radius: Ui.Palette.chipRadius
+                                 parent.height * Math.max(0, Math.min(100, Number(parent.modelData))) / 100)
+                radius: parent.radius
                 color: Ui.Palette.accent
               }
             }
@@ -156,20 +158,24 @@ Ui.SectionBody {
       emptyNote: "Nothing to report."
       rows: {
         var out = []
-        // A share of one core, not of the machine: top counts a thread using
-        // a whole core as 100 %, and on sixteen cores that is 6 % of the
-        // machine. The bar is scaled to the cores there are so it means the
-        // same thing as the CPU card above it.
-        var span = load.cores !== undefined ? Math.max(1, Number(load.cores)) * 100 : 100
+        // Both bars are scaled to the heaviest row rather than to an absolute
+        // ceiling. A column of bars is read by comparing it down — which of
+        // these is the heavy one — and against a ceiling of sixteen cores
+        // every bar on an idle machine is a pixel, while the number beside it
+        // says 10 %. The figures are absolute; the bars rank them.
+        var busiest = 0
         var heaviest = 0
-        for (var h = 0; h < items.length; h++)
+        for (var h = 0; h < items.length; h++) {
+          busiest = Math.max(busiest, Number(items[h].cpu))
           heaviest = Math.max(heaviest, Number(items[h].memory))
+        }
         for (var i = 0; i < items.length; i++) {
           var p = items[i]
           out.push({ cells: [
             { text: p.pid, align: "right" },
             { text: p.command, strong: true },
-            { text: Number(p.cpu).toFixed(0) + " %", meter: Number(p.cpu) / span },
+            { text: Number(p.cpu).toFixed(0) + " %",
+              meter: busiest > 0 ? Number(p.cpu) / busiest : 0 },
             { text: app.formatBytes(p.memory),
               meter: heaviest > 0 ? Number(p.memory) / heaviest : 0 },
             { text: p.time, align: "right" }
