@@ -695,6 +695,16 @@ Item {
                                      bottom - bodyScroll.height)
   }
 
+  // The rail's metrics, stated once. Both the delegate that draws a row and
+  // the arithmetic that scrolls to one read these: a row that is drawn one
+  // height and scrolled to as another leaves the cursor walking off the bottom
+  // of a rail that never follows it, which reads as a rail that ignores the
+  // keyboard rather than as a number that is wrong.
+  readonly property real railRowHeight: Style.spacing.controlHeight + Style.space(6)
+  readonly property real railRowGap: Style.space(2)
+  // The whole of the grouping: the gap above the row that opens a cluster.
+  readonly property real railClusterGap: Style.space(14)
+
   // The sidebar scrolls too, so Alt can walk the cursor off the bottom of a
   // menu taller than the window.
   function sidebarReveal() {
@@ -706,17 +716,15 @@ Item {
     // than multiply one height by the index. Getting this wrong does not look
     // like a bug: the cursor simply walks off the bottom of a rail that never
     // scrolls to follow it.
-    var rowHeight = Style.spacing.controlHeight + Style.space(6)
-    var gap = Style.space(2)
-    var clusterGap = Style.space(14)
     var top = 0
     for (var i = 0; i < sidebarIndex && i < sidebarRows.length; i++)
-      top += rowHeight + gap + (sidebarRows[i].opensCluster ? clusterGap : 0)
+      top += railRowHeight + railRowGap
+        + (sidebarRows[i].opensCluster ? railClusterGap : 0)
     // The cursored row's own gap sits above it, so it belongs to what has to
     // come into view.
     var entry = sidebarRows[sidebarIndex]
-    if (entry && entry.opensCluster) top += clusterGap
-    var bottom = top + rowHeight
+    if (entry && entry.opensCluster) top += railClusterGap
+    var bottom = top + railRowHeight
     if (top < sidebarScroll.contentY) sidebarScroll.contentY = Math.max(0, top)
     else if (bottom > sidebarScroll.contentY + sidebarScroll.height)
       sidebarScroll.contentY = Math.min(Math.max(0, sidebarScroll.contentHeight - sidebarScroll.height),
@@ -1517,7 +1525,7 @@ Item {
               ColumnLayout {
                 id: sidebarMenu
                 width: sidebarScroll.width
-                spacing: Style.space(2)
+                spacing: root.railRowGap
 
                 Repeater {
                   model: root.sidebarRows
@@ -1534,13 +1542,14 @@ Item {
                     // The gap above a cluster is the only thing marking one
                     // off from the next, so it is part of the row's height
                     // rather than list spacing — spacing cannot vary per row.
-                    implicitHeight: rowFill.height + (modelData.opensCluster ? Style.space(14) : 0)
+                    implicitHeight: rowFill.height
+                      + (modelData.opensCluster ? root.railClusterGap : 0)
 
                     Rectangle {
                       id: rowFill
                       anchors.bottom: parent.bottom
                       width: parent.width
-                      height: Style.spacing.controlHeight + Style.space(6)
+                      height: root.railRowHeight
                       radius: Ui.Palette.chipRadius
                       border.width: cursored ? Style.normalBorderWidth : 0
                       border.color: root.accent
