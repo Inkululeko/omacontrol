@@ -151,6 +151,14 @@ purpose: what only the shell can answer cheaply (how full `/boot` is) comes
 from the reader, and what the window already holds (its own version, the
 monitor list) is derived in the page rather than read a second time.
 
+**A switch is only offered when it can work.** Installed is not the same as
+usable: a voxtype with no model transcribes nothing, so the Dictation row asks
+`voxtype status --extended --format json` — the same JSON the bar's indicator
+reads — and reports itself unavailable when `model` is empty. Every switch on
+the page drops out the same way rather than sitting there doing nothing. The
+command is `voxtype record toggle`; there is no `voxtype toggle`, which is the
+sort of thing that only shows up when someone tries the row.
+
 **What is not on Overview, and why.** A package-update notice. Answering that
 means `checkupdates`, which syncs a database over the network, and nothing in
 this window may wait on the network. Omarchy's own update indicator already

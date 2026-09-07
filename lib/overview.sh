@@ -70,9 +70,26 @@ overview_stay_awake() {
     '{"available":false}'
 }
 
+# voxtype answers about itself in the same JSON the bar's indicator reads, so
+# the switch shows what is actually happening rather than a guess: `class` is
+# idle or recording, and `model` is the one thing that says whether it is set
+# up at all.
+#
+# Installed is not the same as usable. A voxtype with no model will not
+# transcribe anything, and a switch for it is a switch that cannot work — so
+# that counts as unavailable and the row is not offered.
 overview_dictation() {
-  command -v voxtype >/dev/null 2>&1 || { echo '{"available":false}'; return; }
-  echo '{"on":false,"note":"Hold to dictate"}'
+  omarchy-cmd-present voxtype || { echo '{"available":false}'; return; }
+  local status
+  status=$(capture voxtype status --extended --format json)
+  [[ -n $status ]] || { echo '{"available":false}'; return; }
+
+  emit_json "$(jq -c '''
+    if ((.model // "") == "") then { available: false }
+    else { on: ((.class // "idle") == "recording"),
+           note: (if (.class // "") == "recording" then "Recording"
+                  else ("Ready · " + .model) end) }
+    end''' <<<"$status" 2>/dev/null)" '{"available":false}'
 }
 
 # What the window would tell you if you had not asked. Only what the shell has
@@ -140,7 +157,7 @@ overview_cmd() {
         nightlight) capture_err omarchy-toggle-nightlight ;;
         dnd) capture_err omarchy-toggle-notification-silencing ;;
         awake) capture_err omarchy-toggle-idle ;;
-        dictation) setsid -f voxtype toggle >/dev/null 2>&1 ;;
+        dictation) setsid -f voxtype record toggle >/dev/null 2>&1 ;;
         *) die "usage: omacontrol overview toggle nightlight|dnd|awake|dictation" ;;
       esac ;;
     reminder) setsid -f omarchy-reminder >/dev/null 2>&1 ;;
