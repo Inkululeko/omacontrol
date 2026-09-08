@@ -217,7 +217,6 @@ Ui.SectionBody {
         onClicked: {
           if (row === null) return
           app.run(["disk", String(row.mount || "") !== "" ? "unmount" : "mount", row.path])
-          app.pollDisk()
         }
       }
 
@@ -303,7 +302,7 @@ Ui.SectionBody {
 
     Ui.Chip {
       text: "Snapshot now"
-      onClicked: { app.run(["disk", "snapshot"]); app.pollDisk() }
+      onClicked: app.run(["disk", "snapshot"])
     }
   }
 }

@@ -243,13 +243,15 @@ Item {
   function pollAbout() { pollInto(aboutPoll, ["about", "poll"]) }
   Process { id: aboutPoll; stdout: LiveCollector { onParsed: function(value) { root.aboutLive = value } } }
 
-  // The one outbound request this window makes, and it is made once per
-  // opening at most. `news fetch` decides for itself whether the cache has
-  // aged out, so asking costs nothing when it has not.
-  property bool newsAsked: false
+  // The one outbound request this window makes. Asking is free: `news fetch`
+  // checks the cache's age itself and does nothing if it is still warm, so the
+  // page can ask on every open and on a timer without either being a request.
+  //
+  // No "asked once" flag. There was one, and it made the half-hourly timer
+  // ornamental — the second call returned early for the life of the window,
+  // which is exactly the window this is for.
   function fetchNews() {
-    if (newsAsked || newsFetch.running) return
-    newsAsked = true
+    if (newsFetch.running) return
     newsFetch.command = ["bash", root.helperPath, "news", "fetch"]
     newsFetch.running = true
   }
@@ -950,6 +952,24 @@ Item {
   // and is simply as fast as it was before.
   property var lastArgs: []
 
+  // A live page's own reader, re-run once the write it asked for has actually
+  // finished. Pages used to call their poller on the line after `run`, which
+  // races the write: `news read` marks a headline in the store while the poll
+  // that would notice is already reading it, so the star cleared five seconds
+  // later on the next tick instead of at once.
+  function pollFor(args) {
+    if (!args || args.length === 0) return
+    switch (String(args[0])) {
+      case "overview": pollOverview(); return
+      case "news": pollOverview(); return
+      case "disk": pollDisk(); return
+      case "processes": pollProcesses(); return
+      case "packages": pollPackages(); return
+      case "usage": pollUsage(); return
+      case "about": pollAbout(); return
+    }
+  }
+
   function slicesFor(args) {
     if (!args || args.length === 0) return []
     switch (String(args[0])) {
@@ -1092,6 +1112,7 @@ Item {
       // later. The wait used to come first, so a click that had already
       // landed sat there for 400ms before the window even asked what it did.
       root.refreshSlices(root.slicesFor(root.lastArgs))
+      root.pollFor(root.lastArgs)
       // Theme and font switches ripple through other processes; re-reading a
       // beat later picks up settled values rather than mid-switch ones — and
       // catches anything the slices above did not name. A command whose slice

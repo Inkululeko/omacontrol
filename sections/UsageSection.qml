@@ -52,7 +52,7 @@ Ui.SectionBody {
   property Component headerControl: Component {
     Ui.Chip {
       text: "Refresh"
-      onClicked: { app.run(["usage", "refresh"]); app.pollUsage() }
+      onClicked: app.run(["usage", "refresh"])
     }
   }
 

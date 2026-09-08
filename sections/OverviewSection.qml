@@ -30,6 +30,11 @@ Ui.SectionBody {
   readonly property var updates: app.overview.updates !== undefined ? app.overview.updates : ({})
   readonly property var news: app.overview.news !== undefined ? app.overview.news : ({})
   readonly property var newsItems: news.items !== undefined ? news.items : []
+  readonly property int unreadNews: {
+    var n = 0
+    for (var i = 0; i < newsItems.length; i++) if (newsItems[i].read === false) n++
+    return n
+  }
   readonly property var updatePlugins: updates.plugins !== undefined ? updates.plugins : []
   readonly property bool hasUpdates: (updates.omarchy !== undefined && updates.omarchy !== null)
     || updates.packages > 0 || updatePlugins.length > 0
@@ -73,11 +78,19 @@ Ui.SectionBody {
     onTriggered: app.pollOverview()
   }
 
-  // The one thing in this window that leaves the machine, and it is asked
-  // once: the reader decides nothing, the *cache's age* does. A fetch that
-  // finds the cache fresh does not happen at all, and the fetch itself never
-  // blocks anything — the poll above picks up whatever landed.
+  // The one thing in this window that leaves the machine, and the *cache's
+  // age* decides whether it happens — not the page, and not the reader. A
+  // fetch that finds the cache under half an hour old does nothing at all, so
+  // asking on open and again on a timer costs nothing but catches the case
+  // this is for: a window left open all afternoon.
   Component.onCompleted: app.fetchNews()
+
+  Timer {
+    interval: 1800000
+    running: app.shown
+    repeat: true
+    onTriggered: app.fetchNews()
+  }
 
   // First, because the reader did not ask for it: anything they would want to
   // know before they got to whatever they opened the window for.
@@ -116,7 +129,6 @@ Ui.SectionBody {
 
         onDismissed: {
           app.run(["overview", "dismiss", modelData.id])
-          app.pollOverview()
         }
       }
     }
@@ -155,7 +167,6 @@ Ui.SectionBody {
           // Then the page asks again rather than assuming it worked.
           onRequested: {
             app.run(["overview", "toggle", modelData.id])
-            app.pollOverview()
           }
         }
       }
@@ -207,8 +218,12 @@ Ui.SectionBody {
   // because it is the only thing on the page that is not about this machine.
   Ui.SettingGroup {
     title: "From omarchy.org"
-    note: news.fetchedAt !== undefined && news.fetchedAt > 0
-      ? "Fetched " + app.formatWhen(news.fetchedAt) : ""
+    // The count first, because it is the only part of this heading anyone
+    // scans for; the age second, because a headline with no age on it is one
+    // you cannot judge.
+    note: (unreadNews > 0 ? (unreadNews === 1 ? "1 new · " : unreadNews + " new · ") : "")
+      + (news.fetchedAt !== undefined && news.fetchedAt > 0
+         ? "fetched " + app.formatWhen(news.fetchedAt) : "")
     visible: !searchEmpty && newsItems.length > 0
 
     Repeater {
@@ -224,8 +239,18 @@ Ui.SectionBody {
         // What the site itself printed, rather than a date reformatted into
         // something its author would not recognise.
         value: modelData.shown !== undefined ? modelData.shown : ""
+        unread: modelData.read === false
+        // Opening one reads it — the reader does not have to say so twice —
+        // and `news open` records that itself, so both paths agree.
         onTriggered: app.run(["news", "open", modelData.url])
+        onStarred: app.run(["news", "read", modelData.url])
       }
+    }
+
+    Ui.Chip {
+      visible: unreadNews > 0
+      text: "Mark all as read"
+      onClicked: app.run(["news", "read-all"])
     }
   }
 }

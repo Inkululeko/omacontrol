@@ -204,7 +204,6 @@ Ui.SectionBody {
         onClicked: {
           if (parent.row === null) return
           app.run(["processes", "end", parent.row.pid])
-          app.pollProcesses()
         }
       }
 
@@ -214,7 +213,6 @@ Ui.SectionBody {
         onClicked: {
           if (parent.row === null) return
           app.run(["processes", "kill", parent.row.pid])
-          app.pollProcesses()
         }
       }
 
