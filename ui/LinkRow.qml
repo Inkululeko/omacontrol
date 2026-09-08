@@ -48,7 +48,10 @@ NavRow {
       ? (markMouse.containsMouse ? Local.Palette.foreground : Local.Palette.accent)
       : Local.Palette.shade(0.32)
     font.family: Local.Palette.fontFamily
-    font.pixelSize: Style.font.caption
+    // A notch above caption. The star is a solid shape and reads at any size;
+    // the article has ruled lines inside it and turns into a smudge at ten
+    // pixels. The larger of the two sizes governs, so the column stays even.
+    font.pixelSize: Style.font.bodySmall
 
     MouseArea {
       id: markMouse
