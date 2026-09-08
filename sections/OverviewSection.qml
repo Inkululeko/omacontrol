@@ -25,9 +25,8 @@ Ui.SectionBody {
     "dictation": "\uf130"
   })
 
-  // Two sources, deliberately. What only the shell can answer — how full
-  // /boot is — comes from the reader; what the window already holds is
-  // derived here rather than read a second time.
+  // Mostly the reader's, plus the one thing the window already knows about
+  // itself. Nothing here re-reads what it is already holding.
   readonly property var updates: app.overview.updates !== undefined ? app.overview.updates : ({})
   readonly property var news: app.overview.news !== undefined ? app.overview.news : ({})
   readonly property var newsItems: news.items !== undefined ? news.items : []
@@ -39,37 +38,6 @@ Ui.SectionBody {
     var items = []
     var reported = app.overview.attention !== undefined ? app.overview.attention : []
     for (var i = 0; i < reported.length; i++) items.push(reported[i])
-
-    // A monitor on a fractional scale hands Xwayland windows an integer scale
-    // and lets them be resampled, which is why one application looks soft
-    // when the rest do not. Said once, however many monitors are on one.
-    var fractional = []
-    for (var m = 0; m < app.monitors.length; m++) {
-      var monitor = app.monitors[m]
-      // Connected only. An unplugged display is not softening anything today,
-      // and it has no connector either — so naming it means printing its whole
-      // EDID description across the row.
-      if (monitor.connected !== true) continue
-      var scale = Number(monitor.scale)
-      if (isFinite(scale) && Math.round(scale * 100) % 100 !== 0)
-        fractional.push({ name: String(monitor.output || monitor.label || ""), scale: scale })
-    }
-    if (fractional.length > 0) {
-      var names = []
-      var scales = []
-      for (var f = 0; f < fractional.length; f++) {
-        names.push(fractional[f].name)
-        scales.push(fractional[f].scale)
-      }
-      items.push({
-        id: "scaling",
-        title: names.join(", ") + (fractional.length === 1 ? " runs" : " run")
-          + " at a fractional scale",
-        note: scales.join(", ") + " · Xwayland windows can come out soft.",
-        actionLabel: "Open Displays",
-        page: "displays"
-      })
-    }
 
     if (app.selfBehind > 0)
       items.push({

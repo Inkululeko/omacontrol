@@ -147,9 +147,17 @@ Ending a process or trimming a drive changes nothing this window holds.
 `omarchy-toggle-idle`, voxtype — asked on the poll and relayed on the flip,
 side effects and all. That is what stops the page disagreeing with the bar,
 which shows the same four things. Its "needs attention" list is two sources on
-purpose: what only the shell can answer cheaply (how full `/boot` is) comes
-from the reader, and what the window already holds (its own version, the
-monitor list) is derived in the page rather than read a second time.
+purpose: what only the shell can answer cheaply (how full `/boot` is, which
+peripheral is nearly flat) comes from the reader, and what the window already
+holds — its own version — is derived in the page rather than read again.
+
+**What is not on that list, and why.** A display on a fractional scale was,
+briefly. It is true, it is worth knowing once, and it is *permanent* — the
+reader chose that scale and is not going to change it because a settings window
+keeps mentioning it. A notice that cannot be resolved is a notice that trains
+people to stop reading the list, which costs more than the one fact was worth.
+The bar for this list is: something changed, or something is about to break,
+and there is an action that ends it.
 
 **A switch is only offered when it can work.** Installed is not the same as
 usable: a voxtype with no model transcribes nothing, so the Dictation row asks

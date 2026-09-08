@@ -7,9 +7,9 @@ One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 - **Find anything.** Type "blur" or "gaps" and every setting that touches it
   appears with its current value, whatever file it normally lives in.
 - **Overview.** Opens on what needs you: a partition filling up, a peripheral
-  about to run out of battery, a display on a fractional scale. The switches
-  you reach for daily — night light, do not disturb, stay awake, dictation.
-  What is waiting to update. And the latest from omarchy.org.
+  about to run out of battery. The switches you reach for daily — night light,
+  do not disturb, stay awake, dictation. What is waiting to update. And the
+  latest from omarchy.org.
 - **Packages.** What is installed, what is waiting, and how much it weighs —
   repositories and the AUR together. Plus the housekeeping nobody remembers:
   the package cache, orphans, and `.pacnew` files waiting to be merged.
