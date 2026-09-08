@@ -15,7 +15,15 @@
 #               redesigned. When the shape moves, this returns nothing and the
 #               section disappears rather than showing wreckage.
 
-NEWS_URL="${OMACONTROL_NEWS_URL:-https://omarchy.org/news/}"
+# The feed, not the page. omarchy.org publishes RSS at /news/rss.xml — it is
+# not advertised with a <link rel="alternate"> in the news page's head, which
+# is how the first version of this ended up scraping the HTML instead.
+#
+# A feed is a contract and markup is not. The scraper had to be told which
+# <span> held a headline and would have broken the next time the site was
+# restyled; this reads elements that are named in the RSS spec.
+NEWS_URL="${OMACONTROL_NEWS_URL:-https://omarchy.org/news/rss.xml}"
+
 NEWS_CACHE="${OMACONTROL_NEWS_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/news.json}"
 # Half an hour. Short enough that a headline posted this morning is on the page
 # by lunch; long enough that a window opened twenty times in an afternoon is
@@ -40,9 +48,15 @@ news_cached() {
   cache=$(emit_json "$(read_file "$NEWS_CACHE")" '{}')
   read=$(news_read_list)
 
+  # Compared with the trailing slash taken off both sides. The RSS feed's
+  # <link> has no trailing slash; the HTML this used to scrape did — so the
+  # switch to the feed would otherwise have made every already-read headline
+  # look new, and any future change of convention would do it again. Marks
+  # already in the store are normalised on the way in rather than migrated.
   emit_json "$(jq -cn --argjson cache "${cache:-{\}}" --argjson read "${read:-[]}" '''
-    $cache + { items: [ $cache.items[]? | . as $item
-                        | $item + { read: ($read | index($item.url) != null) } ] }''')" '{}'
+    ( $read | map(rtrimstr("/")) ) as $marks
+    | $cache + { items: [ $cache.items[]? | . as $item
+                          | $item + { read: ($marks | index($item.url | rtrimstr("/")) != null) } ] }''')" '{}'
 }
 
 news_read_list() {
@@ -53,16 +67,19 @@ news_read_list() {
 # note_store writes the store without rebuilding the Hyprland config, which a
 # read headline has no business touching.
 news_mark_read() {
-  local url=$1
+  local url=${1%/}
   [[ -n $url ]] || return 0
   note_store '.newsRead = (((.newsRead // []) + [$url]) | unique | .[-($keep):])' \
     --arg url "$url" --argjson keep "$NEWS_READ_KEEP"
 }
 
 news_mark_unread() {
-  local url=$1
+  local url=${1%/}
   [[ -n $url ]] || return 0
-  note_store '.newsRead = ((.newsRead // []) - [$url])' --arg url "$url"
+  # Both spellings, so a mark written before the feed switch also clears.
+  note_store '.newsRead = ((.newsRead // []) - [$url, $slashed])' \
+    --arg url "$url" --arg slashed "$url/"
+  return 0
 }
 
 # Everything currently in the cache, in one write.
@@ -141,46 +158,59 @@ news_seed() {
     --argjson urls "${urls:-[]}"
 }
 
-# The news page is Astro-rendered HTML: an anchor per story, holding a <time>
-# with a machine-readable date and a <span> whose first text is the headline.
-# Python because this is regex over someone else's markup either way, and doing
-# it in awk would be the same fragility spelled less clearly.
+# Python because this is XML, and the parser that ships with it knows what a
+# CDATA section is and how to unescape an entity. A regex over someone's feed
+# would be the same fragility as the regex over their HTML, one layer down.
 news_parse() {
   # The program arrives on fd 3, not on stdin. `python3 -` reads its *script*
-  # from stdin, which would eat the HTML this is meant to be parsing — the
-  # parser then finds nothing in an empty string and reports a page that
-  # changed shape, which is a maddening way to debug a working regex.
+  # from stdin, which would eat the feed this is meant to be parsing — the
+  # parser then finds nothing in an empty string and reports a feed that
+  # changed shape, which is a maddening way to debug a working parser.
   python3 /dev/fd/3 3<<'PY'
-import html
 import json
-import re
 import sys
+import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 
-page = sys.stdin.read()
-
-# Anchor, then the date, then the headline up to the chevron that follows it.
-story = re.compile(
-    r'<a\s+href="(?P<href>/news/\d{4}/\d{2}/[^"]+)"[^>]*>'
-    r'\s*<time[^>]*dateTime="(?P<iso>[^"]+)"[^>]*>(?P<shown>[^<]*)</time>'
-    r'\s*<span[^>]*>(?P<title>.*?)(?:<svg|</span>)',
-    re.S)
+try:
+    root = ET.fromstring(sys.stdin.buffer.read())
+except ET.ParseError:
+    # Not a feed today. The caller keeps the last good cache.
+    json.dump([], sys.stdout)
+    sys.exit(0)
 
 items = []
 seen = set()
-for match in story.finditer(page):
-    title = re.sub(r'<[^>]+>', '', match.group('title'))
-    title = html.unescape(title).strip()
-    href = match.group('href')
-    if not title or href in seen:
+for item in root.iterfind('./channel/item'):
+    title = (item.findtext('title') or '').strip()
+    # The guid is the identity when it is a permalink; the link is the
+    # fallback. Read marks are keyed on this, so it has to be the stable one.
+    link = (item.findtext('link') or '').strip()
+    guid = (item.findtext('guid') or '').strip()
+    url = link or guid
+    if not title or not url or url in seen:
         continue
-    seen.add(href)
+    seen.add(url)
+
+    iso = ''
+    shown = ''
+    raw = (item.findtext('pubDate') or '').strip()
+    if raw:
+        try:
+            when = parsedate_to_datetime(raw)
+            iso = when.date().isoformat()
+            # Written out the way the site writes it, rather than a format the
+            # reader has to decode.
+            shown = when.strftime('%B %-d, %Y')
+        except (TypeError, ValueError):
+            pass
+
     items.append({
         'title': title,
-        'url': 'https://omarchy.org' + href,
-        'date': match.group('iso')[:10],
-        # What the site itself chose to print, so the row does not have to
-        # guess a format the reader will disagree with.
-        'shown': html.unescape(match.group('shown')).strip(),
+        'url': url,
+        'date': iso,
+        'shown': shown,
+        'summary': (item.findtext('description') or '').strip(),
     })
     if len(items) == 8:
         break

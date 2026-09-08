@@ -263,11 +263,22 @@ and does nothing if it has not. The poll picks up whatever landed. So opening
 Overview is not a request, and the "Fetched 20 min ago" note is there because a
 headline with no age on it is a headline you cannot judge.
 
-**Silent when the page moves.** omarchy.org has no feed, so this parses the
-news page's HTML — someone else's markup, which will change; one of the
-headlines it currently returns is about the site being redesigned. A parse that
-finds nothing keeps the last good cache and the section disappears rather than
-showing wreckage.
+**The feed, not the page.** omarchy.org publishes RSS at `/news/rss.xml`. It
+is *not* advertised with a `<link rel="alternate">` in the news page's head,
+which is how the first version of this ended up scraping the HTML — four
+guessed feed paths came back 404 and the search stopped there. Check the head,
+then check `rss.xml` as well as `feed.xml`.
+
+A feed is a contract and markup is not: the scraper had to be told which
+`<span>` held a headline, and one of the headlines it returned was about the
+site being redesigned. A parse that finds nothing still keeps the last good
+cache, and the section disappears rather than showing wreckage.
+
+**Read marks are keyed on the URL, so the URL has to be normalised.** The
+feed's `<link>` has no trailing slash; the scraped `href` did. Switching to the
+feed without normalising would have made all eight already-read headlines look
+new. Both sides are compared with `rtrimstr("/")`, which also means marks
+written before the switch keep working without a migration.
 
 **Half an hour, checked in the reader.** `news fetch` compares the cache's age
 itself and returns the cache untouched if it is under `NEWS_MAX_AGE`. That is
