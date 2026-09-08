@@ -45,10 +45,14 @@ Ui.SectionBody {
     // when the rest do not. Said once, however many monitors are on one.
     var fractional = []
     for (var m = 0; m < app.monitors.length; m++) {
-      var scale = Number(app.monitors[m].scale)
+      var monitor = app.monitors[m]
+      // Connected only. An unplugged display is not softening anything today,
+      // and it has no connector either — so naming it means printing its whole
+      // EDID description across the row.
+      if (monitor.connected !== true) continue
+      var scale = Number(monitor.scale)
       if (isFinite(scale) && Math.round(scale * 100) % 100 !== 0)
-        fractional.push({ name: String(app.monitors[m].output || app.monitors[m].label || ""),
-                          scale: scale })
+        fractional.push({ name: String(monitor.output || monitor.label || ""), scale: scale })
     }
     if (fractional.length > 0) {
       var names = []
@@ -248,14 +252,16 @@ Ui.SectionBody {
     Repeater {
       model: newsItems.slice(0, 5)
 
-      Ui.ActionRow {
+      // A headline is a link, so the whole row is one. A Read button beside
+      // each of five rows is five buttons doing what clicking the headline
+      // already does, and they out-weigh everything above them on the page.
+      Ui.LinkRow {
         required property var modelData
 
         label: modelData.title
         // What the site itself printed, rather than a date reformatted into
         // something its author would not recognise.
-        description: modelData.shown !== undefined ? modelData.shown : ""
-        buttonText: "Read"
+        value: modelData.shown !== undefined ? modelData.shown : ""
         onTriggered: app.run(["news", "open", modelData.url])
       }
     }
