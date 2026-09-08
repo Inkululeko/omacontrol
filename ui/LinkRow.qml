@@ -28,23 +28,34 @@ NavRow {
 
   implicitHeight: Math.max(title.implicitHeight, stamp.implicitHeight) + Style.space(10)
 
-  // Present but empty on a read row rather than absent, so the headlines all
-  // start in the same place — a column of titles that shifts by ten pixels
-  // depending on whether you have read them is worse than a wasted indent.
+  // Both states carry a mark, so the headlines all start in the same place: a
+  // column of titles that shifts by ten pixels depending on whether you have
+  // read them is worse than a wasted indent. An empty slot did that job too,
+  // but it left the eye no confirmation that a row *was* read, only the
+  // absence of a star — and absence reads as "not loaded yet" as easily as it
+  // reads as "done".
+  //
+  // The two are deliberately unalike in weight: the star is the accent and is
+  // a button; the article is dim and inert. Same size, so the column stays a
+  // column.
   Text {
-    id: star
+    id: mark
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(16)
-    text: linkRow.unread ? "\uf005" : ""
-    color: starMouse.containsMouse ? Local.Palette.foreground : Local.Palette.accent
+    text: linkRow.unread ? "\uf005" : "\uf1ea"
+    color: linkRow.unread
+      ? (markMouse.containsMouse ? Local.Palette.foreground : Local.Palette.accent)
+      : Local.Palette.shade(0.32)
     font.family: Local.Palette.fontFamily
     font.pixelSize: Style.font.caption
 
     MouseArea {
-      id: starMouse
+      id: markMouse
       anchors.fill: parent
       anchors.margins: -Style.space(4)
+      // Only the star does anything. The article is a state, not a control —
+      // there is no reason to want a headline back as unread.
       enabled: linkRow.unread
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
@@ -54,7 +65,7 @@ NavRow {
 
   Text {
     id: title
-    anchors.left: star.right
+    anchors.left: mark.right
     anchors.right: stamp.left
     anchors.rightMargin: Style.space(14)
     anchors.verticalCenter: parent.verticalCenter
