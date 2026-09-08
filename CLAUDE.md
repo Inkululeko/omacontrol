@@ -954,6 +954,14 @@ so DNS providers are all visible at once. A dropdown is for lists that are long
 (themes, fonts) or whose labels are sentences; opening one to discover there
 were only four options is a wasted click.
 
+**A row that sets its own `visible` must keep the search in it.** `NavRow`
+binds `visible: !searchHidden`, and a page that writes `visible: <condition>`
+replaces that binding outright — the row then stays on screen through every
+search, which reads as the filter being broken rather than as one row opting
+out. The form is always `visible: !searchHidden && <condition>`; a group uses
+`!searchEmpty` the same way. It is invisible in review and obvious the moment
+you type in the search box, which is how fourteen of them shipped at once.
+
 **A heading earns its place or disappears.** `SettingGroup` renders no heading
 when its title is empty, which is right for a page with a single group; the
 page name is already the heading.

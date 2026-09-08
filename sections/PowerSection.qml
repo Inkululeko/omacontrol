@@ -46,7 +46,7 @@ Ui.SectionBody {
       label: "Health"
       // Wear is the number that decides whether a battery is worth replacing,
       // and nothing else on the desktop shows it.
-      visible: reading.health !== null && reading.health !== undefined
+      visible: !searchHidden && reading.health !== null && reading.health !== undefined
       value: reading.health + "% of when it was new"
     }
   }

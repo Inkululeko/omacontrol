@@ -188,7 +188,7 @@ Ui.SectionBody {
     }
 
     Ui.ReadingRow {
-      visible: kernelWaiting
+      visible: !searchHidden && kernelWaiting
       label: "A kernel update is waiting"
       description: "The running kernel stays until you reboot, and modules built for it stop matching."
     }
@@ -211,7 +211,7 @@ Ui.SectionBody {
     }
 
     Ui.ActionRow {
-      visible: app.packages.orphans > 0
+      visible: !searchHidden && app.packages.orphans > 0
       label: app.packages.orphans === 1 ? "1 orphan" : app.packages.orphans + " orphans"
       description: "Installed as dependencies, and nothing depends on them any more."
       buttonText: "Review"
@@ -219,14 +219,14 @@ Ui.SectionBody {
     }
 
     Ui.ReadingRow {
-      visible: app.packages.foreign > 0
+      visible: !searchHidden && app.packages.foreign > 0
       label: "Foreign packages"
       description: "Not in any configured repository — built from the AUR, or installed by hand."
       value: String(app.packages.foreign)
     }
 
     Ui.ActionRow {
-      visible: app.packages.pacnew > 0
+      visible: !searchHidden && app.packages.pacnew > 0
       label: app.packages.pacnew === 1 ? "1 pacnew file" : app.packages.pacnew + " pacnew files"
       description: "Config changes pacman would not apply over your edits, waiting to be merged."
       buttonText: "Merge"

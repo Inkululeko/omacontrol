@@ -213,7 +213,7 @@ Ui.SectionBody {
     // Omarchy ships as a package, so its row is that package pulled out of
     // the list and named as the thing the reader actually thinks about.
     Ui.NoticeRow {
-      visible: updates.omarchy !== undefined && updates.omarchy !== null
+      visible: !searchHidden && updates.omarchy !== undefined && updates.omarchy !== null
       glyph: ""
       label: updates.omarchy ? "Omarchy " + updates.omarchy.available : ""
       description: "You are on " + updates.version
@@ -223,7 +223,7 @@ Ui.SectionBody {
     }
 
     Ui.NoticeRow {
-      visible: updates.packages > 0
+      visible: !searchHidden && updates.packages > 0
       glyph: ""
       label: updates.packages === 1 ? "1 package" : updates.packages + " packages"
       description: "Waiting in the repositories and the AUR."
@@ -232,7 +232,7 @@ Ui.SectionBody {
     }
 
     Ui.NoticeRow {
-      visible: updatePlugins.length > 0
+      visible: !searchHidden && updatePlugins.length > 0
       glyph: ""
       label: updatePlugins.length === 1 ? "1 plugin" : updatePlugins.length + " plugins"
       description: updatePlugins.join(" · ")

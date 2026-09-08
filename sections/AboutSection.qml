@@ -59,19 +59,19 @@ Ui.SectionBody {
     // calling one of them "the" GPU is how a bug report ends up describing the
     // wrong one.
     Ui.ReadingRow {
-      visible: gpus.length > 0
+      visible: !searchHidden && gpus.length > 0
       label: gpus.length > 1 ? "GPUs" : "GPU"
       value: gpus.join(" · ")
     }
 
     Ui.ReadingRow {
-      visible: about.memoryBytes !== null && about.memoryBytes !== undefined
+      visible: !searchHidden && about.memoryBytes !== null && about.memoryBytes !== undefined
       label: "Memory"
       value: app.formatBytes(about.memoryBytes)
     }
 
     Ui.ReadingRow {
-      visible: about.disk !== undefined && about.disk.size !== null
+      visible: !searchHidden && about.disk !== undefined && about.disk.size !== null
       label: "Disk"
       value: about.disk !== undefined
         ? about.disk.model + (about.disk.size ? " · " + app.formatBytes(about.disk.size) : "")
@@ -100,13 +100,13 @@ Ui.SectionBody {
     }
 
     Ui.ReadingRow {
-      visible: about.packages !== null && about.packages !== undefined
+      visible: !searchHidden && about.packages !== null && about.packages !== undefined
       label: "Packages"
       value: about.packages + " (pacman)"
     }
 
     Ui.ReadingRow {
-      visible: about.uptimeSeconds !== null && about.uptimeSeconds !== undefined
+      visible: !searchHidden && about.uptimeSeconds !== null && about.uptimeSeconds !== undefined
       label: "Uptime"
       value: app.formatDuration(about.uptimeSeconds)
     }
@@ -114,7 +114,7 @@ Ui.SectionBody {
     // Read off the first line pacman ever wrote, which is the closest thing an
     // Arch install has to a birthday.
     Ui.ReadingRow {
-      visible: about.osAgeDays !== null && about.osAgeDays !== undefined
+      visible: !searchHidden && about.osAgeDays !== null && about.osAgeDays !== undefined
       label: "Installed"
       description: "Dated from the first line in pacman's log."
       value: about.osAgeDays + " days ago"
@@ -125,7 +125,7 @@ Ui.SectionBody {
     title: "Updates"
 
     Ui.ReadingRow {
-      visible: about.lastUpdate !== undefined && about.lastUpdate !== ""
+      visible: !searchHidden && about.lastUpdate !== undefined && about.lastUpdate !== ""
       label: "Last updated"
       value: about.lastUpdate !== undefined ? about.lastUpdate : ""
     }
