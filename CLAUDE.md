@@ -894,6 +894,25 @@ and that only works if the figures line up. Actions go *under* the table and
 act on the selected row: five rows each carrying four buttons is twenty
 buttons, nineteen of which are about a row nobody is looking at.
 
+**The Overview toggles are tiles, and a filled tile is on.** Four across, each
+with a round icon badge and its switch on one line and the name and state
+under them. Not rows: the question these answer is *which of these are on right
+now*, asked of all four at once and often from across the desk, and a column of
+rows answers it with four small knobs in a vertical line that have to be read
+one at a time. The fill is the state; the switch is only the affordance, which
+is also why the whole tile takes the click.
+
+A grid of tiles goes in an *unframed* `SettingGroup` (`framed: false`) — the
+tiles are the cards, and a card around them is a border drawn twice and a
+padding paid for twice.
+
+**A wash over an accent fill is struck from `onAccent`, never from white.**
+`Palette.onAccentWash(alpha)` exists because the badge and the switch track on
+a filled tile were `Qt.rgba(1, 1, 1, 0.22)`, which is invisible on a light
+accent. Nothing errors; the control just loses half of itself under half the
+themes, which is the failure mode this whole palette is meant to prevent. The
+same applies to the sidebar's selected icon square.
+
 **Keycaps, at last.** The legend along the foot is drawn as keys. It was plain
 text on the grounds that a row of boxes pulls the eye off the settings, and
 that holds only if the caps are large or loud — small, low-contrast and all one
