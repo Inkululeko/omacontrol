@@ -124,7 +124,9 @@ Ui.SectionBody {
 
     Ui.ReadingRow {
       label: "Nothing needs attention"
-      description: "Nothing full, nothing behind, nothing misconfigured that this window can see."
+      // Says what was actually looked at. "Nothing misconfigured" outlived the
+      // one misconfiguration this page ever checked for.
+      description: "Nothing full, nothing flat, nothing behind."
     }
   }
 
