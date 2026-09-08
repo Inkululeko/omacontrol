@@ -151,6 +151,14 @@ purpose: what only the shell can answer cheaply (how full `/boot` is, which
 peripheral is nearly flat) comes from the reader, and what the window already
 holds — its own version — is derived in the page rather than read again.
 
+**An empty list is no list.** When nothing needs attention the whole section
+goes, heading included — it is not replaced by a row saying so. A section that
+reports its own emptiness takes up room on every good day to reassure the
+reader on none of them, and the page already says it better: with nothing
+wrong, the first thing under the title is the toggles, which is what anyone
+opening this page wanted when nothing is wrong. When there *is* something, the
+heading carries the count.
+
 **What is not on that list, and why.** A display on a fractional scale was,
 briefly. It is true, it is worth knowing once, and it is *permanent* — the
 reader chose that scale and is not going to change it because a settings window
