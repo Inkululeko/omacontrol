@@ -242,7 +242,12 @@ Ui.SectionBody {
         unread: modelData.read === false
         // Opening one reads it — the reader does not have to say so twice —
         // and `news open` records that itself, so both paths agree.
-        onTriggered: app.run(["news", "open", modelData.url])
+        //
+        // Then this window gets out of the way. It takes keyboard focus
+        // exclusively while it is open, so leaving it up means the article you
+        // just asked for is behind a settings window you have to dismiss.
+        // `news open` follows the browser to its workspace from its side.
+        onTriggered: { app.run(["news", "open", modelData.url]); app.hide() }
         onStarred: app.run(["news", "read", modelData.url])
       }
     }

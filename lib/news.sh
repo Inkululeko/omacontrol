@@ -189,6 +189,55 @@ json.dump(items, sys.stdout)
 PY
 }
 
+# Opening a headline hands it to the browser and then *goes there*: the window
+# closes and the workspace the browser is on comes forward.
+#
+# Without the second half, clicking a headline on a single-monitor setup looks
+# like nothing happened — the browser has the URL, but it is on workspace 2 and
+# you are still on 1, looking at a window that has just closed itself.
+news_open() {
+  local url=$1
+  # Only ever a URL this fetch produced, and only ever on the site it came
+  # from: a headline is untrusted text and its link is untrusted with it.
+  [[ $url == https://omarchy.org/* ]] || die "refusing to open $url"
+  # Opening one is reading it. Anything else means a headline you clicked is
+  # still starred when you come back, which is the one thing a star must never
+  # do.
+  news_mark_read "$url"
+
+  # Detached, because the follow has to outlive this process: the window's
+  # helper must not sit waiting for a browser to start.
+  setsid -f bash -c '
+    url=$1; shift
+    xdg-open "$url" >/dev/null 2>&1
+    # The window may not exist yet — if the browser was not running, xdg-open
+    # has only just started it. So the focus is retried rather than attempted
+    # once, and it gives up quietly: a browser that never appears is not
+    # something to pop an error about over someone else'"'"'s desktop.
+    for _ in $(seq 1 25); do
+      for pattern in "$@"; do
+        [[ -n $pattern ]] || continue
+        if omarchy-hyprland-focus-app "$pattern" 2>/dev/null; then exit 0; fi
+      done
+      sleep 0.2
+    done
+  ' bash "$url" $(news_browser_patterns) >/dev/null 2>&1
+}
+
+# What to look for in the window list, most specific first.
+#
+# The desktop id is the better key: `brave-browser.desktop` is the window class
+# `brave-browser`, and `google-chrome.desktop` is `google-chrome`, while the
+# friendly names Omarchy prints ("brave", "chrome") are only substrings of
+# those. Both are offered because they disagree for at least one browser —
+# `brave-origin.desktop` runs under the ordinary Brave class.
+news_browser_patterns() {
+  local desktop friendly
+  desktop=$(capture env -u BROWSER xdg-settings get default-web-browser)
+  friendly=$(capture omarchy-default-browser | head -n1)
+  printf '%s %s' "${desktop%.desktop}" "${friendly%%-*}"
+}
+
 news_cmd() {
   case ${1:-state} in
     # What is on disk, whatever its age. This is what the page polls.
@@ -203,14 +252,7 @@ news_cmd() {
       news_mark_unread "$1" ;;
     read-all) news_mark_all_read ;;
     open) shift; [[ -n ${1:-} ]] || die "usage: omacontrol news open <url>"
-      # Only ever a URL this fetch produced, and only ever on the site it came
-      # from: a headline is untrusted text and its link is untrusted with it.
-      [[ $1 == https://omarchy.org/* ]] || die "refusing to open $1"
-      # Opening one is reading it. Anything else means a headline you clicked
-      # is still starred when you come back, which is the one thing a star
-      # must never do.
-      news_mark_read "$1"
-      setsid -f xdg-open "$1" >/dev/null 2>&1 ;;
+      news_open "$1" ;;
     *) die "usage: omacontrol news poll|fetch|stale|read <url>|unread <url>|read-all|open <url>" ;;
   esac
 }
