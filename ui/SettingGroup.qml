@@ -9,9 +9,14 @@ Column {
   property string note: ""
   default property alias content: groupContent.data
 
+  // Whether the rows sit in a card at all. Off for a group whose content
+  // carries its own edges — a grid of tiles, a table — where a card around
+  // cards is a border drawn twice and a padding paid for twice.
+  property bool framed: true
+
   // The padding inside the card. Rows read it so a cursor band can run the
   // full width of the card rather than stopping short of its edges.
-  readonly property real pad: Style.space(14)
+  readonly property real pad: framed ? Style.space(14) : 0
 
   width: parent ? parent.width : 0
   spacing: Style.space(6)
@@ -84,9 +89,9 @@ Column {
   Rectangle {
     width: group.width
     implicitHeight: groupContent.implicitHeight + group.pad * 2
-    radius: Local.Palette.cardRadius
-    color: Local.Palette.card
-    border.width: Style.spacing.hairline
+    radius: group.framed ? Local.Palette.cardRadius : 0
+    color: group.framed ? Local.Palette.card : "transparent"
+    border.width: group.framed ? Style.spacing.hairline : 0
     border.color: Local.Palette.divider
 
     Column {

@@ -108,8 +108,14 @@ Item {
     return Style.space(10)
   }
 
+  // A row that is not row-shaped draws its own cursor. A band with negative
+  // insets is right for a setting spanning a card and wrong for a tile in a
+  // grid, where it would bleed over the neighbours.
+  property bool showBand: true
+
   Rectangle {
     id: cursorBand
+    visible: navRow.current && navRow.showBand
     anchors.fill: parent
     anchors.leftMargin: -navRow.bandInset
     anchors.rightMargin: -navRow.bandInset
@@ -117,7 +123,6 @@ Item {
     anchors.bottomMargin: -Style.space(6)
     radius: Local.Palette.chipRadius
     color: Local.Palette.tint(0.14)
-    visible: navRow.current
   }
 
   // A subclass declares its own shape as ordinary children — there is no

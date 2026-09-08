@@ -18,6 +18,13 @@ Ui.SectionBody {
 
   readonly property var toggles: app.overview.toggles !== undefined ? app.overview.toggles : []
 
+  readonly property var toggleGlyphs: ({
+    "nightlight": "\uf186",
+    "dnd": "\uf1f6",
+    "awake": "\uf0f4",
+    "dictation": "\uf130"
+  })
+
   // Two sources, deliberately. What only the shell can answer — how full
   // /boot is — comes from the reader; what the window already holds is
   // derived here rather than read a second time.
@@ -125,24 +132,41 @@ Ui.SectionBody {
     }
   }
 
+  // Tiles across, not rows down. The question these answer is *which of these
+  // are on* — asked of all four at once — and a filled tile answers it from
+  // across the room where four knobs in a vertical line do not.
   Ui.SettingGroup {
     title: "Toggles"
+    // The tiles are the cards. One around them would be a border drawn twice.
+    framed: false
 
-    Repeater {
-      model: toggles
+    Grid {
+      id: toggleGrid
+      width: parent.width
+      columns: 4
+      spacing: Style.space(12)
 
-      Ui.SwitchRow {
-        required property var modelData
+      Repeater {
+        model: toggles
 
-        label: modelData.label
-        description: modelData.note !== undefined ? modelData.note : ""
-        checked: modelData.on === true
-        // The command that owns the switch is the one that flips it, side
-        // effects and all — starting hyprsunset, telling the bar to redraw.
-        // Then the page asks again rather than assuming it worked.
-        onRequested: {
-          app.run(["overview", "toggle", modelData.id])
-          app.pollOverview()
+        Ui.ToggleTile {
+          required property var modelData
+
+          // Grid does not stretch what it lays out, so a tile is told its
+          // share of the row.
+          width: (toggleGrid.width - (toggleGrid.columns - 1) * toggleGrid.spacing)
+            / toggleGrid.columns
+          glyph: toggleGlyphs[modelData.id] !== undefined ? toggleGlyphs[modelData.id] : ""
+          label: modelData.label
+          note: modelData.note !== undefined ? modelData.note : ""
+          checked: modelData.on === true
+          // The command that owns the switch is the one that flips it, side
+          // effects and all — starting hyprsunset, telling the bar to redraw.
+          // Then the page asks again rather than assuming it worked.
+          onRequested: {
+            app.run(["overview", "toggle", modelData.id])
+            app.pollOverview()
+          }
         }
       }
     }
