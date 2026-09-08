@@ -6,10 +6,17 @@ One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 
 - **Find anything.** Type "blur" or "gaps" and every setting that touches it
   appears with its current value, whatever file it normally lives in.
-- **Overview.** Opens on what needs you: a partition filling up, a display on a
-  fractional scale, an update waiting. Plus the switches you reach for daily —
-  night light, do not disturb, stay awake, dictation — and a reminder, a
-  screenshot or a screen recording started from here.
+- **Overview.** Opens on what needs you: a partition filling up, a peripheral
+  about to run out of battery, a display on a fractional scale. The switches
+  you reach for daily — night light, do not disturb, stay awake, dictation.
+  What is waiting to update. And the latest from omarchy.org.
+- **Packages.** What is installed, what is waiting, and how much it weighs —
+  repositories and the AUR together. Plus the housekeeping nobody remembers:
+  the package cache, orphans, and `.pacnew` files waiting to be merged.
+- **Agent usage.** Where your coding agent's rate limits stand, what it spent
+  over the last week, and which models it went to.
+- **About.** What this machine is — model, CPU, GPU, memory, disk, kernel,
+  compositor — as one block you can copy into a bug report.
 - **Disk.** What is holding the space, every mount and how full it is, the
   drive's SMART health, and your snapshots. Mount a stick, trim the drive,
   take a snapshot.
@@ -129,6 +136,10 @@ applying the tmux option, and rolled back if it fails.
 | `lsblk`, `df`                | Disk                                                  |
 | `smartctl`, `snapper`        | The Disk page's health and snapshot panels             |
 | `top`                        | Processes                                             |
+| `checkupdates`, `expac`      | Packages                                              |
+| `yay`                        | AUR updates on the Packages page                      |
+| `fastfetch`                  | About                                                 |
+| `curl`                       | The news list on Overview                             |
 
 Only `jq` is required. A page whose tool is missing says so instead of failing.
 Nothing here needs root, and nothing is installed on your behalf.

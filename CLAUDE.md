@@ -222,6 +222,58 @@ Test it against a sandboxed `HOME` built from copies, never the live config,
 and check the round trip with `diff -r`: migrate, undo, and the tree should be
 byte-identical to where it started.
 
+## The one thing that leaves the machine
+
+`lib/news.sh` fetches headlines from omarchy.org. It is the only outbound
+request this window makes, and it earns three rules:
+
+**Cached, stamped, and asked for once.** The page calls `news fetch` on open;
+that subcommand decides for itself whether the cache has aged out (six hours)
+and does nothing if it has not. The poll picks up whatever landed. So opening
+Overview is not a request, and the "Fetched 20 min ago" note is there because a
+headline with no age on it is a headline you cannot judge.
+
+**Silent when the page moves.** omarchy.org has no feed, so this parses the
+news page's HTML — someone else's markup, which will change; one of the
+headlines it currently returns is about the site being redesigned. A parse that
+finds nothing keeps the last good cache and the section disappears rather than
+showing wreckage.
+
+**A headline is untrusted text.** `news open` refuses any URL that is not on
+omarchy.org, so a link cannot be turned into a way to open something else.
+
+The trap worth remembering: `python3 - <<'PY'` reads the *program* from stdin,
+so the heredoc eats the HTML the parser was meant to read. The program goes on
+another descriptor (`python3 /dev/fd/3 3<<'PY'`) and stdin stays the data.
+
+## Three pages that report on the system
+
+`packages`, `usage` and `about` follow the Disk and Processes pattern — poll,
+never in the state document — with one addition each:
+
+**Packages separates cheap from networked.** Counting what is installed is four
+`pacman -Qq` calls and costs nothing, so it polls. Knowing what is *available*
+is a database sync, so it is a button, cached, and the page says when it last
+ran. `checkupdates` covers repositories only; an AUR-heavy machine would be
+told it was up to date while a dozen packages waited, so `yay -Qua` is asked
+too, behind the same `omarchy-pkg-aur-accessible` gate Omarchy's own updater
+uses. Sizes come from `expac -S '%k'` — 184 packages in a sixth of a second,
+which is why there is no excuse for showing a count without its weight.
+
+**Agent usage computes nothing.** `omarchy-agent-usage-<provider>` already
+collects the whole picture — local transcripts, the provider's authoritative
+rate limits, the fallbacks — and Omarchy's agents panel reads exactly that
+record. A second opinion about someone's rate limits is worse than none. What
+the page adds is tokens instead of messages (a message is not a unit of
+anything comparable) and bars scaled to the busiest row rather than to a
+ceiling nobody set.
+
+**About prefers `fastfetch --format json`** to reading a dozen files under
+`/sys`, for the same reason everything here prefers Omarchy's commands: it
+already knows that a laptop's model is a DMI family plus an SKU, and that a
+machine can have two GPUs. "Copy as text" exists because the moment anyone
+needs these answers is the moment they least want to go looking.
+
 ## Pages for applications you may not have
 
 Tmux, Neovim and Herdr get a page each, and an application you do not have is
