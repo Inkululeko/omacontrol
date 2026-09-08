@@ -6,7 +6,12 @@ import "." as Local
 // One network: name, how strong it is, whether it wants a password, and
 // what clicking it will do. A network that needs a password asks for it
 // in place rather than in a dialog on top of the list.
-Column {
+// An Item root, not a Column. This hosts a NavCursor anchored over the whole
+// row — which is how every other list row here joins the keyboard cursor — and
+// a Column positions its children, so it rejects a fill-anchored one and then
+// stops laying out at all: "Column will not function", and the Wi-Fi list
+// renders as an empty band. The content goes in an inner Column instead.
+Item {
   id: wifiRow
   property string ssid: ""
   property int signalStrength: 0
@@ -43,7 +48,12 @@ Column {
 
   visible: !nav.searchHidden
   width: parent ? parent.width : 0
-  spacing: Style.space(6)
+  implicitHeight: body.implicitHeight
+
+  Column {
+    id: body
+    width: parent.width
+    spacing: Style.space(6)
 
   Item {
     width: parent.width
@@ -193,5 +203,6 @@ Column {
       fontFamily: Local.Palette.fontFamily
       onClicked: if (passwordField.text !== "") wifiRow.connectRequested(passwordField.text)
     }
+  }
   }
 }
