@@ -36,7 +36,7 @@ NavRow {
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(16)
-    text: linkRow.unread ? "" : ""
+    text: linkRow.unread ? "\uf005" : ""
     color: starMouse.containsMouse ? Local.Palette.foreground : Local.Palette.accent
     font.family: Local.Palette.fontFamily
     font.pixelSize: Style.font.caption
