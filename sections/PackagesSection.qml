@@ -52,6 +52,12 @@ Ui.SectionBody {
 
   property int selectedPackage: -1
 
+  // A hundred and eighty-nine rows is not a table, it is a wall — and it
+  // pushes Housekeeping and the history two screens down. So the table shows
+  // the first dozen and says what it is not showing. The reader who wants all
+  // of them wants a terminal, and the actions below open one.
+  readonly property int listCap: 12
+
   readonly property string headerNote: app.packages.installed !== undefined
     ? app.packages.installed + " installed · "
       + (pending.length === 0 ? "nothing waiting" : pending.length + " waiting")
@@ -149,7 +155,8 @@ Ui.SectionBody {
       emptyNote: checkedAt > 0 ? "Nothing waiting." : "Check for updates to see what is waiting."
       rows: {
         var out = []
-        for (var i = 0; i < shown.length; i++) {
+        var capped = Math.min(shown.length, listCap)
+        for (var i = 0; i < capped; i++) {
           var p = shown[i]
           out.push({ cells: [
             { text: p.name, strong: true },
@@ -158,6 +165,21 @@ Ui.SectionBody {
             { text: p.bytes !== null && p.bytes !== undefined ? app.formatBytes(p.bytes) : "",
               align: "right" },
             { text: p.foreign === true ? "AUR" : "repo" }
+          ] })
+        }
+        // The remainder as one row, weighed rather than merely counted: what
+        // the reader wants to know about the rest is how much of the download
+        // it is.
+        if (shown.length > capped) {
+          var rest = 0
+          for (var r = capped; r < shown.length; r++)
+            if (shown[r].bytes !== null && shown[r].bytes !== undefined) rest += Number(shown[r].bytes)
+          out.push({ cells: [
+            { text: (shown.length - capped) + " more" },
+            { text: "" },
+            { text: "" },
+            { text: rest > 0 ? app.formatBytes(rest) : "", align: "right" },
+            { text: "" }
           ] })
         }
         return out
