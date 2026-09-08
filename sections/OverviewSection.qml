@@ -81,8 +81,14 @@ Ui.SectionBody {
 
   // First, because the reader did not ask for it: anything they would want to
   // know before they got to whatever they opened the window for.
+  // Gone entirely when there is nothing, heading and all — not replaced by a
+  // note saying so. A section that reports its own emptiness is a section that
+  // takes up room on every good day to reassure the reader on none of them,
+  // and the page has a better way of saying it: the top of the page is the
+  // toggles, which is what you came for when nothing is wrong.
   Ui.SettingGroup {
     title: "Needs attention"
+    note: attention.length === 1 ? "1 thing" : attention.length + " things"
     visible: !searchEmpty && attention.length > 0
 
     Repeater {
@@ -113,20 +119,6 @@ Ui.SectionBody {
           app.pollOverview()
         }
       }
-    }
-  }
-
-  // A note when there is nothing, rather than a group that quietly is not
-  // there: "nothing needs attention" is the answer the reader came for, and a
-  // page that omits it leaves them wondering whether it looked.
-  Ui.SettingGroup {
-    visible: !searchEmpty && attention.length === 0 && app.loaded
-
-    Ui.ReadingRow {
-      label: "Nothing needs attention"
-      // Says what was actually looked at. "Nothing misconfigured" outlived the
-      // one misconfiguration this page ever checked for.
-      description: "Nothing full, nothing flat, nothing behind."
     }
   }
 
