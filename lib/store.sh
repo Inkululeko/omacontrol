@@ -18,4 +18,16 @@ edit_store() {
   render_managed
 }
 
+# The same edit without the re-render, for the things the store remembers that
+# no Hyprland config is derived from — which notices have been waved away, say.
+# Going through edit_store for those would rewrite and reload the generated
+# config to record that someone clicked an x.
+note_store() {
+  local filter=$1
+  shift
+  local next
+  next=$(jq -c "$filter" "$@" <<<"$(read_store)") || die "failed to update $STORE"
+  write_file "$STORE" managed <<<"$next" || die "failed to write $STORE"
+}
+
 store_get() { jq -r --arg k "$1" '.hypr[$k] // empty' <<<"$(read_store)"; }

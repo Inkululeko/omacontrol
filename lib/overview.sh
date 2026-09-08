@@ -101,9 +101,79 @@ overview_dictation() {
 # trip — `checkupdates` syncs a database — and nothing in this window may wait
 # on the network. Omarchy's own update indicator in the bar already says it.
 overview_attention() {
-  local boot
-  boot=$(overview_boot_space)
-  jq -cn --argjson boot "${boot:-null}" '[ $boot ] | map(select(. != null))'
+  par_begin || { echo '[]'; return; }
+  par_run boot overview_boot_space
+  par_run peripherals overview_low_peripherals
+  par_wait
+  local boot peripherals
+  boot=$(par_get boot 'null')
+  peripherals=$(par_get peripherals '[]')
+  par_end
+
+  jq -cn --argjson boot "${boot:-null}" --argjson peripherals "${peripherals:-[]}" \
+    '[ $boot ] + $peripherals | map(select(. != null))'
+}
+
+# A keyboard or mouse about to die is the one thing on this list the reader
+# cannot find out any other way — a Bluetooth peripheral does not warn you, it
+# just stops. upower knows, because BlueZ tells it.
+#
+# 20 % is the threshold: low enough not to nag, high enough that there is time
+# to do something before the device drops off mid-sentence.
+overview_low_peripherals() {
+  local devices
+  devices=$(capture upower -e | grep -E '/(mouse|keyboard|headset|headphones|pen|touchpad)_')
+  [[ -n ${devices:-} ]] || { echo '[]'; return; }
+
+  local out=() device info model percent
+  while read -r device; do
+    [[ -n $device ]] || continue
+    info=$(capture upower -i "$device")
+    percent=$(awk '/percentage:/ { gsub(/%/, "", $2); print $2; exit }' <<<"$info")
+    [[ -n ${percent:-} ]] || continue
+    [[ ${percent%%.*} -lt 20 ]] 2>/dev/null || continue
+    model=$(awk -F': +' '/model:/ { print $2; exit }' <<<"$info")
+    [[ -n ${model:-} ]] || model="A Bluetooth device"
+    out+=("$(jq -cn --arg model "$model" --argjson percent "${percent%%.*}" \
+      '{ kind: "peripheral",
+         id: ("peripheral:" + $model),
+         title: ($model + " is at " + ($percent | tostring) + " %"),
+         note: "Charge it before it drops off Bluetooth.",
+         action: "bluetooth", actionLabel: "Open Bluetooth" }')")
+  done <<<"$devices"
+
+  ((${#out[@]})) && printf '%s\n' "${out[@]}" | jq -cs '.' || echo '[]'
+}
+
+# ---------------------------------------------------------------- what is due
+#
+# Three sources, each already cached by whoever owns it: the package list this
+# window keeps, the plugin-update cache the Plugins page reads, and Omarchy's
+# own version. Nothing here syncs anything — the page shows what is known and
+# says when it was last asked.
+overview_updates() {
+  local pending plugins version channel
+  pending=$(packages_pending_cached)
+  plugins=$(plugin_updates_cache)
+  version=$(omarchy_version)
+  channel=$(omarchy_channel)
+
+  jq -cn \
+    --argjson pending "${pending:-{\}}" \
+    --argjson plugins "${plugins:-{\}}" \
+    --arg version "$version" \
+    --arg channel "$channel" '''
+    ( [ $pending.items[]? ] ) as $items
+    # Omarchy ships as a package like everything else, so its own row is that
+    # package pulled out of the list and named properly.
+    | ( $items | map(select(.name == "omarchy" or .name == "omarchy-dev")) | first ) as $omarchy
+    | ( [ $plugins.results // {} | to_entries[] | select(.value > 0) | .key ] ) as $behind
+    | { checkedAt: ($pending.checkedAt // 0),
+        version: $version,
+        channel: $channel,
+        omarchy: (if $omarchy then { available: $omarchy.available } else null end),
+        packages: ($items | length),
+        plugins: $behind }'''
 }
 
 # /boot is small, and it is the one partition where running out stops the
@@ -119,6 +189,7 @@ overview_boot_space() {
 
   jq -cn --argjson pct "${pct:-0}" --argjson size "$size" --argjson used "$used" '''
     { kind: "boot",
+      id: "boot",
       urgent: true,
       title: ("/boot is " + ($pct | tostring) + " % full"),
       note: "A kernel update may not fit.",
@@ -129,10 +200,17 @@ overview_state() {
   par_begin || { echo '{}'; return; }
   par_run toggles overview_toggles
   par_run attention overview_attention
+  par_run updates overview_updates
+  par_run news news_cached
+  par_run dismissed overview_dismissed
   par_wait
-  local toggles attention uptime
+  local toggles attention uptime updates news
   toggles=$(par_get toggles '[]')
   attention=$(par_get attention '[]')
+  updates=$(par_get updates '{}')
+  news=$(par_get news '{}')
+  local dismissed
+  dismissed=$(par_get dismissed '[]')
   par_end
 
   # Read here rather than taken off the Processes page: one line of /proc, and
@@ -144,7 +222,12 @@ overview_state() {
     --argjson toggles "${toggles:-[]}" \
     --argjson attention "${attention:-[]}" \
     --argjson uptime "${uptime:-0}" \
-    '{ toggles: $toggles, attention: $attention, uptime: $uptime }'
+    --argjson updates "${updates:-{\}}" \
+    --argjson news "${news:-{\}}" \
+    --argjson dismissed "${dismissed:-[]}" \
+    '{ toggles: $toggles,
+       attention: [ $attention[] | select((.id // "") as $id | $dismissed | index($id) == null) ],
+       uptime: $uptime, updates: $updates, news: $news }'
 }
 
 overview_cmd() {
@@ -160,9 +243,30 @@ overview_cmd() {
         dictation) setsid -f voxtype record toggle >/dev/null 2>&1 ;;
         *) die "usage: omacontrol overview toggle nightlight|dnd|awake|dictation" ;;
       esac ;;
-    reminder) setsid -f omarchy-reminder >/dev/null 2>&1 ;;
-    record) setsid -f omarchy-capture-screenrecording >/dev/null 2>&1 ;;
-    screenshot) setsid -f omarchy-capture-screenshot >/dev/null 2>&1 ;;
-    *) die "usage: omacontrol overview state|poll|toggle <switch>|reminder|record|screenshot" ;;
+    # Waving a notice away is remembered for a day, not for ever: the
+    # condition that raised it is still true, and a reader who dismisses it
+    # wants it gone now rather than never mentioned again.
+    dismiss) shift; [[ -n ${1:-} ]] || die "usage: omacontrol overview dismiss <id>"
+      overview_dismiss "$1" ;;
+    *) die "usage: omacontrol overview state|poll|toggle <switch>|dismiss <id>" ;;
   esac
+}
+
+# ---------------------------------------------------------------- dismissals
+#
+# Kept in OmaControl's own store, beside everything else this window
+# remembers. Stamped rather than flagged: a dismissal that never expires turns
+# the page into one that quietly stops mentioning a full disk.
+OVERVIEW_DISMISS_FOR=${OMACONTROL_DISMISS_FOR:-86400}
+
+overview_dismiss() {
+  note_store '.dismissed = ((.dismissed // {}) | .[$id] = $at)' \
+    --arg id "$1" --argjson at "$(date +%s)"
+}
+
+overview_dismissed() {
+  local now
+  now=$(date +%s)
+  read_store | jq -c --argjson now "$now" --argjson for "$OVERVIEW_DISMISS_FOR" \
+    '[ (.dismissed // {}) | to_entries[] | select(($now - .value) < $for) | .key ]'
 }
