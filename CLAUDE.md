@@ -967,25 +967,42 @@ each get the design in their own colours. Never hardcode a colour in a page.
 **Three surfaces and no more:** the window, the rail beside it, and the cards
 on it. Anything finer stops being visible once a theme supplies the colours.
 
-**The rail is flat and clustered.** Every page is its own row; the only thing
-between one cluster and the next is whitespace. Nothing folds open. A tree
-earns its keep when a branch holds more than a screenful, and these hold four
-rows each — the fold was one click between the reader and a page they could
-otherwise have hit directly. The gap above a cluster is part of the *row's*
-height rather than list spacing, so it survives a search that empties the rows
-either side of it.
+**Two levels: a rail of ten, and a list only where it earns one.** The rail is
+ten destinations, always on screen, each on a number key. Five of them *are* a
+page — Overview, Network, Bluetooth, Sound, Displays — and for those the list
+column is not rendered at all: a column holding one row is a column asking to
+be clicked through for nothing. The other five open a short list, and Apps
+splits its list under two headings.
 
-**A tinted square in front of every row.** Eight tints, one per cluster, is
-what lets someone find "the network one" without reading the list — and it
-carries the grouping even after a search has pulled the clusters apart. One
-accent cannot make eight distinguishable colours, so the clusters are spread
-along the distance between the accent and the foreground.
+This replaced a flat rail of twenty-six rows. Flat put every page one click
+away and made none of them findable: the eye has no landmarks in a list that
+long, so it read top to bottom every time. Ten icons are *remembered* — the
+shape of the rail becomes the map — and the pages under them are a list you
+scan rather than one you search. Every page in the window is now at most two
+keystrokes away.
 
-**The page says where it is, not just what it is.** A flat rail of twenty-six
-rows tells the reader where they can *go* and nothing about where they *are*,
-so every page carries a `crumb` and the header prints it over the page name.
-It is not always the cluster: Displays is filed under Desktop, but a reader
-arriving there is thinking about screens.
+**A hairline between the page-rails and the section-rails.** Both are
+destinations, so both are on the rail; but pressing one of the first five lands
+you on the thing itself and one of the last five lands you in a list, and that
+is worth seeing before you press. It is drawn in a top margin on the first
+grouped rail rather than as an eleventh delegate — a separator smuggled into
+the model would put every index after it out of step with the rail it names.
+
+**No icon in the list.** The rail carries the iconography; repeating it one
+column over says the same thing twice and gives the page names a ragged left
+edge to start from.
+
+**A rail whose pages a search has emptied is dimmed, not removed.** The rail is
+the map. A map that rearranges itself while you type is not one.
+
+**The search box lives in the window header.** It was at the top of the
+sidebar, where it filtered the column beneath it and looked like it belonged to
+that column — but a search crosses every rail, so it belongs to the window.
+
+**The crumb appears only where the rail is a grouping.** It is the open rail's
+label, printed over the page name — which is worth saying for Disk under System
+and useless for Network under Network. "Overview / Overview" says nothing
+twice, and a crumb that is always there stops being read.
 
 **What has changed sits beside what it undoes.** The count and "Undo all" are
 in the page header. In the rail they sat under a menu they had nothing to do

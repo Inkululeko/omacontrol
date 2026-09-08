@@ -859,7 +859,9 @@ Item {
 
     keys.push({ keys: ["\u2191", "\u2193"], label: "Move" })
     if (hasList) keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
-    keys.push({ keys: ["1", "\u2013", "0"], label: "Section" })
+    // One cap, not three. "1" "–" "0" as separate caps reads as a chord with
+    // a dash key in it.
+    keys.push({ keys: ["1\u20130"], label: "Section" })
     keys.push({ keys: ["/"], label: "Search" })
     keys.push({ keys: ["esc"], label: "Close" })
     return keys
