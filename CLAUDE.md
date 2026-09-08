@@ -200,6 +200,20 @@ a whole core 100 %, which on sixteen cores is 6 % of the machine. The bars in
 the table are scaled by the core count so they mean the same thing as the CPU
 card above them.
 
+## A poll asked for during a poll is owed
+
+`pollInto` remembers a poll it could not start and runs it when the one in
+flight finishes. Dropping it — the obvious guard, and the first version — costs
+every action on every live page up to a full poll interval of staleness: mark a
+headline read and the store is written at once, while the star stays put for
+another five seconds because the poll that would have noticed was refused, and
+the timer's own poll had already read the old value. The *command* is
+remembered rather than merely a flag, so a reader that takes an argument (the
+process sort) re-runs with the argument it was asked for.
+
+This is the same shape as `refreshOwed` and `sliceOwed` on the state read, and
+for the same reason.
+
 ## Migrating a rename
 
 `bin/omacontrol-migrate` carries an OmaSettings install over. Worth knowing why
@@ -254,6 +268,24 @@ news page's HTML — someone else's markup, which will change; one of the
 headlines it currently returns is about the site being redesigned. A parse that
 finds nothing keeps the last good cache and the section disappears rather than
 showing wreckage.
+
+**Half an hour, checked in the reader.** `news fetch` compares the cache's age
+itself and returns the cache untouched if it is under `NEWS_MAX_AGE`. That is
+what lets the page ask on open *and* on a half-hourly timer without either
+being a request — and it was briefly a lie: `fetch` ran the request
+unconditionally while `stale` sat there as a subcommand nobody called.
+
+**A star means new since you last looked, so the first list is not new.** The
+first successful fetch marks everything it found as read and sets
+`newsSeeded`; without it a fresh install opens on eight starred headlines, none
+of which the reader has missed. The flag is separate from the read list, or
+marking everything unread again would be undone by the next fetch.
+
+Read marks live in **our store**, not beside the cache. The cache is
+disposable — delete it and the next fetch rebuilds it — while what you have
+already read is yours. They go through `note_store`, so recording a read
+headline does not re-render the Hyprland config, and the list is capped: a
+headline that scrolled off omarchy.org cannot come back to be unread.
 
 **A headline is untrusted text.** `news open` refuses any URL that is not on
 omarchy.org, so a link cannot be turned into a way to open something else.

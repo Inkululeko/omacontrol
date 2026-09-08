@@ -9,7 +9,8 @@ One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 - **Overview.** Opens on what needs you: a partition filling up, a peripheral
   about to run out of battery. The switches you reach for daily — night light,
   do not disturb, stay awake, dictation. What is waiting to update. And the
-  latest from omarchy.org.
+  latest from omarchy.org, checked every half hour, with a star on anything you
+  have not read yet.
 - **Packages.** What is installed, what is waiting, and how much it weighs —
   repositories and the AUR together. Plus the housekeeping nobody remembers:
   the package cache, orphans, and `.pacnew` files waiting to be merged.
