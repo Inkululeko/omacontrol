@@ -55,30 +55,76 @@ packages_stale() {
 
 packages_refresh() {
   command -v checkupdates >/dev/null 2>&1 || { echo '{}'; return; }
-  local raw
-  # A longer bound than the other readers get: this one is a network sync, and
+  local repo aur
+  # A longer bound than the other readers get: these are network syncs, and
   # five seconds is not enough for a mirror on a bad day.
-  raw=$(timeout 60 checkupdates --nocolor 2>/dev/null | head -c "$OMACONTROL_READ_MAX")
+  repo=$(timeout 60 checkupdates --nocolor 2>/dev/null | head -c "$OMACONTROL_READ_MAX")
+  aur=$(packages_aur_pending)
 
-  local items foreign
-  # `pkg old -> new`. Anything that does not look like that is not a row.
-  items=$(printf '%s\n' "$raw" | awk 'NF >= 4 && $2 != "" {
-      printf "%s\t%s\t%s\n", $1, $2, $4
-    }' | jq -Rc -s '
+  local items
+  # `pkg old -> new` from both, which is the one format they agree on.
+  items=$(printf '%s\n%s\n' "$repo" "$aur" \
+    | awk 'NF >= 4 && $2 != "" && $3 == "->" {
+        printf "%s\t%s\t%s\n", $1, $2, $4
+      }' | jq -Rc -s '
       [ split("\n")[] | select(length > 0) | split("\t")
-        | { name: .[0], installed: .[1], available: .[2] } ]')
+        | { name: .[0], installed: .[1], available: .[2] } ]
+      | unique_by(.name)')
+
   # Which of them came from the AUR, so the page can label and filter them.
   # Asked of the local database, which already knows.
+  local foreign explicit sizes
   foreign=$(capture pacman -Qqm | jq -Rc -s '[ split("\n")[] | select(length > 0) ]')
+  explicit=$(capture pacman -Qqe | jq -Rc -s '[ split("\n")[] | select(length > 0) ]')
+  # What each one costs to fetch. One sync database query for the whole list —
+  # 184 packages in a sixth of a second — so there is no reason for the page
+  # to show a count of updates without their weight. AUR packages are built
+  # rather than downloaded, so the repositories are the only ones with an
+  # answer here.
+  sizes=$(packages_sizes "$items")
 
   local next
   next=$(jq -cn --argjson items "${items:-[]}" --argjson foreign "${foreign:-[]}" \
+    --argjson explicit "${explicit:-[]}" --argjson sizes "${sizes:-{\}}" \
     --argjson at "$(date +%s)" '''
     { checkedAt: $at,
-      items: [ $items[] | . + { foreign: ([$foreign[]] | index(.name) != null) } ] }''')
+      # Bound first. Inside `index(...)` the `.` is the list being searched,
+      # not the row — so `index(.name)` asks the array for its own .name,
+      # which is null, and every row comes back the same. The trap is in
+      # CLAUDE.md and it still caught this one.
+      items: [ $items[] | . as $row
+               | $row + { foreign: ($foreign | index($row.name) != null),
+                          explicit: ($explicit | index($row.name) != null),
+                          bytes: ($sizes[$row.name] // null) } ] }''')
   mkdir -p "$(dirname "$PACKAGES_CACHE")"
   printf '%s\n' "$next" >"$PACKAGES_CACHE" 2>/dev/null
   printf '%s' "$next"
+}
+
+# Download size per package, keyed by name. expac asks the sync database in
+# one call and answers in bytes, which is what the window formats; `pacman -Si`
+# would answer in MiB strings that then have to be parsed back.
+packages_sizes() {
+  local names
+  names=$(jq -r '[ .[] | select(.foreign != true) | .name ] | join(" ")' <<<"${1:-[]}" 2>/dev/null)
+  [[ -n ${names// /} ]] || { echo '{}'; return; }
+  command -v expac >/dev/null 2>&1 || { echo '{}'; return; }
+
+  emit_json "$(capture expac -S '%n\t%k' $names \
+    | jq -Rc -s '[ split("\n")[] | select(length > 0) | split("\t")
+                   | { key: .[0], value: (.[1] | tonumber? // null) } ] | from_entries')" '{}'
+}
+
+# checkupdates is repositories only — it has no idea the AUR exists — so an
+# AUR-heavy machine would be told it was up to date while a dozen packages
+# waited. yay answers for those, behind the same reachability test Omarchy's
+# own updater uses: the AUR is frequently down, and a page should not stall on
+# it or report "nothing waiting" when it simply could not ask.
+packages_aur_pending() {
+  command -v yay >/dev/null 2>&1 || return 0
+  capture pacman -Qqm >/dev/null 2>&1 || return 0
+  omarchy-pkg-aur-accessible >/dev/null 2>&1 || return 0
+  timeout 60 yay -Qua 2>/dev/null | head -c "$OMACONTROL_READ_MAX"
 }
 
 # ---------------------------------------------------------------- housekeeping

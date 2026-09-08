@@ -214,6 +214,50 @@ Item {
   }
   Process { id: breakdownPoll; stdout: LiveCollector { onParsed: function(value) { root.diskBreakdown = value } } }
 
+  property var packagesLive: null
+  readonly property var packages: packagesLive !== null ? packagesLive : ({})
+  function pollPackages() { pollInto(packagesPoll, ["packages", "poll"]) }
+  Process { id: packagesPoll; stdout: LiveCollector { onParsed: function(value) { root.packagesLive = value } } }
+
+  // A database sync, so it is asked for and never assumed: the page offers it,
+  // and the poll above picks up whatever it wrote.
+  property bool packagesSyncing: false
+  function refreshPackages() {
+    if (packagesSync.running) return
+    packagesSyncing = true
+    packagesSync.command = ["bash", root.helperPath, "packages", "refresh"]
+    packagesSync.running = true
+  }
+  Process {
+    id: packagesSync
+    onRunningChanged: if (!running) { root.packagesSyncing = false; root.pollPackages() }
+  }
+
+  property var usageLive: null
+  readonly property var usage: usageLive !== null ? usageLive : ({})
+  function pollUsage() { pollInto(usagePoll, ["usage", "poll"]) }
+  Process { id: usagePoll; stdout: LiveCollector { onParsed: function(value) { root.usageLive = value } } }
+
+  property var aboutLive: null
+  readonly property var about: aboutLive !== null ? aboutLive : ({})
+  function pollAbout() { pollInto(aboutPoll, ["about", "poll"]) }
+  Process { id: aboutPoll; stdout: LiveCollector { onParsed: function(value) { root.aboutLive = value } } }
+
+  // The one outbound request this window makes, and it is made once per
+  // opening at most. `news fetch` decides for itself whether the cache has
+  // aged out, so asking costs nothing when it has not.
+  property bool newsAsked: false
+  function fetchNews() {
+    if (newsAsked || newsFetch.running) return
+    newsAsked = true
+    newsFetch.command = ["bash", root.helperPath, "news", "fetch"]
+    newsFetch.running = true
+  }
+  Process {
+    id: newsFetch
+    onRunningChanged: if (!running) root.pollOverview()
+  }
+
   property var processesLive: null
   readonly property var processes: processesLive !== null ? processesLive : ({})
   // Which column the reader is sorting on. The sort happens where the rows
@@ -262,6 +306,30 @@ Item {
     // reads, "255.23 GB" is a measurement, and "1004 GB" should have been TB.
     var digits = unit === 0 ? 0 : (n < 100 ? 1 : 0)
     return n.toFixed(digits) + " " + units[unit]
+  }
+
+  // How long ago something happened, said the way someone would say it. Takes
+  // a unix stamp because that is what a shell reader can hand over without
+  // committing to a format the window would then have to parse back.
+  function formatWhen(stamp) {
+    var seconds = Math.floor(Date.now() / 1000) - Number(stamp)
+    if (!isFinite(seconds)) return ""
+    if (seconds < 90) return "just now"
+    if (seconds < 5400) return Math.round(seconds / 60) + " min ago"
+    if (seconds < 172800) return Math.round(seconds / 3600) + " h ago"
+    return Math.round(seconds / 86400) + " days ago"
+  }
+
+  // Token counts run to the hundreds of millions, and formatBytes would call
+  // those gigabytes. Same shortening, different unit and no unit suffix — the
+  // column heading already says what is being counted.
+  function formatTokens(count) {
+    var n = Number(count)
+    if (!isFinite(n) || n < 0) return ""
+    if (n < 1000) return String(Math.round(n))
+    if (n < 1000000) return (n / 1000).toFixed(n < 100000 ? 1 : 0) + "k"
+    if (n < 1000000000) return (n / 1000000).toFixed(n < 100000000 ? 1 : 0) + "M"
+    return (n / 1000000000).toFixed(1) + "B"
   }
 
   // Whole units, largest first, and never more than two of them: "6 d 3 h" is
@@ -905,6 +973,10 @@ Item {
         ? ["nightlight"] : []
       case "disk": return []
       case "processes": return []
+      case "packages": return []
+      case "usage": return []
+      case "news": return []
+      case "about": return []
       case "set": return slicesForKey(args.length > 1 ? args[1] : "")
     }
     return []
@@ -922,6 +994,8 @@ Item {
     // hear back. Re-reading the whole document for a mount would be seconds
     // spent to learn nothing.
     return command === "overview" || command === "disk" || command === "processes"
+      || command === "packages" || command === "usage" || command === "news"
+      || command === "about"
   }
 
   // `set` is the one command that is many: what it touches is named by its
@@ -1104,12 +1178,15 @@ Item {
       { id: "disk", title: "Disk", icon: "\uf0a0", crumb: "Storage" },
       { id: "processes", title: "Processes", icon: "\uf080", crumb: "Storage" },
       { id: "idle", title: "Idle & Lock", icon: "\uf023", crumb: "Session" },
-      { id: "datetime", title: "Date & Time", icon: "\uf017", crumb: "Session" }
+      { id: "datetime", title: "Date & Time", icon: "\uf017", crumb: "Session" },
+      { id: "about", title: "About", icon: "\uf05a", crumb: "Session" }
     ] },
 
     { label: "Applications", pages: [
       { id: "apps.defaults", title: "Defaults", icon: "\uf009", crumb: "Applications" },
+      { id: "packages", title: "Packages", icon: "\uf187", crumb: "Plugins" },
       { id: "plugins", title: "Plugins", icon: "\uf1e6", crumb: "Plugins" },
+      { id: "usage", title: "Agent usage", icon: "\uf200", crumb: "Plugins" },
       { id: "apps.herdr", title: "Herdr", icon: "\uf120", crumb: "Configs" },
       { id: "apps.tmux", title: "Tmux", icon: "\uf120", crumb: "Configs" },
       { id: "apps.nvim", title: "Neovim", icon: "\uf121", crumb: "Configs" }
@@ -1172,6 +1249,9 @@ Item {
   function sectionSource(id) {
     switch (id) {
     case "overview": return "sections/OverviewSection.qml"
+    case "packages": return "sections/PackagesSection.qml"
+    case "usage": return "sections/UsageSection.qml"
+    case "about": return "sections/AboutSection.qml"
     case "disk": return "sections/DiskSection.qml"
     case "processes": return "sections/ProcessesSection.qml"
     case "appearance": return "sections/AppearanceSection.qml"

@@ -28,6 +28,13 @@ Ui.SectionBody {
   // Two sources, deliberately. What only the shell can answer — how full
   // /boot is — comes from the reader; what the window already holds is
   // derived here rather than read a second time.
+  readonly property var updates: app.overview.updates !== undefined ? app.overview.updates : ({})
+  readonly property var news: app.overview.news !== undefined ? app.overview.news : ({})
+  readonly property var newsItems: news.items !== undefined ? news.items : []
+  readonly property var updatePlugins: updates.plugins !== undefined ? updates.plugins : []
+  readonly property bool hasUpdates: (updates.omarchy !== undefined && updates.omarchy !== null)
+    || updates.packages > 0 || updatePlugins.length > 0
+
   readonly property var attention: {
     var items = []
     var reported = app.overview.attention !== undefined ? app.overview.attention : []
@@ -51,6 +58,7 @@ Ui.SectionBody {
         scales.push(fractional[f].scale)
       }
       items.push({
+        id: "scaling",
         title: names.join(", ") + (fractional.length === 1 ? " runs" : " run")
           + " at a fractional scale",
         note: scales.join(", ") + " · Xwayland windows can come out soft.",
@@ -61,6 +69,7 @@ Ui.SectionBody {
 
     if (app.selfBehind > 0)
       items.push({
+        id: "self",
         title: "OmaControl is " + app.selfBehind
           + (app.selfBehind === 1 ? " commit behind" : " commits behind"),
         note: "Checked once this opening.",
@@ -92,6 +101,12 @@ Ui.SectionBody {
     onTriggered: app.pollOverview()
   }
 
+  // The one thing in this window that leaves the machine, and it is asked
+  // once: the reader decides nothing, the *cache's age* does. A fetch that
+  // finds the cache fresh does not happen at all, and the fetch itself never
+  // blocks anything — the poll above picks up whatever landed.
+  Component.onCompleted: app.fetchNews()
+
   // First, because the reader did not ask for it: anything they would want to
   // know before they got to whatever they opened the window for.
   Ui.SettingGroup {
@@ -101,20 +116,29 @@ Ui.SectionBody {
     Repeater {
       model: attention
 
-      Ui.ActionRow {
+      Ui.NoticeRow {
         required property var modelData
 
         label: modelData.title
         description: modelData.note !== undefined ? modelData.note : ""
-        buttonText: modelData.actionLabel !== undefined ? modelData.actionLabel : "Open"
+        glyph: modelData.urgent === true ? "\uf071" : "\uf05a"
+        urgent: modelData.urgent === true
+        actionText: modelData.actionLabel !== undefined ? modelData.actionLabel : "Open"
+        dismissable: modelData.id !== undefined
+
         onTriggered: {
           if (modelData.update === true) {
             if (app.selfId !== "") app.run(["plugin", "update", app.selfId])
           } else if (modelData.page !== undefined) {
             app.pageId = modelData.page
-          } else if (modelData.action === "disk") {
-            app.pageId = "disk"
+          } else if (modelData.action !== undefined) {
+            app.pageId = modelData.action
           }
+        }
+
+        onDismissed: {
+          app.run(["overview", "dismiss", modelData.id])
+          app.pollOverview()
         }
       }
     }
@@ -132,11 +156,11 @@ Ui.SectionBody {
     }
   }
 
-  // Tiles across, not rows down. The question these answer is *which of these
-  // are on* — asked of all four at once — and a filled tile answers it from
-  // across the room where four knobs in a vertical line do not.
+  // Tiles across, not rows down, and no heading over them. They are a strip of
+  // chrome the page opens with rather than a section of it: the question they
+  // answer is *which of these are on*, asked of all four at once, and a filled
+  // tile answers it from across the room where four knobs in a line do not.
   Ui.SettingGroup {
-    title: "Toggles"
     // The tiles are the cards. One around them would be a border drawn twice.
     framed: false
 
@@ -144,7 +168,7 @@ Ui.SectionBody {
       id: toggleGrid
       width: parent.width
       columns: 4
-      spacing: Style.space(12)
+      spacing: Style.space(10)
 
       Repeater {
         model: toggles
@@ -172,30 +196,68 @@ Ui.SectionBody {
     }
   }
 
-  // The two things people open a window to start rather than to change. They
-  // are not settings, so they are not dressed as settings: a row and a button
-  // that runs it, and the window gets out of the way.
+  // What is waiting, from three caches and no network. The note says when the
+  // package list was last synced, because a count of updates is meaningless
+  // without knowing how old it is.
   Ui.SettingGroup {
-    title: "Do now"
+    title: "Updates"
+    note: updates.checkedAt > 0
+      ? "Mirrors last checked " + app.formatWhen(updates.checkedAt)
+      : "Mirrors have not been checked yet."
+    visible: !searchEmpty && hasUpdates
 
-    Ui.ActionRow {
-      label: "Set a reminder"
-      description: "Asks how long, then notifies you."
-      buttonText: "Set"
-      onTriggered: { app.run(["overview", "reminder"]); app.hide() }
+    // Omarchy ships as a package, so its row is that package pulled out of
+    // the list and named as the thing the reader actually thinks about.
+    Ui.NoticeRow {
+      visible: updates.omarchy !== undefined && updates.omarchy !== null
+      glyph: ""
+      label: updates.omarchy ? "Omarchy " + updates.omarchy.available : ""
+      description: "You are on " + updates.version
+        + (updates.channel !== "" ? " · " + updates.channel + " channel" : "")
+      actionText: "Update"
+      onTriggered: { app.run(["packages", "update"]); app.hide() }
     }
 
-    Ui.ActionRow {
-      label: "Record the screen"
-      description: "Pick a region or a display; stop it from the bar."
-      buttonText: "Record"
-      onTriggered: { app.run(["overview", "record"]); app.hide() }
+    Ui.NoticeRow {
+      visible: updates.packages > 0
+      glyph: ""
+      label: updates.packages === 1 ? "1 package" : updates.packages + " packages"
+      description: "Waiting in the repositories and the AUR."
+      actionText: "Open Packages"
+      onTriggered: app.pageId = "packages"
     }
 
-    Ui.ActionRow {
-      label: "Take a screenshot"
-      buttonText: "Capture"
-      onTriggered: { app.run(["overview", "screenshot"]); app.hide() }
+    Ui.NoticeRow {
+      visible: updatePlugins.length > 0
+      glyph: ""
+      label: updatePlugins.length === 1 ? "1 plugin" : updatePlugins.length + " plugins"
+      description: updatePlugins.join(" · ")
+      actionText: "Open Plugins"
+      onTriggered: app.pageId = "plugins"
+    }
+  }
+
+  // The only thing in this window that comes off the network. It is last
+  // because it is the only thing on the page that is not about this machine.
+  Ui.SettingGroup {
+    title: "From omarchy.org"
+    note: news.fetchedAt !== undefined && news.fetchedAt > 0
+      ? "Fetched " + app.formatWhen(news.fetchedAt) : ""
+    visible: !searchEmpty && newsItems.length > 0
+
+    Repeater {
+      model: newsItems.slice(0, 5)
+
+      Ui.ActionRow {
+        required property var modelData
+
+        label: modelData.title
+        // What the site itself printed, rather than a date reformatted into
+        // something its author would not recognise.
+        description: modelData.shown !== undefined ? modelData.shown : ""
+        buttonText: "Read"
+        onTriggered: app.run(["news", "open", modelData.url])
+      }
     }
   }
 }

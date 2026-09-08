@@ -3,8 +3,8 @@ import qs.Commons
 import qs.Ui
 import "." as Local
 
-// One switch, as a tile: the icon and the switch on a line, the name and what
-// it is doing underneath. Four across.
+// One switch, as a tile: icon, name over what it is doing, then the switch —
+// all on one line. Four across.
 //
 // Why a tile and not a row. These are the things flipped several times a day,
 // and the question asked of them is *which of these are on right now* — asked
@@ -16,6 +16,10 @@ import "." as Local
 // So the fill is the state, and the switch is only the affordance. That is also
 // why the whole tile is clickable: a target the size of a tile is one you can
 // hit without looking, which is the point of putting these on the front page.
+//
+// Everything on one line rather than stacked, because these sit above the
+// page's real content and a two-line tile pushed it off the fold. They are a
+// strip of chrome across the top, not the subject of the page.
 NavRow {
   id: tile
 
@@ -32,7 +36,7 @@ NavRow {
   onNavActivate: tile.requested(!tile.checked)
   navKeys: [{ key: "Space", label: "Toggle" }]
 
-  implicitHeight: body.implicitHeight + Style.space(28)
+  implicitHeight: Math.max(badge.height, control.height) + Style.space(18)
 
   Rectangle {
     id: surface
@@ -57,76 +61,67 @@ NavRow {
     }
   }
 
+  Rectangle {
+    id: badge
+    anchors.left: parent.left
+    anchors.leftMargin: Style.space(11)
+    anchors.verticalCenter: parent.verticalCenter
+    width: Style.space(28)
+    height: Style.space(28)
+    radius: width / 2
+    color: tile.checked ? Local.Palette.onAccentWash(0.20) : Local.Palette.shade(0.12)
+
+    Text {
+      anchors.centerIn: parent
+      text: tile.glyph
+      color: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
+      font.family: Local.Palette.fontFamily
+      font.pixelSize: Style.font.iconSmall
+    }
+  }
+
   Column {
-    id: body
-    x: Style.space(14)
-    y: Style.space(14)
-    width: parent.width - Style.space(28)
-    spacing: Style.space(10)
+    anchors.left: badge.right
+    anchors.leftMargin: Style.space(9)
+    anchors.right: control.left
+    anchors.rightMargin: Style.space(9)
+    anchors.verticalCenter: parent.verticalCenter
+    spacing: 0
 
-    Item {
+    Text {
       width: parent.width
-      height: Math.max(badge.height, control.height)
-
-      // Round, where the sidebar's icons are square: those name a place you
-      // can go, this names a thing that is either on or off.
-      Rectangle {
-        id: badge
-        anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(34)
-        height: Style.space(34)
-        radius: width / 2
-        color: tile.checked ? Local.Palette.onAccentWash(0.20) : Local.Palette.shade(0.12)
-
-        Text {
-          anchors.centerIn: parent
-          text: tile.glyph
-          color: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
-          font.family: Local.Palette.fontFamily
-          font.pixelSize: Style.font.icon
-        }
-      }
-
-      ToggleSwitch {
-        id: control
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        checked: tile.checked
-        // The tile owns the click, so the switch does not take the cursor.
-        interactive: false
-        foreground: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
-        // On a filled tile the accent track would vanish into the fill.
-        accent: tile.checked ? Local.Palette.onAccentWash(0.35) : Local.Palette.accent
-      }
+      text: tile.label
+      elide: Text.ElideRight
+      color: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
+      font.family: Local.Palette.fontFamily
+      font.pixelSize: Style.font.body
+      font.bold: true
     }
 
-    Column {
+    Text {
+      visible: tile.note !== ""
       width: parent.width
-      spacing: Style.space(1)
-
-      Text {
-        width: parent.width
-        text: tile.label
-        elide: Text.ElideRight
-        color: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
-        font.family: Local.Palette.fontFamily
-        font.pixelSize: Style.font.subtitle
-        font.bold: true
-      }
-
-      Text {
-        visible: tile.note !== ""
-        width: parent.width
-        text: tile.note
-        elide: Text.ElideRight
-        color: tile.checked ? Local.Palette.onAccent : Local.Palette.muted
-        opacity: tile.checked ? 0.9 : 1
-        font.family: Local.Palette.fontFamily
-        font.pixelSize: Style.font.caption
-        font.bold: true
-      }
+      text: tile.note
+      elide: Text.ElideRight
+      color: tile.checked ? Local.Palette.onAccent : Local.Palette.muted
+      opacity: tile.checked ? 0.9 : 1
+      font.family: Local.Palette.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
     }
+  }
+
+  ToggleSwitch {
+    id: control
+    anchors.right: parent.right
+    anchors.rightMargin: Style.space(11)
+    anchors.verticalCenter: parent.verticalCenter
+    checked: tile.checked
+    // The tile owns the click, so the switch does not take the cursor.
+    interactive: false
+    foreground: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
+    // On a filled tile the accent track would vanish into the fill.
+    accent: tile.checked ? Local.Palette.onAccentWash(0.35) : Local.Palette.accent
   }
 
   MouseArea {
