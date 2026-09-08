@@ -195,12 +195,12 @@ Item {
   property var overviewLive: null
   readonly property var overview: overviewLive !== null ? overviewLive : ({})
   function pollOverview() { pollInto(overviewPoll, ["overview", "poll"]) }
-  Process { id: overviewPoll; stdout: LiveCollector { onParsed: function(value) { root.overviewLive = value } } }
+  Poller { id: overviewPoll; onParsed: function(value) { root.overviewLive = value } }
 
   property var diskLive: null
   readonly property var disk: diskLive !== null ? diskLive : ({})
   function pollDisk() { pollInto(diskPoll, ["disk", "poll"]) }
-  Process { id: diskPoll; stdout: LiveCollector { onParsed: function(value) { root.diskLive = value } } }
+  Poller { id: diskPoll; onParsed: function(value) { root.diskLive = value } }
 
   // Asked once when the page opens, not on the poll: the only way to answer it
   // is to walk directories, and doing that every five seconds would be a
@@ -212,12 +212,12 @@ Item {
     diskBreakdownAsked = true
     pollInto(breakdownPoll, ["disk", "breakdown"])
   }
-  Process { id: breakdownPoll; stdout: LiveCollector { onParsed: function(value) { root.diskBreakdown = value } } }
+  Poller { id: breakdownPoll; onParsed: function(value) { root.diskBreakdown = value } }
 
   property var packagesLive: null
   readonly property var packages: packagesLive !== null ? packagesLive : ({})
   function pollPackages() { pollInto(packagesPoll, ["packages", "poll"]) }
-  Process { id: packagesPoll; stdout: LiveCollector { onParsed: function(value) { root.packagesLive = value } } }
+  Poller { id: packagesPoll; onParsed: function(value) { root.packagesLive = value } }
 
   // A database sync, so it is asked for and never assumed: the page offers it,
   // and the poll above picks up whatever it wrote.
@@ -236,12 +236,12 @@ Item {
   property var usageLive: null
   readonly property var usage: usageLive !== null ? usageLive : ({})
   function pollUsage() { pollInto(usagePoll, ["usage", "poll"]) }
-  Process { id: usagePoll; stdout: LiveCollector { onParsed: function(value) { root.usageLive = value } } }
+  Poller { id: usagePoll; onParsed: function(value) { root.usageLive = value } }
 
   property var aboutLive: null
   readonly property var about: aboutLive !== null ? aboutLive : ({})
   function pollAbout() { pollInto(aboutPoll, ["about", "poll"]) }
-  Process { id: aboutPoll; stdout: LiveCollector { onParsed: function(value) { root.aboutLive = value } } }
+  Poller { id: aboutPoll; onParsed: function(value) { root.aboutLive = value } }
 
   // The one outbound request this window makes. Asking is free: `news fetch`
   // checks the cache's age itself and does nothing if it is still warm, so the
@@ -266,29 +266,51 @@ Item {
   // are, so it survives the next poll rather than being reapplied to it.
   property string processSort: "cpu"
   function pollProcesses() { pollInto(processPoll, ["processes", "poll", processSort]) }
-  Process { id: processPoll; stdout: LiveCollector { onParsed: function(value) { root.processesLive = value } } }
+  Poller { id: processPoll; onParsed: function(value) { root.processesLive = value } }
 
-  // A poll already in flight is not asked again. A reader that takes longer
-  // than the interval between polls would otherwise queue up behind itself,
-  // and the queue never gets shorter.
+  // A poll asked for while one is in flight is *owed*, not dropped. Dropped
+  // was the first version, and it cost every action on every live page up to a
+  // full poll interval of staleness: marking a headline read wrote the store
+  // immediately and the star sat there for another five seconds, because the
+  // poll that would have noticed was refused while the timer's own poll — which
+  // had already read the old value — finished.
+  //
+  // The command is remembered rather than reissued, so a page whose reader
+  // takes an argument (the process sort) re-runs with the argument it asked
+  // for and not the one before it.
   function pollInto(process, argv) {
-    if (process.running) return
     var command = ["bash", root.helperPath]
     for (var i = 0; i < argv.length; i++) command.push(argv[i])
+    if (process.running) { process.owedCommand = command; return }
     process.command = command
     process.running = true
   }
 
-  component LiveCollector: StdioCollector {
+  // One reader: run it, parse what it printed, hand it over. A failed read
+  // leaves the last good answer on screen rather than blanking the page.
+  component Poller: Process {
+    id: poller
     signal parsed(var value)
-    waitForEnd: true
-    onStreamFinished: {
-      try {
-        var next = JSON.parse(text)
-        if (next !== null && typeof next === "object") parsed(next)
-      } catch (e) {
-        // A failed read leaves the last good answer on screen.
+    property var owedCommand: null
+
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (next !== null && typeof next === "object") poller.parsed(next)
+        } catch (e) {
+          // Left as it was.
+        }
       }
+    }
+
+    onRunningChanged: {
+      if (running || poller.owedCommand === null) return
+      var next = poller.owedCommand
+      poller.owedCommand = null
+      poller.command = next
+      poller.running = true
     }
   }
 
