@@ -626,13 +626,11 @@ Item {
   // plausibly type — "configs" should find Tmux — and none of them is written
   // anywhere on the page itself.
   function pageNames(pageId) {
-    for (var i = 0; i < sections.length; i++) {
-      if (sections[i].id !== pageId) continue
-      return String(sections[i].title || "") + " "
-        + String(sections[i].cluster || "") + " "
-        + String(sections[i].crumb || "")
-    }
-    return ""
+    var page = pageFor(pageId)
+    // The rail's label counts as a name for every page under it: "system"
+    // should find Disk, and "apps" should find Tmux, neither of which says so
+    // anywhere on the page.
+    return String(page.title || "") + " " + String(page.cluster || "")
   }
 
   function matchesOnPage(pageId, label, description, group) {
@@ -690,12 +688,15 @@ Item {
   onSearchTermChanged: {
     if (!searching) return
     if (pageShows(pageId)) return
-    // Walked from the sections rather than from sidebarRows: that list is a
+    // Walked from the rails rather than from orderedPages: that list is a
     // binding on this very term, and read from inside the change it is still
     // the list for the term before, which lands you on a page that no longer
     // matches.
-    for (var i = 0; i < sections.length; i++)
-      if (pageShows(sections[i].id)) { pageId = sections[i].id; return }
+    for (var r = 0; r < rails.length; r++) {
+      var pages = railPages(rails[r])
+      for (var p = 0; p < pages.length; p++)
+        if (pageShows(pages[p])) { pageId = pages[p]; return }
+    }
   }
 
   // ---------------- keyboard navigation ------------------------------------
@@ -787,46 +788,16 @@ Item {
                                      bottom - bodyScroll.height)
   }
 
-  // The rail's metrics, stated once. Both the delegate that draws a row and
-  // the arithmetic that scrolls to one read these: a row that is drawn one
-  // height and scrolled to as another leaves the cursor walking off the bottom
-  // of a rail that never follows it, which reads as a rail that ignores the
-  // keyboard rather than as a number that is wrong.
-  readonly property real railRowHeight: Style.spacing.controlHeight + Style.space(6)
-  readonly property real railRowGap: Style.space(2)
-  // The whole of the grouping: the gap above the row that opens a cluster.
-  readonly property real railClusterGap: Style.space(14)
-
-  // The sidebar scrolls too, so Alt can walk the cursor off the bottom of a
-  // menu taller than the window.
-  function sidebarReveal() {
-    // Computed from the index rather than read off the delegate: a Repeater
-    // sits among the rows it made, so children[i] is not row i.
-    //
-    // Rows are no longer all the same height — the row that opens a cluster
-    // carries the gap above it — so the walk has to add those gaps up rather
-    // than multiply one height by the index. Getting this wrong does not look
-    // like a bug: the cursor simply walks off the bottom of a rail that never
-    // scrolls to follow it.
-    var top = 0
-    for (var i = 0; i < sidebarIndex && i < sidebarRows.length; i++)
-      top += railRowHeight + railRowGap
-        + (sidebarRows[i].opensCluster ? railClusterGap : 0)
-    // The cursored row's own gap sits above it, so it belongs to what has to
-    // come into view.
-    var entry = sidebarRows[sidebarIndex]
-    if (entry && entry.opensCluster) top += railClusterGap
-    var bottom = top + railRowHeight
-    if (top < sidebarScroll.contentY) sidebarScroll.contentY = Math.max(0, top)
-    else if (bottom > sidebarScroll.contentY + sidebarScroll.height)
-      sidebarScroll.contentY = Math.min(Math.max(0, sidebarScroll.contentHeight - sidebarScroll.height),
-                                        bottom - sidebarScroll.height)
-  }
+  // The list column holds one rail's pages — six at most, and Apps' seven
+  // under two headings — so it fits without scrolling, and the arithmetic that
+  // used to scroll a twenty-six row rail to the cursor went with it.
+  readonly property real listRowHeight: Style.spacing.controlHeight + Style.space(4)
+  readonly property real listRowGap: Style.space(2)
 
   function navActivate() {
     if (navInSidebar) {
-      var entry = sidebarRows[sidebarIndex]
-      if (entry) pageId = entry.id
+      var entry = listPages()[sidebarIndex]
+      if (entry) pageId = entry
       // Enter on the sidebar takes the keyboard into the page it just opened,
       // which is the only thing left for it to mean once walking already
       // opened the page.
@@ -887,7 +858,8 @@ Item {
     if (navBlocked) return keys
 
     keys.push({ keys: ["\u2191", "\u2193"], label: "Move" })
-    keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
+    if (hasList) keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
+    keys.push({ keys: ["1", "\u2013", "0"], label: "Section" })
     keys.push({ keys: ["/"], label: "Search" })
     keys.push({ keys: ["esc"], label: "Close" })
     return keys
@@ -899,21 +871,30 @@ Item {
     if (row) row.navStep(delta)
   }
 
-  // Alt walks the sidebar as it is drawn. Every row is a page, so landing on
-  // one opens it — there is nothing left that could be walked onto without
-  // something happening.
+  // The pages the list is showing, flat, which is what Alt walks. Alt is the
+  // list; the number keys are the rail. Nothing walks the rail one step at a
+  // time, because ten labelled destinations on number keys do not need it.
+  function listPages() {
+    var out = []
+    var groups = listGroups
+    for (var g = 0; g < groups.length; g++)
+      for (var i = 0; i < groups[g].items.length; i++) out.push(groups[g].items[i].id)
+    return out
+  }
+
   function navSidebar(delta) {
-    var rows = sidebarRows
-    if (rows.length === 0) return
+    var pages = listPages()
+    // A direct rail has no list to walk, so Alt does nothing rather than
+    // moving a cursor through a column that is not on screen.
+    if (pages.length === 0) return
     if (!navInSidebar) {
       navInSidebar = true
-      for (var i = 0; i < rows.length; i++)
-        if (rows[i].id === pageId) { sidebarIndex = i; break }
+      for (var i = 0; i < pages.length; i++)
+        if (pages[i] === pageId) { sidebarIndex = i; break }
     }
-    sidebarIndex = Math.max(0, Math.min(rows.length - 1, sidebarIndex + delta))
-    sidebarReveal()
+    sidebarIndex = Math.max(0, Math.min(pages.length - 1, sidebarIndex + delta))
     navSync()
-    pageId = rows[sidebarIndex].id
+    pageId = pages[sidebarIndex]
   }
 
   // A row that has taken the keyboard — an open dropdown, a field being typed
@@ -1168,123 +1149,161 @@ Item {
   readonly property string pageHeaderNote: bodyLoader.item && bodyLoader.item.headerNote !== undefined
     ? String(bodyLoader.item.headerNote) : ""
 
-  // Clustered, and flat inside a cluster: every page is its own row, and the
-  // only thing between one cluster and the next is whitespace. Nothing folds
-  // open. A tree earns its keep when a branch holds more than a screenful;
-  // these hold four rows each, and the fold was one click between the reader
-  // and a page they could otherwise have hit directly.
+  // Two levels, and the second one only when it has something to say.
   //
-  // Connectivity leads. Getting online is the top task on a machine that is
-  // not online yet, and it is the one that cannot wait for the reader to go
-  // looking. Overview sits above it as the page that answers "what needs me".
+  // The rail is ten destinations, always on screen, each on a number key. Five
+  // of them *are* a page — Overview, Network, Bluetooth, Sound, Displays — and
+  // for those the list beside the rail is not there at all: a column holding
+  // one row is a column asking to be clicked through for nothing. The other
+  // five open a list of pages, and Apps splits its list under two headings.
   //
-  // `crumb` is what the page sits *under* in the reader's head, which is not
-  // always its cluster: Displays is filed with the desktop but a reader
-  // arriving there is thinking about screens.
-  readonly property var clusters: [
-    { label: "Overview", pages: [
-      { id: "overview", title: "Overview", icon: "\uf0e4", crumb: "Overview" }
-    ] },
+  // This replaced a single flat rail of twenty-six rows. Flat put every page
+  // one click away and made none of them findable: the eye has no landmarks in
+  // a list that long, so it read top-to-bottom every time. Ten icons are
+  // *remembered* — the shape of the grid becomes the map — and the pages under
+  // them are a short list you scan rather than a long one you search.
+  readonly property var rails: [
+    { id: "overview", label: "Overview", key: "1", icon: "", direct: "overview" },
+    { id: "net", label: "Network", key: "2", icon: "", direct: "network" },
+    { id: "bluetooth", label: "Bluetooth", key: "3", icon: "", direct: "bluetooth" },
+    { id: "sound", label: "Sound", key: "4", icon: "", direct: "audio" },
+    { id: "displays", label: "Displays", key: "5", icon: "", direct: "displays" },
 
-    { label: "Connectivity", pages: [
-      { id: "network", title: "Network", icon: "\uf1eb", crumb: "Connections" },
-      { id: "bluetooth", title: "Bluetooth", icon: "\uf294", crumb: "Connections" }
+    { id: "look", label: "Appearance", key: "6", icon: "", groups: [
+      { title: "", ids: ["appearance", "bar", "effects"] }
     ] },
-
-    { label: "Sound & power", pages: [
-      { id: "audio", title: "Audio", icon: "\uf028", crumb: "Screen & sound" },
-      { id: "power", title: "Power", icon: "\uf0e7", crumb: "Power" }
+    { id: "wm", label: "Windows", key: "7", icon: "", groups: [
+      { title: "", ids: ["windows", "layout", "workspaces", "groups"] }
     ] },
-
-    { label: "Desktop", pages: [
-      { id: "appearance", title: "Appearance", icon: "\uf1fc", crumb: "Theme" },
-      { id: "bar", title: "Bar", icon: "\uf0ca", crumb: "Theme" },
-      { id: "displays", title: "Displays", icon: "\uf108", crumb: "Screen & sound" },
-      { id: "effects", title: "Effects", icon: "\uf0eb", crumb: "Windows" }
+    { id: "input", label: "Input", key: "8", icon: "", groups: [
+      { title: "", ids: ["keyboard", "bindings", "compose", "pointer"] }
     ] },
-
-    { label: "Windows", pages: [
-      { id: "windows", title: "Windows", icon: "\uf2d0", crumb: "Windows" },
-      { id: "layout", title: "Layout", icon: "\uf009", crumb: "Windows" },
-      { id: "workspaces", title: "Workspaces", icon: "\uf24d", crumb: "Windows" },
-      { id: "groups", title: "Groups", icon: "\uf247", crumb: "Windows" }
+    { id: "system", label: "System", key: "9", icon: "", groups: [
+      { title: "", ids: ["power", "idle", "disk", "processes", "datetime", "about"] }
     ] },
-
-    { label: "Input", pages: [
-      { id: "keyboard", title: "Keyboard", icon: "\uf11c", crumb: "Keyboard" },
-      { id: "bindings", title: "Keybindings", icon: "\uf11c", crumb: "Keyboard" },
-      { id: "compose", title: "Compose Keys", icon: "\uf031", crumb: "Keyboard" },
-      { id: "pointer", title: "Mouse & Touchpad", icon: "\uf245", crumb: "Pointer" }
-    ] },
-
-    { label: "System", pages: [
-      { id: "disk", title: "Disk", icon: "\uf0a0", crumb: "Storage" },
-      { id: "processes", title: "Processes", icon: "\uf080", crumb: "Storage" },
-      { id: "idle", title: "Idle & Lock", icon: "\uf023", crumb: "Session" },
-      { id: "datetime", title: "Date & Time", icon: "\uf017", crumb: "Session" },
-      { id: "about", title: "About", icon: "\uf05a", crumb: "Session" }
-    ] },
-
-    { label: "Applications", pages: [
-      { id: "apps.defaults", title: "Defaults", icon: "\uf009", crumb: "Applications" },
-      { id: "packages", title: "Packages", icon: "\uf187", crumb: "Plugins" },
-      { id: "plugins", title: "Plugins", icon: "\uf1e6", crumb: "Plugins" },
-      { id: "usage", title: "Agent usage", icon: "\uf200", crumb: "Plugins" },
-      { id: "apps.herdr", title: "Herdr", icon: "\uf120", crumb: "Configs" },
-      { id: "apps.tmux", title: "Tmux", icon: "\uf120", crumb: "Configs" },
-      { id: "apps.nvim", title: "Neovim", icon: "\uf121", crumb: "Configs" }
+    { id: "apps", label: "Apps", key: "0", icon: "", groups: [
+      { title: "Software", ids: ["apps.defaults", "packages", "plugins", "usage"] },
+      { title: "Configs", ids: ["apps.herdr", "apps.tmux", "apps.nvim"] }
     ] }
   ]
 
-  // Every page, in the order the sidebar draws them, each carrying the cluster
-  // it came from. Most of the window wants the pages and not the clustering,
-  // and walking two levels everywhere it asked was how the tree version grew
-  // its bugs.
-  readonly property var sections: {
-    var pages = []
-    for (var i = 0; i < clusters.length; i++)
-      for (var p = 0; p < clusters[i].pages.length; p++) {
-        var page = clusters[i].pages[p]
-        pages.push({
-          id: page.id,
-          title: page.title,
-          icon: page.icon,
-          crumb: page.crumb,
-          cluster: clusters[i].label,
-          // Which of the eight tints the icon square is drawn in.
-          tint: Ui.Palette.clusterTint(i, clusters.length)
-        })
-      }
-    return pages
+  // Every page's title, in the order the rail walks them. Most of the window
+  // wants the pages and not the nesting, and walking two levels everywhere it
+  // asked is how the tree version grew its bugs.
+  readonly property var pageTitles: ({
+    "overview": "Overview",
+    "network": "Network",
+    "bluetooth": "Bluetooth",
+    "audio": "Audio",
+    "displays": "Displays",
+    "appearance": "Appearance",
+    "bar": "Bar",
+    "effects": "Effects",
+    "windows": "Windows",
+    "layout": "Layout",
+    "workspaces": "Workspaces",
+    "groups": "Groups",
+    "keyboard": "Keyboard",
+    "bindings": "Keybindings",
+    "compose": "Compose Keys",
+    "pointer": "Mouse & Touchpad",
+    "power": "Power",
+    "idle": "Idle & Lock",
+    "disk": "Disk",
+    "processes": "Processes",
+    "datetime": "Date & Time",
+    "about": "About",
+    "apps.defaults": "Defaults",
+    "packages": "Packages",
+    "plugins": "Plugins",
+    "usage": "Agent usage",
+    "apps.herdr": "Herdr",
+    "apps.tmux": "Tmux",
+    "apps.nvim": "Neovim"
+  })
+
+  // A rail's pages, in order, whether it is direct or holds groups.
+  function railPages(rail) {
+    if (rail.direct !== undefined) return [rail.direct]
+    var out = []
+    for (var g = 0; g < rail.groups.length; g++)
+      for (var i = 0; i < rail.groups[g].ids.length; i++) out.push(rail.groups[g].ids[i])
+    return out
   }
 
-  // One list the sidebar Repeater can walk. A row knows whether it opens a
-  // cluster, which is the whole of the grouping: the gap above it is the only
-  // thing saying "new cluster", so it has to survive a search that empties the
-  // rows either side of it.
-  readonly property var sidebarRows: {
-    var rows = []
-    var lastCluster = ""
-    for (var i = 0; i < sections.length; i++) {
-      var page = sections[i]
-      if (!pageShows(page.id)) continue
-      rows.push({
-        id: page.id,
-        title: page.title,
-        icon: page.icon,
-        tint: page.tint,
-        matches: pageMatchCount(page.id),
-        opensCluster: page.cluster !== lastCluster && rows.length > 0
-      })
-      lastCluster = page.cluster
+  function railFor(id) {
+    for (var r = 0; r < rails.length; r++) {
+      var pages = railPages(rails[r])
+      for (var p = 0; p < pages.length; p++) if (pages[p] === id) return rails[r]
     }
-    return rows
+    return rails[0]
+  }
+
+  // Which rail is open. Driven by the page rather than held on its own: a rail
+  // that could disagree with the page on screen is a rail that will.
+  readonly property var openRail: railFor(pageId)
+  readonly property bool hasList: openRail.direct === undefined
+
+  // Every page in rail order, which is what the arrows walk.
+  readonly property var orderedPages: {
+    var out = []
+    for (var r = 0; r < rails.length; r++) {
+      var pages = railPages(rails[r])
+      for (var p = 0; p < pages.length; p++)
+        if (pageShows(pages[p])) out.push(pages[p])
+    }
+    return out
+  }
+
+  // What the list column draws: the open rail's groups, emptied of pages the
+  // search or a missing application has taken away, and groups emptied of
+  // pages taken away with them.
+  readonly property var listGroups: {
+    if (!hasList) return []
+    var out = []
+    for (var g = 0; g < openRail.groups.length; g++) {
+      var group = openRail.groups[g]
+      var items = []
+      for (var i = 0; i < group.ids.length; i++) {
+        var id = group.ids[i]
+        if (!pageShows(id)) continue
+        items.push({ id: id, title: pageTitles[id] !== undefined ? pageTitles[id] : id,
+                     matches: pageMatchCount(id) })
+      }
+      if (items.length > 0) out.push({ title: group.title, items: items })
+    }
+    return out
+  }
+
+  // Picking a rail opens its first page that has anything to show, so a search
+  // narrowing a rail to one page still lands on that page.
+  function pickRail(id) {
+    for (var r = 0; r < rails.length; r++) {
+      if (rails[r].id !== id) continue
+      var pages = railPages(rails[r])
+      for (var p = 0; p < pages.length; p++)
+        if (pageShows(pages[p])) { pageId = pages[p]; return }
+      // Nothing in it matches the search; open it anyway rather than
+      // swallowing the keypress.
+      if (pages.length > 0) pageId = pages[0]
+      return
+    }
+  }
+
+  function railWithKey(key) {
+    for (var r = 0; r < rails.length; r++) if (rails[r].key === key) return rails[r]
+    return null
   }
 
   function pageFor(id) {
-    for (var i = 0; i < sections.length; i++)
-      if (sections[i].id === id) return sections[i]
-    return { title: "", crumb: "", cluster: "" }
+    // The crumb is the rail's label, and only where the rail is a grouping
+    // rather than a page: "Overview / Overview" says nothing twice.
+    var rail = railFor(id)
+    return {
+      title: pageTitles[id] !== undefined ? pageTitles[id] : "",
+      crumb: rail.direct !== undefined ? "" : rail.label,
+      cluster: rail.label
+    }
   }
 
   // Pages live one to a file under sections/; the window only has to know
@@ -1447,6 +1466,15 @@ Item {
         if (event.key === Qt.Key_Escape) { root.close(); event.accepted = true; return }
 
 
+        // A number is a rail. Ten destinations on ten keys is the whole point
+        // of a rail being ten things: it makes every page in the window at
+        // most two keystrokes away, where the flat list it replaced was a
+        // count of how far down you had to walk.
+        if (event.text.length === 1 && event.text >= "0" && event.text <= "9") {
+          var rail = root.railWithKey(event.text)
+          if (rail) { root.pickRail(rail.id); event.accepted = true; return }
+        }
+
         // The two things every search box answers to.
         if (event.text === "/" || (ctrl && event.key === Qt.Key_F)) {
           searchField.forceActiveFocus()
@@ -1551,18 +1579,60 @@ Item {
             color: root.hairline
           }
 
+          // The box itself, not a hint that one exists somewhere. It was at
+          // the top of the sidebar, where it filtered the column beneath it
+          // and looked like it belonged to that column — but a search here
+          // crosses every rail, so it belongs to the window.
+          Item {
+            anchors.verticalCenter: parent.verticalCenter
+            implicitWidth: Style.space(230)
+            implicitHeight: searchField.implicitHeight
+
+            Text {
+              id: searchGlyph
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              text: ""
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.iconSmall
+              z: 1
+            }
+
+            TextField {
+              id: searchField
+              anchors.fill: parent
+              // The kit's own knob, not an override of the `leftPadding` it
+              // derives from it — that binding also carries the border inset,
+              // and replacing it means re-deriving something the kit already
+              // gets right.
+              horizontalPadding: Style.space(26)
+              placeholderText: "Search settings"
+              foreground: root.foreground
+              accent: root.accent
+              font.family: root.fontFamily
+              onTextChanged: root.searchQuery = text
+              // Escape gives the keyboard back to the page rather than
+              // closing the window out from under a search.
+              Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape) {
+                  if (text !== "") text = ""
+                  root.navTakeFocus()
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                           || event.key === Qt.Key_Down) {
+                  root.navTakeFocus()
+                  root.navMove(1)
+                  event.accepted = true
+                }
+              }
+            }
+          }
+
           Ui.KeyCap {
             anchors.verticalCenter: parent.verticalCenter
             key: "/"
-          }
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "Search"
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
           }
 
           Ui.KeyCap {
@@ -1583,166 +1653,205 @@ Item {
         Layout.fillHeight: true
         spacing: 0
 
-        // ---------------- sidebar ------------------------------------------
+        // ---------------- rail ---------------------------------------------
+        // Ten destinations, always on screen, each on a number key. Darker
+        // than everything beside it because it is chrome rather than content:
+        // it never changes, whatever page is open.
         Rectangle {
           Layout.fillHeight: true
-          Layout.preferredWidth: Style.space(250)
-          color: root.surface
+          Layout.preferredWidth: Style.space(76)
+          color: Ui.Palette.shade(0.10)
 
           ColumnLayout {
             anchors.fill: parent
-            anchors.margins: Style.space(10)
-            spacing: Style.space(10)
+            anchors.margins: Style.space(7)
+            spacing: Style.space(3)
 
-            // Above the menu, because what it filters is the menu as much as
-            // the page: pages with nothing to show leave the list entirely.
-            RowLayout {
-              Layout.fillWidth: true
-              spacing: Style.space(8)
+            Repeater {
+              model: root.rails
 
-              Text {
-                text: ""
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.iconSmall
-              }
+              delegate: Rectangle {
+                required property var modelData
 
-              TextField {
-                id: searchField
+                readonly property bool current: modelData.id === root.openRail.id
+                // A rail whose every page has been searched away is dimmed
+                // rather than removed: the rail is the map, and a map that
+                // rearranges itself while you type is not one.
+                readonly property bool empty: {
+                  if (!root.searching) return false
+                  var pages = root.railPages(modelData)
+                  for (var i = 0; i < pages.length; i++)
+                    if (root.pageShows(pages[i])) return false
+                  return true
+                }
+
                 Layout.fillWidth: true
-                placeholderText: "Search every setting"
-                foreground: root.foreground
-                accent: root.accent
-                font.family: root.fontFamily
-                onTextChanged: root.searchQuery = text
-                // Escape gives the keyboard back to the list rather than
-                // closing the window out from under a search.
-                Keys.onPressed: function(event) {
-                  if (event.key === Qt.Key_Escape) {
-                    if (text !== "") text = ""
-                    root.navTakeFocus()
-                    event.accepted = true
-                  } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
-                             || event.key === Qt.Key_Down) {
-                    root.navTakeFocus()
-                    root.navMove(1)
-                    event.accepted = true
+                implicitHeight: railColumn.implicitHeight + Style.space(14)
+                radius: Ui.Palette.cardRadius
+                color: current ? root.accent
+                               : (railMouse.containsMouse ? Ui.Palette.shade(0.10) : "transparent")
+                opacity: empty ? 0.35 : 1
+
+                Column {
+                  id: railColumn
+                  anchors.centerIn: parent
+                  width: parent.width
+                  spacing: Style.space(3)
+
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: modelData.icon
+                    color: current ? Ui.Palette.onAccent : Ui.Palette.shade(0.62)
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.iconLarge
                   }
+
+                  // Small, because it is a reminder of what the icon means
+                  // rather than the thing being read. Once the grid is
+                  // learned it is the icon that is recognised.
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    text: modelData.label
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    color: current ? Ui.Palette.onAccent : Ui.Palette.shade(0.62)
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                  }
+                }
+
+                MouseArea {
+                  id: railMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.pickRail(modelData.id)
                 }
               }
             }
 
-            // The menu is as long as the settings are; on a tall list it ran
-            // past the foot of the window. Only the menu scrolls — the search
-            // box and the corner notices stay put.
-            Flickable {
-              id: sidebarScroll
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              clip: true
-              contentWidth: width
-              contentHeight: sidebarMenu.implicitHeight
-              boundsBehavior: Flickable.StopAtBounds
-              flickableDirection: Flickable.VerticalFlick
+            // The rail is a fixed height; whatever is left over is space, not
+            // a stretched last button.
+            Item { Layout.fillHeight: true }
+          }
+        }
 
-              ColumnLayout {
-                id: sidebarMenu
-                width: sidebarScroll.width
-                spacing: root.railRowGap
+        // ---------------- list ---------------------------------------------
+        // Only for a rail that holds more than one page. Network and Bluetooth
+        // *are* pages, and a column with one row in it is a column asking to
+        // be clicked through for nothing.
+        Rectangle {
+          Layout.fillHeight: true
+          Layout.preferredWidth: Style.space(232)
+          visible: root.hasList
+          color: root.surface
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.topMargin: Style.space(12)
+            anchors.leftMargin: Style.space(10)
+            anchors.rightMargin: Style.space(10)
+            anchors.bottomMargin: Style.space(16)
+            spacing: Style.space(10)
+
+            Repeater {
+              model: root.listGroups
+
+              delegate: ColumnLayout {
+                required property var modelData
+
+                Layout.fillWidth: true
+                spacing: root.listRowGap
+
+                // Apps is the only rail that needs headings, and it needs
+                // them: "Defaults" and "Tmux" are not the same kind of thing.
+                Text {
+                  Layout.fillWidth: true
+                  Layout.bottomMargin: Style.space(3)
+                  visible: modelData.title !== ""
+                  text: modelData.title
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  font.capitalization: Font.AllUppercase
+                  font.letterSpacing: Style.space(1)
+                }
 
                 Repeater {
-                  model: root.sidebarRows
-                  delegate: Item {
+                  model: modelData.items
+
+                  delegate: Rectangle {
                     required property var modelData
                     required property int index
 
                     readonly property bool current: modelData.id === root.pageId
                     // Where the keyboard is, which is not always the open
-                    // page: Alt can walk the cursor without a click.
-                    readonly property bool cursored: root.navInSidebar && index === root.sidebarIndex
+                    // page: Alt can walk the list without a click.
+                    readonly property bool cursored: root.navInSidebar
+                      && root.listPages()[root.sidebarIndex] === modelData.id
 
                     Layout.fillWidth: true
-                    // The gap above a cluster is the only thing marking one
-                    // off from the next, so it is part of the row's height
-                    // rather than list spacing — spacing cannot vary per row.
-                    implicitHeight: rowFill.height
-                      + (modelData.opensCluster ? root.railClusterGap : 0)
+                    implicitHeight: root.listRowHeight
+                    radius: Ui.Palette.chipRadius
+                    border.width: cursored ? Style.normalBorderWidth : 0
+                    border.color: root.accent
+                    color: current
+                      ? root.accent
+                      : (cursored ? Ui.Palette.tint(0.12)
+                                  : (listMouse.containsMouse ? Ui.Palette.hover : "transparent"))
 
-                    Rectangle {
-                      id: rowFill
-                      anchors.bottom: parent.bottom
-                      width: parent.width
-                      height: root.railRowHeight
-                      radius: Ui.Palette.chipRadius
-                      border.width: cursored ? Style.normalBorderWidth : 0
-                      border.color: root.accent
-                      color: current
-                        ? root.accent
-                        : (cursored ? Ui.Palette.tint(0.12)
-                                    : (navMouse.containsMouse ? Ui.Palette.hover : "transparent"))
+                    // No icon. The rail carries the iconography; repeating it
+                    // one column over would say the same thing twice and give
+                    // the page names a ragged left edge to start from.
+                    Text {
+                      anchors.left: parent.left
+                      anchors.leftMargin: Style.space(9)
+                      anchors.right: matchCount.left
+                      anchors.rightMargin: Style.space(6)
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: modelData.title
+                      elide: Text.ElideRight
+                      color: current ? Ui.Palette.onAccent : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.body
+                      font.bold: true
+                    }
 
-                      Row {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Style.space(8)
-                        anchors.right: parent.right
-                        anchors.rightMargin: Style.space(10)
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Style.space(10)
+                    // How much of what you typed is in there.
+                    Text {
+                      id: matchCount
+                      anchors.right: parent.right
+                      anchors.rightMargin: Style.space(10)
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: root.searching && modelData.matches > 0
+                      text: modelData.matches
+                      color: current ? Ui.Palette.onAccent : root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.bold: true
+                    }
 
-                        Ui.NavIcon {
-                          anchors.verticalCenter: parent.verticalCenter
-                          glyph: modelData.icon
-                          tint: modelData.tint
-                          inverted: current
-                        }
-
-                        Text {
-                          anchors.verticalCenter: parent.verticalCenter
-                          // Whatever the icon and the count leave over. A
-                          // long page name elides rather than pushing the
-                          // count off the end of the row.
-                          width: parent.width - Style.space(34)
-                            - (matchCount.visible ? matchCount.width + Style.space(10) : 0)
-                          text: modelData.title
-                          elide: Text.ElideRight
-                          color: current ? Ui.Palette.onAccent : root.foreground
-                          font.family: root.fontFamily
-                          font.pixelSize: Style.font.body
-                          font.bold: true
-                        }
-
-                        // How much of what you typed is in there.
-                        Text {
-                          id: matchCount
-                          anchors.verticalCenter: parent.verticalCenter
-                          visible: root.searching && modelData.matches > 0
-                          text: modelData.matches
-                          color: current ? Ui.Palette.onAccent : root.muted
-                          font.family: root.fontFamily
-                          font.pixelSize: Style.font.caption
-                          font.bold: true
-                        }
-                      }
-
-                      MouseArea {
-                        id: navMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.pageId = modelData.id
-                      }
+                    MouseArea {
+                      id: listMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.pageId = modelData.id
                     }
                   }
                 }
               }
             }
 
-            // The list is empty rather than dimmed when nothing matched, so
-            // something has to say why — an empty rail otherwise reads as a
-            // window that failed to load.
+            // The rail says a search found nothing in *this* rail; this says
+            // it about the search. Without it an emptied list is a blank
+            // column that reads as a window that failed to load.
             Text {
               Layout.fillWidth: true
-              visible: root.searching && root.sidebarRows.length === 0
+              visible: root.searching && root.listGroups.length === 0
               text: "Nothing here for what you typed."
               wrapMode: Text.WordWrap
               color: root.muted
@@ -1750,16 +1859,16 @@ Item {
               font.pixelSize: Style.font.caption
             }
 
+            Item { Layout.fillHeight: true }
+
             // The corner says something only when there is something to say:
-            // when this window is behind its own remote. Everything else it
-            // used to hold — what has changed, the way to undo the lot — is
-            // now beside the page name, where the reader is already looking.
+            // when this window is behind its own remote.
             Column {
               visible: !root.busy && root.loaded && root.selfBehind > 0
               spacing: Style.space(2)
 
               Text {
-                text: "  Update available"
+                text: "  Update available"
                 color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -1786,7 +1895,6 @@ Item {
             }
           }
         }
-
         Rectangle {
           Layout.fillHeight: true
           Layout.preferredWidth: Style.spacing.hairline
@@ -1814,7 +1922,11 @@ Item {
               width: parent.width * 0.5
               spacing: Style.space(2)
 
+              // Only where the rail is a grouping rather than a page.
+              // "Overview / Overview" and "Network / Network" say nothing
+              // twice, and a crumb that is always there stops being read.
               Text {
+                visible: text !== ""
                 text: root.pageFor(root.pageId).crumb || ""
                 color: root.muted
                 font.family: root.fontFamily
