@@ -217,7 +217,7 @@ Ui.SectionBody {
   // The only thing in this window that comes off the network. It is last
   // because it is the only thing on the page that is not about this machine.
   Ui.SettingGroup {
-    title: "From omarchy.org"
+    title: "News from omarchy.org"
     // The count first, because it is the only part of this heading anyone
     // scans for; the age second, because a headline with no age on it is one
     // you cannot judge.
