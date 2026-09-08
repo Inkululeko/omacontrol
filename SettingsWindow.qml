@@ -1672,8 +1672,16 @@ Item {
 
               delegate: Rectangle {
                 required property var modelData
+                required property int index
 
                 readonly property bool current: modelData.id === root.openRail.id
+                // A hairline between the rails that *are* a page and the ones
+                // that open a list. Both are destinations, so both are on the
+                // rail, but pressing one of the first five lands you on the
+                // thing itself and one of the last five lands you in a list —
+                // and that is worth seeing before you press.
+                readonly property bool opensGroups: modelData.direct === undefined
+                  && index > 0 && root.rails[index - 1].direct !== undefined
                 // A rail whose every page has been searched away is dimmed
                 // rather than removed: the rail is the map, and a map that
                 // rearranges itself while you type is not one.
@@ -1686,6 +1694,7 @@ Item {
                 }
 
                 Layout.fillWidth: true
+                Layout.topMargin: opensGroups ? Style.space(9) : 0
                 implicitHeight: railColumn.implicitHeight + Style.space(14)
                 radius: Ui.Palette.cardRadius
                 color: current ? root.accent
@@ -1720,6 +1729,20 @@ Item {
                     font.pixelSize: Style.font.caption
                     font.bold: true
                   }
+                }
+
+                // Drawn in the gap the margin opened, not as a row of its
+                // own: a Repeater delegate is one item per model entry, and a
+                // separator smuggled in as an eleventh would put every index
+                // after it out of step with the rail it names.
+                Rectangle {
+                  anchors.bottom: parent.top
+                  anchors.bottomMargin: Style.space(4)
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: parent.width - Style.space(14)
+                  height: Style.spacing.hairline
+                  visible: opensGroups
+                  color: Ui.Palette.shade(0.18)
                 }
 
                 MouseArea {
