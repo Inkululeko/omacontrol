@@ -77,7 +77,7 @@ NavRow {
         width: Style.space(34)
         height: Style.space(34)
         radius: width / 2
-        color: tile.checked ? Qt.rgba(1, 1, 1, 0.22) : Local.Palette.shade(0.12)
+        color: tile.checked ? Local.Palette.onAccentWash(0.20) : Local.Palette.shade(0.12)
 
         Text {
           anchors.centerIn: parent
@@ -97,7 +97,7 @@ NavRow {
         interactive: false
         foreground: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
         // On a filled tile the accent track would vanish into the fill.
-        accent: tile.checked ? Qt.rgba(1, 1, 1, 0.38) : Local.Palette.accent
+        accent: tile.checked ? Local.Palette.onAccentWash(0.35) : Local.Palette.accent
       }
     }
 

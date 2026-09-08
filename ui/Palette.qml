@@ -49,6 +49,14 @@ QtObject {
   // the theme, so it is measured rather than assumed.
   readonly property color onAccent: accent.hslLightness > 0.55 ? background : Qt.rgba(1, 1, 1, 0.96)
 
+  // A wash *on top of* an accent fill — the badge behind an icon, the track of
+  // a switch. It has to be struck from whatever reads on that accent rather
+  // than from white: on a light accent a white wash is invisible, which is how
+  // a themed window loses half a control without erroring.
+  function onAccentWash(alpha) {
+    return Qt.rgba(onAccent.r, onAccent.g, onAccent.b, alpha)
+  }
+
   // ---------------- shape ---------------------------------------------------
   // Hyprland's rounding drives the window; inside it, cards and pills need a
   // radius even when the user runs square corners, or the design's cards

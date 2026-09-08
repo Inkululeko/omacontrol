@@ -17,7 +17,7 @@ Rectangle {
   implicitWidth: Style.space(24)
   implicitHeight: Style.space(24)
   radius: Local.Palette.iconRadius
-  color: square.inverted ? Qt.rgba(1, 1, 1, 0.22) : square.tint
+  color: square.inverted ? Local.Palette.onAccentWash(0.20) : square.tint
 
   Text {
     anchors.centerIn: parent
