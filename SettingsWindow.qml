@@ -1201,7 +1201,12 @@ Item {
     "appearance": "Appearance",
     "bar": "Bar",
     "effects": "Effects",
-    "windows": "Windows",
+    // "General", not "Windows": the rail is already called Windows, and a page
+    // that repeats its rail's name tells the reader nothing — the crumb read
+    // "WINDOWS / Windows". General is what it is: the settings that are about
+    // windows in general rather than about the layout, the workspaces or the
+    // groups beside it.
+    "windows": "General",
     "layout": "Layout",
     "workspaces": "Workspaces",
     "groups": "Groups",
