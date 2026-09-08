@@ -123,9 +123,14 @@ Ui.SectionBody {
     // A bar per day. Tokens rather than messages: a message is not a unit of
     // anything comparable — one can be a word, one can be a repository — and
     // the limits above are counted in tokens too.
+    // implicitHeight, not height: a group works out whether a search emptied
+    // it by asking its children what they ask for, and a plain Item with only
+    // an explicit height asks for nothing — so the whole chart vanished the
+    // moment anyone typed in the search box.
     Item {
       width: parent.width
-      height: Style.space(90)
+      implicitHeight: Style.space(90)
+      height: implicitHeight
 
       Row {
         anchors.fill: parent

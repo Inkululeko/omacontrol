@@ -55,6 +55,10 @@ Column {
       // `implicitHeight` and not `height` for the same reason: a laid-out
       // height is zero while the group is hidden. A Repeater asks for no
       // height either way, which is what keeps it from counting as content.
+      // Content that is not a row — a table, a chart, a row of chips — has to
+      // state an `implicitHeight` to be counted. Everything that computes its
+      // own size does (Row, Column, Grid, a Layout); a bare Item given only a
+      // `height` does not, and is read as nothing.
       if (kids[i].searchHidden !== true && kids[i].implicitHeight > 0) return false
     }
     return true
