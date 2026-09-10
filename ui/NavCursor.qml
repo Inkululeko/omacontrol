@@ -25,6 +25,9 @@ Item {
   property bool navBlocking: false
   property bool changed: false
   signal resetRequested()
+  // What ⌫ is called on this row. A thing you created is not reset, it is
+  // removed or forgotten, and the legend has to say which.
+  property string navResetLabel: "Reset"
 
   // Behind the row's own content: the band is a background, and drawing it
   // over the text would tint what it is meant to be pointing at.
@@ -39,6 +42,15 @@ Item {
 
   property var navController: null
 
+  // Told, not asked, the same way a NavRow tells it. This was declared and
+  // never reported, so a Wi-Fi row with its passphrase field open did not
+  // actually hold the keyboard: Up and Down walked the cursor off a row that
+  // still had the focus, and the legend offered "esc Close" beside its own
+  // "esc Cancel".
+  onNavBlockingChanged: if (nav.navController
+    && nav.navController.setNavBlocked !== undefined)
+      nav.navController.setNavBlocked(nav, nav.navBlocking)
+
   function findController() {
     var node = nav.parent
     while (node) {
@@ -52,11 +64,24 @@ Item {
 
   Component.onCompleted: {
     nav.navController = findController()
-    if (nav.navController) nav.navController.registerNavRow(nav)
+    if (nav.navController) {
+      nav.navController.registerNavRow(nav)
+      // A row rebuilt mid-edit is already blocking by the time it is up, so
+      // the state is reported rather than waited for.
+      if (nav.navBlocking && nav.navController.setNavBlocked !== undefined)
+        nav.navController.setNavBlocked(nav, true)
+    }
   }
 
   Component.onDestruction: {
-    if (nav.navController) nav.navController.unregisterNavRow(nav)
+    // A row destroyed while holding the keyboard has to hand it back, or the
+    // window stays blocked with nothing left to unblock it. A list rebuilt by
+    // a poll can take a row out mid-edit.
+    if (nav.navController) {
+      if (nav.navBlocking && nav.navController.setNavBlocked !== undefined)
+        nav.navController.setNavBlocked(nav, false)
+      nav.navController.unregisterNavRow(nav)
+    }
   }
 
   Rectangle {

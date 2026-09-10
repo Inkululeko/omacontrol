@@ -332,6 +332,17 @@ Item {
     return n.toFixed(digits) + " " + units[unit]
   }
 
+  // A span, said the way someone would say it: minutes until an hour, then
+  // hours. Not the same question as formatWhen, which is about a moment.
+  function formatSpan(seconds) {
+    var n = Number(seconds)
+    if (!isFinite(n) || n < 0) return "—"
+    if (n < 60) return Math.round(n) + " s"
+    if (n < 3600) return Math.floor(n / 60) + " min " + Math.round(n % 60) + " s"
+    var hours = Math.floor(n / 3600)
+    return hours + " h " + Math.round((n % 3600) / 60) + " min"
+  }
+
   // How long ago something happened, said the way someone would say it. Takes
   // a unix stamp because that is what a shell reader can hand over without
   // committing to a format the window would then have to parse back.
@@ -407,8 +418,218 @@ Item {
       }
     }
   }
+  // What the connection is doing, asked for by the Network page alone. It is
+  // not in the state document for the same reason Disk and Processes are not:
+  // it changes by the second, and a state read happens after every write
+  // anywhere in the window.
+  property var wifiLink: ({})
+  // The sample before this one, which is the whole of what makes a rate out
+  // of a counter. Two reads of a total since boot are a rate; one is a number
+  // that never moves.
+  property var wifiLinkPrev: null
+  property real wifiRxRate: -1
+  property real wifiTxRate: -1
+
+  // The other half of a page called Network. Cheap, and read on the page's own
+  // poll rather than with the state: a cable is not a setting.
+  property var wifiWired: []
+  function pollWifiWired() {
+    if (wifiWiredProcess.running) return
+    wifiWiredProcess.command = ["bash", root.helperPath, "wifi", "wired"]
+    wifiWiredProcess.running = true
+  }
+
+  Process {
+    id: wifiWiredProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (Array.isArray(next)) root.wifiWired = next
+        } catch (e) {
+          // Leaves the last answer on screen.
+        }
+      }
+    }
+  }
+
+  // The themes and the wallpapers, as pictures. Read when their page opens and
+  // again after one is set — a theme changes when somebody changes it, so
+  // there is nothing here for a timer to watch.
+  property var themeList: []
+  property var wallpaperList: []
+
+  // The theme a click claimed, until a read confirms it. It lives here rather
+  // than on the page because applying a theme rewrites a dozen configs and
+  // can take the page down and rebuild it — and a mark that dies with the
+  // page is a ring that jumps back to the old theme half way through.
+  property string themePending: ""
+  property int themeTries: 0
+
+  function setTheme(name) {
+    themePending = name
+    themeTries = 0
+    set("theme", name)
+  }
+
+  // A font is applied the same way a theme is — a dozen configs rewritten —
+  // so the mark it leaves behaves the same way: claimed on the click, cleared
+  // only when the state read says that font is the one in force.
+  property string fontPending: ""
+
+  function setFont(name) {
+    fontPending = name
+    set("font", name)
+  }
+
+  function readThemes() {
+    if (themeProcess.running) return
+    themeProcess.command = ["bash", root.helperPath, "theme", "list"]
+    themeProcess.running = true
+  }
+
+  // Asked again while the claim is unconfirmed. `omarchy-theme-set` returns
+  // before everything it started has finished, so the first read back can
+  // still name the old theme; clearing the mark on any answer at all is what
+  // made the ring jump back and forth.
+  Timer {
+    id: themeConfirm
+    interval: 500
+    onTriggered: root.readThemes()
+  }
+
+  function readWallpapers() {
+    if (wallpaperProcess.running) return
+    wallpaperProcess.command = ["bash", root.helperPath, "theme", "backgrounds"]
+    wallpaperProcess.running = true
+  }
+
+  Process {
+    id: themeProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (!Array.isArray(next)) return
+          root.themeList = next
+          if (root.themePending === "") return
+          for (var i = 0; i < next.length; i++)
+            if (next[i].current === true && next[i].name === root.themePending) {
+              root.themePending = ""
+              root.themeTries = 0
+              return
+            }
+          // Not yet. Ask again — but not forever: a set that failed must not
+          // leave the ring sitting on a theme this machine is not wearing.
+          if (root.themeTries < 12) { root.themeTries++; themeConfirm.restart() }
+          else { root.themePending = ""; root.themeTries = 0 }
+        } catch (e) {
+          // Leaves the last good list on screen.
+        }
+      }
+    }
+  }
+
+  Process {
+    id: wallpaperProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (Array.isArray(next)) root.wallpaperList = next
+        } catch (e) {
+          // Leaves the last good list on screen.
+        }
+      }
+    }
+  }
+
+  // The address the internet sees. Asked for when the page opens and not on
+  // the poll: the reader decides for itself whether its cache has aged out, so
+  // this is a request at most once an hour however often the page is opened.
+  property var publicIp: ({})
+  function readPublicIp() {
+    if (publicIpProcess.running) return
+    publicIpProcess.command = ["bash", root.helperPath, "wifi", "publicip"]
+    publicIpProcess.running = true
+  }
+
+  Process {
+    id: publicIpProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (next && typeof next === "object") root.publicIp = next
+        } catch (e) {
+          // No answer leaves the row saying nothing, which is the truth.
+        }
+      }
+    }
+  }
+
+  function pollWifiLink() {
+    if (wifiLinkProcess.running) return
+    wifiLinkProcess.command = ["bash", root.helperPath, "wifi", "link"]
+    wifiLinkProcess.running = true
+  }
+
+  Process {
+    id: wifiLinkProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (!next || typeof next !== "object") return
+          var now = Date.now() / 1000
+          var prev = root.wifiLinkPrev
+          // A first sample, or a counter that went backwards because the
+          // interface was reset, reports nothing rather than a spike.
+          if (prev !== null && now > prev.at && next.rx !== null && next.tx !== null
+              && next.rx >= prev.rx && next.tx >= prev.tx) {
+            root.wifiRxRate = (next.rx - prev.rx) / (now - prev.at)
+            root.wifiTxRate = (next.tx - prev.tx) / (now - prev.at)
+          }
+          root.wifiLinkPrev = { rx: next.rx, tx: next.tx, at: now }
+          root.wifiLink = next
+        } catch (e) {
+          // A failed read leaves the last figures on screen.
+        }
+      }
+    }
+  }
+
+  // Bytes per second, said with the window's own `formatBytes` rather than the
+  // bar panel's: its steps are binary where this window's are decimal, and a
+  // second byte formatter in here would put two answers to "how big" on two
+  // pages of the same window. Bytes per second, never bits — which is what
+  // the panel says too.
+  function formatRate(bytesPerSecond) {
+    return bytesPerSecond < 0 ? "\u2014" : formatBytes(bytesPerSecond) + "/s"
+  }
+
   readonly property var wifiNetworks: wifi.networks !== undefined ? wifi.networks : []
   readonly property var wifiConnection: wifi.connection !== undefined ? wifi.connection : ({})
+
+  // The network you are on, and the ones you are not. The page shows the first
+  // as a block of its own, so leaving it in the list underneath would describe
+  // the same connection twice, a few rows apart.
+  readonly property var activeNetwork: {
+    for (var i = 0; i < wifiNetworks.length; i++)
+      if (wifiNetworks[i].active === true) return wifiNetworks[i]
+    return null
+  }
+  readonly property var otherNetworks: {
+    var out = []
+    for (var i = 0; i < wifiNetworks.length; i++)
+      if (wifiNetworks[i].active !== true) out.push(wifiNetworks[i])
+    return out
+  }
   readonly property var wifiBand: wifi.band !== undefined ? wifi.band : ({})
 
   // Automatic plus whichever bands this radio and access point actually
@@ -423,8 +644,15 @@ Item {
   // The network whose password field is open, if any.
   property string wifiPrompting: ""
 
+  // The network being joined. Association, DHCP and a wrong-password rejection
+  // all take seconds, and a row that does not say so reads as a click that
+  // missed.
+  property string wifiConnecting: ""
+  onWifiChanged: if (wifiConnecting !== "" && wifi.connected === wifiConnecting) wifiConnecting = ""
+
   function connectWifi(ssid, password) {
     wifiPrompting = ""
+    wifiConnecting = ssid
     if (password !== undefined && password !== "") {
       // The passphrase goes over stdin, never argv: anything on the command
       // line is readable by every process on the machine for as long as the
@@ -453,6 +681,7 @@ Item {
     }
     onRunningChanged: if (!running) {
       root.busy = false
+      root.wifiConnecting = ""
       settleTimer.restart()
     }
   }
@@ -674,9 +903,17 @@ Item {
     return n
   }
 
-  // An application removed while its page is open leaves the window on a page
-  // that is no longer there; step off it.
-  onStateChanged: if (!pageAvailable(pageId)) pageId = "overview"
+  // Everything that has to happen when a fresh state lands. One handler,
+  // because a second `onStateChanged` on the same object is not a second
+  // handler — it is "Property value set multiple times", and the whole file
+  // fails to load.
+  onStateChanged: {
+    // An application removed while its page is open leaves the window on a
+    // page that is no longer there; step off it.
+    if (!pageAvailable(pageId)) pageId = "overview"
+    // The claimed font, released once the state agrees it is in force.
+    if (fontPending !== "" && String(state.font) === fontPending) fontPending = ""
+  }
 
   function pageShows(pageId) {
     if (!pageAvailable(pageId)) return false
@@ -688,12 +925,12 @@ Item {
   onSearchTermChanged: {
     if (!searching) return
     if (pageShows(pageId)) return
-    // Walked from the rails rather than from orderedPages: that list is a
+    // Walked from the nav model rather than from orderedPages: that list is a
     // binding on this very term, and read from inside the change it is still
     // the list for the term before, which lands you on a page that no longer
     // matches.
-    for (var r = 0; r < rails.length; r++) {
-      var pages = railPages(rails[r])
+    for (var i = 0; i < navItems.length; i++) {
+      var pages = navItems[i].pages
       for (var p = 0; p < pages.length; p++)
         if (pageShows(pages[p])) { pageId = pages[p]; return }
     }
@@ -853,12 +1090,17 @@ Item {
     for (var i = 0; i < own.length; i++) keys.push(navCaps(own[i]))
 
     // Only offered when there is something to hand back.
-    if (row && row.changed === true) keys.push({ keys: ["\u232b"], label: "Reset" })
+    // A list row's ⌫ is not always a reset — a saved network's is Forget — so
+    // the row names it, and "Reset" is only the default.
+    if (row && row.changed === true)
+      keys.push({ keys: ["\u232b"],
+                  label: row.navResetLabel !== undefined && String(row.navResetLabel) !== ""
+                    ? String(row.navResetLabel) : "Reset" })
 
     if (navBlocked) return keys
 
     keys.push({ keys: ["\u2191", "\u2193"], label: "Move" })
-    if (hasList) keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
+    if (openItemPages.length > 1) keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
     // One cap, not three. "1" "–" "0" as separate caps reads as a chord with
     // a dash key in it.
     keys.push({ keys: ["1\u20130"], label: "Section" })
@@ -873,21 +1115,15 @@ Item {
     if (row) row.navStep(delta)
   }
 
-  // The pages the list is showing, flat, which is what Alt walks. Alt is the
-  // list; the number keys are the rail. Nothing walks the rail one step at a
-  // time, because ten labelled destinations on number keys do not need it.
-  function listPages() {
-    var out = []
-    var groups = listGroups
-    for (var g = 0; g < groups.length; g++)
-      for (var i = 0; i < groups[g].items.length; i++) out.push(groups[g].items[i].id)
-    return out
-  }
+  // What Alt walks: the pages shown under the open item. The number keys
+  // reach the items themselves, so nothing has to walk the sidebar one item
+  // at a time.
+  function listPages() { return openItemPages }
 
   function navSidebar(delta) {
     var pages = listPages()
-    // A direct rail has no list to walk, so Alt does nothing rather than
-    // moving a cursor through a column that is not on screen.
+    // An item that is a single page has nothing to walk, so Alt does nothing
+    // rather than moving a cursor through a list that is not on screen.
     if (pages.length === 0) return
     if (!navInSidebar) {
       navInSidebar = true
@@ -972,6 +1208,16 @@ Item {
       case "packages": pollPackages(); return
       case "usage": pollUsage(); return
       case "about": pollAbout(); return
+      // The command has returned, so the wait is over either way.
+      case "wifi": wifiConnecting = ""; pollWifi(); return
+      // A new theme brings a new set of wallpapers with it, so both lists are
+      // stale the moment either is set.
+      case "theme": readThemes(); readWallpapers(); return
+      case "set": if (args.length > 1 && String(args[1]) === "theme") {
+          readThemes(); readWallpapers()
+        }
+        return
+      case "bluetooth": pollBluetooth(); return
     }
   }
 
@@ -1069,6 +1315,12 @@ Item {
           for (var j in part) next[j] = part[j]
           root.state = next
           root.loaded = true
+          // A live page's poll stands in for its slice of the state, so a
+          // slice read asked for *after* a write would be thrown away by the
+          // poll's older answer — turning Wi-Fi off left the list up for a
+          // full poll interval. What just came back is the newer of the two.
+          if (part.wifi !== undefined) root.wifiLive = null
+          if (part.bluetooth !== undefined) root.bluetoothLive = null
         } catch (e) {
           // The whole document is already on its way; it will say the same.
         }
@@ -1148,6 +1400,14 @@ Item {
 
   // A page may say something truer about itself than its file path — what the
   // adapter is connected to, say. When it does, that is what the header shows.
+  // A page can drop the changed count and Undo all from its own header. The
+  // live pages — network, audio, bluetooth, power — change nothing this window
+  // tracks, so the count beside their name is about settings on other pages
+  // and reads as though it were about this one. It stays in the window bar
+  // above, which is where a window-wide fact belongs.
+  readonly property bool pageShowsChanges: !(bodyLoader.item
+    && bodyLoader.item.headerChanges === false)
+
   readonly property string pageHeaderNote: bodyLoader.item && bodyLoader.item.headerNote !== undefined
     ? String(bodyLoader.item.headerNote) : ""
 
@@ -1164,30 +1424,74 @@ Item {
   // a list that long, so it read top-to-bottom every time. Ten icons are
   // *remembered* — the shape of the grid becomes the map — and the pages under
   // them are a short list you scan rather than a long one you search.
-  readonly property var rails: [
-    { id: "overview", label: "Overview", key: "1", icon: "", direct: "overview" },
-    { id: "net", label: "Network", key: "2", icon: "", direct: "network" },
-    { id: "bluetooth", label: "Bluetooth", key: "3", icon: "", direct: "bluetooth" },
-    { id: "sound", label: "Sound", key: "4", icon: "", direct: "audio" },
-    { id: "displays", label: "Displays", key: "5", icon: "", direct: "displays" },
-
-    { id: "look", label: "Appearance", key: "6", icon: "", groups: [
-      { title: "", ids: ["appearance", "bar", "effects"] }
+  // One sidebar, grouped under quiet headers, rather than a rail of ten icons
+  // beside a list of that rail's pages.
+  //
+  // The rail made every page two keystrokes away and made none of them
+  // visible: you had to know which of ten icons held Neovim before you could
+  // see that it existed. Here every destination is on screen at once, in
+  // clusters, and an item holding more than one page reveals them indented
+  // beneath it while it is open — so the second column exists only where there
+  // is something to put in it, and only for as long as you are there.
+  //
+  // Connectivity leads, because that is what people open this window for
+  // mid-task; then the desktop they look at, the machine underneath, and the
+  // software on top.
+  readonly property var navBlocks: [
+    { title: "", items: [
+      { id: "overview", label: "Overview", icon: "\uf0e4", pages: ["overview"] },
+      { id: "net", label: "Network", icon: "\uf1eb", pages: ["network"] },
+      { id: "bt", label: "Bluetooth", icon: "\uf293", pages: ["bluetooth"] }
     ] },
-    { id: "wm", label: "Windows", key: "7", icon: "", groups: [
-      { title: "", ids: ["windows", "layout", "workspaces", "groups"] }
+    { title: "Experience", items: [
+      { id: "look", label: "Appearance", icon: "\uf1fc", pages: ["theme", "font", "wallpaper", "branding"] },
+      { id: "fx", label: "Effects", icon: "\uf0d0", pages: ["effects"] },
+      { id: "bar", label: "Bar", icon: "\uf0c9", pages: ["bar"] },
+      { id: "wm", label: "Windows", icon: "\uf2d0", pages: ["windows", "layout", "groups"] },
+      { id: "ws", label: "Workspaces", icon: "\uf00a", pages: ["workspaces"] },
+      { id: "kb", label: "Keyboard", icon: "\uf11c", pages: ["keyboard", "bindings", "compose"] },
+      { id: "ptr", label: "Mouse & touchpad", icon: "\uf245", pages: ["pointer"] },
+      { id: "sound", label: "Sound", icon: "\uf028", pages: ["audio"] },
+      { id: "displays", label: "Displays", icon: "\uf108", pages: ["displays"] }
     ] },
-    { id: "input", label: "Input", key: "8", icon: "", groups: [
-      { title: "", ids: ["keyboard", "bindings", "compose", "pointer"] }
+    { title: "System", items: [
+      { id: "pwr", label: "Power", icon: "\uf011", pages: ["power", "idle"] },
+      { id: "disk", label: "Storage", icon: "\uf0a0", pages: ["disk"] },
+      { id: "proc", label: "Processes", icon: "\uf080", pages: ["processes"] },
+      { id: "time", label: "Date & Time", icon: "\uf017", pages: ["datetime"] },
+      { id: "about", label: "About", icon: "\uf05a", pages: ["about"] }
     ] },
-    { id: "system", label: "System", key: "9", icon: "", groups: [
-      { title: "", ids: ["power", "idle", "disk", "processes", "datetime", "about"] }
-    ] },
-    { id: "apps", label: "Apps", key: "0", icon: "", groups: [
-      { title: "Software", ids: ["apps.defaults", "packages", "plugins", "usage"] },
-      { title: "Configs", ids: ["apps.herdr", "apps.tmux", "apps.nvim"] }
+    { title: "Apps & Packages", items: [
+      { id: "defaults", label: "Default Apps", icon: "\uf009", pages: ["apps.defaults"] },
+      { id: "pkg", label: "Packages", icon: "\uf187", pages: ["packages"] },
+      { id: "plugins", label: "Plugins", icon: "\uf1e6", pages: ["plugins"] },
+      { id: "usage", label: "Usage", icon: "\uf201", pages: ["usage"] },
+      { id: "cfg", label: "Configs", icon: "\uf121", pages: ["apps.herdr", "apps.tmux", "apps.nvim"] }
     ] }
   ]
+
+  // Flat, for everything that walks items rather than blocks: the number keys,
+  // and finding which item holds the open page.
+  readonly property var navItems: {
+    var out = []
+    for (var b = 0; b < navBlocks.length; b++)
+      for (var i = 0; i < navBlocks[b].items.length; i++) out.push(navBlocks[b].items[i])
+    return out
+  }
+
+  function itemPages(item) {
+    var out = []
+    for (var i = 0; i < item.pages.length; i++)
+      if (pageShows(item.pages[i])) out.push(item.pages[i])
+    return out
+  }
+
+  function itemOf(id) {
+    for (var i = 0; i < navItems.length; i++)
+      if (navItems[i].pages.indexOf(id) !== -1) return navItems[i]
+    return navItems[0]
+  }
+
 
   // Every page's title, in the order the rail walks them. Most of the window
   // wants the pages and not the nesting, and walking two levels everywhere it
@@ -1198,7 +1502,6 @@ Item {
     "bluetooth": "Bluetooth",
     "audio": "Audio",
     "displays": "Displays",
-    "appearance": "Appearance",
     "bar": "Bar",
     "effects": "Effects",
     // "General", not "Windows": the rail is already called Windows, and a page
@@ -1226,90 +1529,84 @@ Item {
     "usage": "Agent usage",
     "apps.herdr": "Herdr",
     "apps.tmux": "Tmux",
-    "apps.nvim": "Neovim"
+    "apps.nvim": "Neovim",
+    "theme": "Theme",
+    "font": "Font",
+    "wallpaper": "Wallpaper",
+    "branding": "Branding"
   })
 
-  // A rail's pages, in order, whether it is direct or holds groups.
-  function railPages(rail) {
-    if (rail.direct !== undefined) return [rail.direct]
-    var out = []
-    for (var g = 0; g < rail.groups.length; g++)
-      for (var i = 0; i < rail.groups[g].ids.length; i++) out.push(rail.groups[g].ids[i])
-    return out
-  }
+  // Which item is open. Driven by the page rather than held on its own: an
+  // item that could disagree with the page on screen is one that will.
+  readonly property var openItem: itemOf(pageId)
+  // The pages under it, shown indented while it is open — and only when there
+  // is more than one, since an item that is a page needs no list of itself.
+  readonly property var openItemPages: openItem.pages.length > 1 ? itemPages(openItem) : []
 
-  function railFor(id) {
-    for (var r = 0; r < rails.length; r++) {
-      var pages = railPages(rails[r])
-      for (var p = 0; p < pages.length; p++) if (pages[p] === id) return rails[r]
-    }
-    return rails[0]
-  }
-
-  // Which rail is open. Driven by the page rather than held on its own: a rail
-  // that could disagree with the page on screen is a rail that will.
-  readonly property var openRail: railFor(pageId)
-  readonly property bool hasList: openRail.direct === undefined
-
-  // Every page in rail order, which is what the arrows walk.
+  // Every page in sidebar order, which is what the arrows walk.
   readonly property var orderedPages: {
     var out = []
-    for (var r = 0; r < rails.length; r++) {
-      var pages = railPages(rails[r])
-      for (var p = 0; p < pages.length; p++)
-        if (pageShows(pages[p])) out.push(pages[p])
+    for (var i = 0; i < navItems.length; i++) {
+      var pages = itemPages(navItems[i])
+      for (var p = 0; p < pages.length; p++) out.push(pages[p])
     }
     return out
   }
 
-  // What the list column draws: the open rail's groups, emptied of pages the
-  // search or a missing application has taken away, and groups emptied of
-  // pages taken away with them.
-  readonly property var listGroups: {
-    if (!hasList) return []
+  // What the sidebar draws: the blocks, emptied of items whose pages the
+  // search or a missing application has taken away, and blocks emptied of the
+  // items that went with them.
+  readonly property var sidebarBlocks: {
     var out = []
-    for (var g = 0; g < openRail.groups.length; g++) {
-      var group = openRail.groups[g]
+    for (var b = 0; b < navBlocks.length; b++) {
       var items = []
-      for (var i = 0; i < group.ids.length; i++) {
-        var id = group.ids[i]
-        if (!pageShows(id)) continue
-        items.push({ id: id, title: pageTitles[id] !== undefined ? pageTitles[id] : id,
-                     matches: pageMatchCount(id) })
+      for (var i = 0; i < navBlocks[b].items.length; i++) {
+        var item = navBlocks[b].items[i]
+        var pages = itemPages(item)
+        if (pages.length === 0) continue
+        var hits = 0
+        for (var p = 0; p < pages.length; p++) hits += pageMatchCount(pages[p])
+        items.push({ id: item.id, label: item.label, icon: item.icon,
+                     pages: pages, matches: hits })
       }
-      if (items.length > 0) out.push({ title: group.title, items: items })
+      if (items.length > 0) out.push({ title: navBlocks[b].title, items: items })
     }
     return out
   }
 
-  // Picking a rail opens its first page that has anything to show, so a search
-  // narrowing a rail to one page still lands on that page.
-  function pickRail(id) {
-    for (var r = 0; r < rails.length; r++) {
-      if (rails[r].id !== id) continue
-      var pages = railPages(rails[r])
-      for (var p = 0; p < pages.length; p++)
-        if (pageShows(pages[p])) { pageId = pages[p]; return }
+  // Picking an item opens its first page that has anything to show, so a
+  // search narrowing an item to one page still lands on that page.
+  function pickItem(id) {
+    for (var i = 0; i < navItems.length; i++) {
+      if (navItems[i].id !== id) continue
+      var pages = itemPages(navItems[i])
+      if (pages.length > 0) { pageId = pages[0]; return }
       // Nothing in it matches the search; open it anyway rather than
       // swallowing the keypress.
-      if (pages.length > 0) pageId = pages[0]
+      if (navItems[i].pages.length > 0) pageId = navItems[i].pages[0]
       return
     }
   }
 
-  function railWithKey(key) {
-    for (var r = 0; r < rails.length; r++) if (rails[r].key === key) return rails[r]
-    return null
+  // The number keys reach the first ten items, in the order they are drawn.
+  // Ten keys against nineteen destinations is not a shortcut for everything —
+  // it is the top of the sidebar, where the things reached mid-task live.
+  function itemWithKey(key) {
+    var index = key === "0" ? 9 : Number(key) - 1
+    var flat = []
+    for (var b = 0; b < sidebarBlocks.length; b++)
+      for (var i = 0; i < sidebarBlocks[b].items.length; i++) flat.push(sidebarBlocks[b].items[i])
+    return index >= 0 && index < flat.length ? flat[index] : null
   }
 
   function pageFor(id) {
-    // The crumb is the rail's label, and only where the rail is a grouping
+    // The crumb is the item's label, and only where the item is a grouping
     // rather than a page: "Overview / Overview" says nothing twice.
-    var rail = railFor(id)
+    var item = itemOf(id)
     return {
       title: pageTitles[id] !== undefined ? pageTitles[id] : "",
-      crumb: rail.direct !== undefined ? "" : rail.label,
-      cluster: rail.label
+      crumb: item.pages.length > 1 ? item.label : "",
+      cluster: item.label
     }
   }
 
@@ -1318,12 +1615,15 @@ Item {
   function sectionSource(id) {
     switch (id) {
     case "overview": return "sections/OverviewSection.qml"
+    case "theme": return "sections/ThemeSection.qml"
+    case "font": return "sections/FontSection.qml"
+    case "wallpaper": return "sections/WallpaperSection.qml"
+    case "branding": return "sections/BrandingSection.qml"
     case "packages": return "sections/PackagesSection.qml"
     case "usage": return "sections/UsageSection.qml"
     case "about": return "sections/AboutSection.qml"
     case "disk": return "sections/DiskSection.qml"
     case "processes": return "sections/ProcessesSection.qml"
-    case "appearance": return "sections/AppearanceSection.qml"
     case "bar": return "sections/BarSection.qml"
     case "workspaces": return "sections/WorkspacesSection.qml"
     case "windows": return "sections/WindowsSection.qml"
@@ -1390,8 +1690,21 @@ Item {
     Rectangle {
       id: card
       anchors.centerIn: parent
-      // Nine tenths of the screen it is on, whatever screen that is.
-      width: Math.round(window.width * 0.9)
+      // One size, wherever it opens. It used to be nine tenths of the screen,
+      // which reads right on a laptop panel and falls apart on anything
+      // larger: a settings row is a name on the left and a value on the right,
+      // and at 2300 points wide those two are half a metre apart with nothing
+      // in between. So the window is the size a page of settings wants to be
+      // read at, and only a screen smaller than that shrinks it.
+      //
+      // In logical points, not pixels, so a HiDPI screen gets the same window
+      // at twice the density rather than half the size.
+      // A width the settings are read at, and the height of the screen it is
+      // on. Nine tenths either way: a settings row is a name and a value, and
+      // at 2300 points wide those two are half a metre apart — but a page of
+      // them is a list, and a list wants the room.
+      readonly property real preferredWidth: Style.space(1200)
+      width: Math.round(Math.min(preferredWidth, window.width * 0.9))
       height: Math.round(window.height * 0.9)
       color: root.background
       radius: Style.cornerRadius
@@ -1478,8 +1791,8 @@ Item {
         // most two keystrokes away, where the flat list it replaced was a
         // count of how far down you had to walk.
         if (event.text.length === 1 && event.text >= "0" && event.text <= "9") {
-          var rail = root.railWithKey(event.text)
-          if (rail) { root.pickRail(rail.id); event.accepted = true; return }
+          var item = root.itemWithKey(event.text)
+          if (item) { root.pickItem(item.id); event.accepted = true; return }
         }
 
         // The two things every search box answers to.
@@ -1578,70 +1891,6 @@ Item {
             font.bold: true
           }
 
-          Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: root.changedLabel !== ""
-            width: Style.spacing.hairline
-            height: Style.space(14)
-            color: root.hairline
-          }
-
-          // The box itself, not a hint that one exists somewhere. It was at
-          // the top of the sidebar, where it filtered the column beneath it
-          // and looked like it belonged to that column — but a search here
-          // crosses every rail, so it belongs to the window.
-          Item {
-            anchors.verticalCenter: parent.verticalCenter
-            implicitWidth: Style.space(230)
-            implicitHeight: searchField.implicitHeight
-
-            Text {
-              id: searchGlyph
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(10)
-              anchors.verticalCenter: parent.verticalCenter
-              text: ""
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.iconSmall
-              z: 1
-            }
-
-            TextField {
-              id: searchField
-              anchors.fill: parent
-              // The kit's own knob, not an override of the `leftPadding` it
-              // derives from it — that binding also carries the border inset,
-              // and replacing it means re-deriving something the kit already
-              // gets right.
-              horizontalPadding: Style.space(26)
-              placeholderText: "Search settings"
-              foreground: root.foreground
-              accent: root.accent
-              font.family: root.fontFamily
-              onTextChanged: root.searchQuery = text
-              // Escape gives the keyboard back to the page rather than
-              // closing the window out from under a search.
-              Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Escape) {
-                  if (text !== "") text = ""
-                  root.navTakeFocus()
-                  event.accepted = true
-                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
-                           || event.key === Qt.Key_Down) {
-                  root.navTakeFocus()
-                  root.navMove(1)
-                  event.accepted = true
-                }
-              }
-            }
-          }
-
-          Ui.KeyCap {
-            anchors.verticalCenter: parent.verticalCenter
-            key: "/"
-          }
-
           Ui.KeyCap {
             anchors.verticalCenter: parent.verticalCenter
             key: "esc"
@@ -1660,122 +1909,14 @@ Item {
         Layout.fillHeight: true
         spacing: 0
 
-        // ---------------- rail ---------------------------------------------
-        // Ten destinations, always on screen, each on a number key. Darker
-        // than everything beside it because it is chrome rather than content:
-        // it never changes, whatever page is open.
+        // ---------------- sidebar ------------------------------------------
+        // One column, not two. Every destination is on screen at once, in
+        // clusters under quiet headers, and the pages of the open item appear
+        // indented beneath it — so a second column exists only where there is
+        // something to put in it, and only while you are there.
         Rectangle {
           Layout.fillHeight: true
-          Layout.preferredWidth: Style.space(76)
-          color: Ui.Palette.shade(0.10)
-
-          ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Style.space(7)
-            spacing: Style.space(3)
-
-            Repeater {
-              model: root.rails
-
-              delegate: Rectangle {
-                required property var modelData
-                required property int index
-
-                readonly property bool current: modelData.id === root.openRail.id
-                // A hairline between the rails that *are* a page and the ones
-                // that open a list. Both are destinations, so both are on the
-                // rail, but pressing one of the first five lands you on the
-                // thing itself and one of the last five lands you in a list —
-                // and that is worth seeing before you press.
-                readonly property bool opensGroups: modelData.direct === undefined
-                  && index > 0 && root.rails[index - 1].direct !== undefined
-                // A rail whose every page has been searched away is dimmed
-                // rather than removed: the rail is the map, and a map that
-                // rearranges itself while you type is not one.
-                readonly property bool empty: {
-                  if (!root.searching) return false
-                  var pages = root.railPages(modelData)
-                  for (var i = 0; i < pages.length; i++)
-                    if (root.pageShows(pages[i])) return false
-                  return true
-                }
-
-                Layout.fillWidth: true
-                Layout.topMargin: opensGroups ? Style.space(9) : 0
-                implicitHeight: railColumn.implicitHeight + Style.space(14)
-                radius: Ui.Palette.cardRadius
-                color: current ? root.accent
-                               : (railMouse.containsMouse ? Ui.Palette.shade(0.10) : "transparent")
-                opacity: empty ? 0.35 : 1
-
-                Column {
-                  id: railColumn
-                  anchors.centerIn: parent
-                  width: parent.width
-                  spacing: Style.space(3)
-
-                  Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: modelData.icon
-                    color: current ? Ui.Palette.onAccent : Ui.Palette.shade(0.62)
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.iconLarge
-                  }
-
-                  // Small, because it is a reminder of what the icon means
-                  // rather than the thing being read. Once the grid is
-                  // learned it is the icon that is recognised.
-                  Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width
-                    text: modelData.label
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    color: current ? Ui.Palette.onAccent : Ui.Palette.shade(0.62)
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    font.bold: true
-                  }
-                }
-
-                // Drawn in the gap the margin opened, not as a row of its
-                // own: a Repeater delegate is one item per model entry, and a
-                // separator smuggled in as an eleventh would put every index
-                // after it out of step with the rail it names.
-                Rectangle {
-                  anchors.bottom: parent.top
-                  anchors.bottomMargin: Style.space(4)
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  width: parent.width - Style.space(14)
-                  height: Style.spacing.hairline
-                  visible: opensGroups
-                  color: Ui.Palette.shade(0.18)
-                }
-
-                MouseArea {
-                  id: railMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.pickRail(modelData.id)
-                }
-              }
-            }
-
-            // The rail is a fixed height; whatever is left over is space, not
-            // a stretched last button.
-            Item { Layout.fillHeight: true }
-          }
-        }
-
-        // ---------------- list ---------------------------------------------
-        // Only for a rail that holds more than one page. Network and Bluetooth
-        // *are* pages, and a column with one row in it is a column asking to
-        // be clicked through for nothing.
-        Rectangle {
-          Layout.fillHeight: true
-          Layout.preferredWidth: Style.space(232)
-          visible: root.hasList
+          Layout.preferredWidth: Style.space(262)
           color: root.surface
 
           ColumnLayout {
@@ -1783,122 +1924,268 @@ Item {
             anchors.topMargin: Style.space(12)
             anchors.leftMargin: Style.space(10)
             anchors.rightMargin: Style.space(10)
-            anchors.bottomMargin: Style.space(16)
+            anchors.bottomMargin: Style.space(14)
             spacing: Style.space(10)
 
-            Repeater {
-              model: root.listGroups
+            // At the top of the column it filters. It lived in the window
+            // header on the argument that a search crosses every rail — but
+            // the rail is gone, and what a search now narrows is this one
+            // sidebar, item by item, in front of you.
+            Item {
+              Layout.fillWidth: true
+              Layout.preferredHeight: searchField.implicitHeight
 
-              delegate: ColumnLayout {
-                required property var modelData
+              Text {
+                id: searchGlyph
+                anchors.left: parent.left
+                anchors.leftMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                text: "\uf002"
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.iconSmall
+                z: 1
+              }
 
-                Layout.fillWidth: true
-                spacing: root.listRowGap
-
-                // Apps is the only rail that needs headings, and it needs
-                // them: "Defaults" and "Tmux" are not the same kind of thing.
-                Text {
-                  Layout.fillWidth: true
-                  Layout.bottomMargin: Style.space(3)
-                  visible: modelData.title !== ""
-                  text: modelData.title
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                  font.bold: true
-                  font.capitalization: Font.AllUppercase
-                  font.letterSpacing: Style.space(1)
-                }
-
-                Repeater {
-                  model: modelData.items
-
-                  delegate: Rectangle {
-                    required property var modelData
-                    required property int index
-
-                    readonly property bool current: modelData.id === root.pageId
-                    // Where the keyboard is, which is not always the open
-                    // page: Alt can walk the list without a click.
-                    readonly property bool cursored: root.navInSidebar
-                      && root.listPages()[root.sidebarIndex] === modelData.id
-
-                    Layout.fillWidth: true
-                    implicitHeight: root.listRowHeight
-                    radius: Ui.Palette.chipRadius
-                    border.width: cursored ? Style.normalBorderWidth : 0
-                    border.color: root.accent
-                    color: current
-                      ? root.accent
-                      : (cursored ? Ui.Palette.tint(0.12)
-                                  : (listMouse.containsMouse ? Ui.Palette.hover : "transparent"))
-
-                    // No icon. The rail carries the iconography; repeating it
-                    // one column over would say the same thing twice and give
-                    // the page names a ragged left edge to start from.
-                    Text {
-                      anchors.left: parent.left
-                      anchors.leftMargin: Style.space(9)
-                      anchors.right: matchCount.left
-                      anchors.rightMargin: Style.space(6)
-                      anchors.verticalCenter: parent.verticalCenter
-                      text: modelData.title
-                      elide: Text.ElideRight
-                      color: current ? Ui.Palette.onAccent : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.body
-                      font.bold: true
-                    }
-
-                    // How much of what you typed is in there.
-                    Text {
-                      id: matchCount
-                      anchors.right: parent.right
-                      anchors.rightMargin: Style.space(10)
-                      anchors.verticalCenter: parent.verticalCenter
-                      visible: root.searching && modelData.matches > 0
-                      text: modelData.matches
-                      color: current ? Ui.Palette.onAccent : root.muted
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.bold: true
-                    }
-
-                    MouseArea {
-                      id: listMouse
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.pageId = modelData.id
-                    }
+              TextField {
+                id: searchField
+                anchors.fill: parent
+                // The kit's own knob, not an override of the `leftPadding` it
+                // derives from it — that binding also carries the border
+                // inset, and replacing it means re-deriving something the kit
+                // already gets right.
+                horizontalPadding: Style.space(26)
+                placeholderText: "Search settings"
+                foreground: root.foreground
+                accent: root.accent
+                font.family: root.fontFamily
+                onTextChanged: root.searchQuery = text
+                // Escape gives the keyboard back to the page rather than
+                // closing the window out from under a search.
+                Keys.onPressed: function(event) {
+                  if (event.key === Qt.Key_Escape) {
+                    if (text !== "") text = ""
+                    root.navTakeFocus()
+                    event.accepted = true
+                  } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                             || event.key === Qt.Key_Down) {
+                    root.navTakeFocus()
+                    root.navMove(1)
+                    event.accepted = true
                   }
                 }
               }
             }
 
-            // The rail says a search found nothing in *this* rail; this says
-            // it about the search. Without it an emptied list is a blank
-            // column that reads as a window that failed to load.
-            Text {
+            Flickable {
               Layout.fillWidth: true
-              visible: root.searching && root.listGroups.length === 0
-              text: "Nothing here for what you typed."
-              wrapMode: Text.WordWrap
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-            }
+              Layout.fillHeight: true
+              clip: true
+              contentWidth: width
+              contentHeight: sidebarColumn.implicitHeight
+              boundsBehavior: Flickable.StopAtBounds
 
-            Item { Layout.fillHeight: true }
+              Column {
+                id: sidebarColumn
+                width: parent.width
+                spacing: Style.space(11)
+
+                Repeater {
+                  model: root.sidebarBlocks
+
+                  delegate: Column {
+                    id: block
+                    required property var modelData
+                    required property int index
+                    width: sidebarColumn.width
+                    spacing: Style.space(2)
+
+                    Text {
+                      visible: modelData.title !== ""
+                      leftPadding: Style.space(11)
+                      bottomPadding: Style.space(2)
+                      text: modelData.title
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.bold: true
+                      font.capitalization: Font.AllUppercase
+                      font.letterSpacing: Style.space(1)
+                    }
+
+                    Repeater {
+                      model: modelData.items
+
+                      delegate: Column {
+                        id: entry
+                        required property var modelData
+                        readonly property bool current: modelData.id === root.openItem.id
+                        width: parent.width
+                        spacing: Style.space(1)
+
+                        Rectangle {
+                          width: parent.width
+                          implicitHeight: Style.spacing.controlHeight + Style.space(4)
+                          radius: Style.cornerRadius
+                          color: entry.current ? root.accent
+                            : (itemMouse.containsMouse ? Ui.Palette.hover : "transparent")
+
+                          MouseArea {
+                            id: itemMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.pickItem(entry.modelData.id)
+                          }
+
+                          // A fixed column for the glyph, with the glyph
+                          // centred in it by its ink. See ui/GlyphIcon.qml:
+                          // these glyphs share neither an advance nor an ink
+                          // width, so a label anchored to the glyph's own
+                          // right edge starts at a different x on every row.
+                          Ui.GlyphIcon {
+                            id: itemIcon
+                            anchors.left: parent.left
+                            anchors.leftMargin: Style.space(11)
+                            anchors.verticalCenter: parent.verticalCenter
+                            glyph: entry.modelData.icon
+                            size: Style.font.body
+                            // On the accent fill the glyph is struck from
+                            // onAccent, never from white: a light accent would
+                            // swallow it.
+                            color: entry.current ? Ui.Palette.onAccent : root.muted
+                          }
+
+                          Text {
+                            anchors.left: itemIcon.right
+                            anchors.leftMargin: Style.space(11)
+                            anchors.right: itemCount.left
+                            anchors.rightMargin: Style.space(8)
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: entry.modelData.label
+                            elide: Text.ElideRight
+                            color: entry.current ? Ui.Palette.onAccent : root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.subtitle
+                            font.bold: true
+                          }
+
+                          // How many settings under this item the search
+                          // found. Only while searching: a count beside every
+                          // item at rest is a number nobody asked for.
+                          Text {
+                            id: itemCount
+                            anchors.right: parent.right
+                            anchors.rightMargin: Style.space(11)
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: root.searching && entry.modelData.matches > 0
+                            text: entry.modelData.matches
+                            color: entry.current ? Ui.Palette.onAccent : root.accent
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                            font.bold: true
+                          }
+                        }
+
+                        // The pages under the open item, and only when it
+                        // holds more than one: an item that is a page needs no
+                        // list of itself.
+                        Repeater {
+                          model: entry.current && entry.modelData.pages.length > 1
+                            ? entry.modelData.pages : []
+
+                          delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool current: modelData === root.pageId
+                            width: entry.width
+                            implicitHeight: Style.spacing.controlHeight
+                            radius: Style.cornerRadius
+                            color: pageMouse.containsMouse ? Ui.Palette.hover : "transparent"
+
+                            MouseArea {
+                              id: pageMouse
+                              anchors.fill: parent
+                              hoverEnabled: true
+                              cursorShape: Qt.PointingHandCursor
+                              onClicked: root.pageId = modelData
+                            }
+
+                            // A tick rather than a fill: the item above is
+                            // already filled, and two filled things one under
+                            // the other read as two selections.
+                            Rectangle {
+                              anchors.left: parent.left
+                              anchors.leftMargin: Style.space(18)
+                              anchors.verticalCenter: parent.verticalCenter
+                              width: Style.space(3)
+                              height: Style.space(15)
+                              radius: width
+                              color: parent.current ? root.accent : "transparent"
+                            }
+
+                            Text {
+                              anchors.left: parent.left
+                              anchors.leftMargin: Style.space(32)
+                              anchors.right: parent.right
+                              anchors.rightMargin: Style.space(10)
+                              anchors.verticalCenter: parent.verticalCenter
+                              text: root.pageTitles[modelData] !== undefined
+                                ? root.pageTitles[modelData] : modelData
+                              elide: Text.ElideRight
+                              color: parent.current ? root.foreground : root.muted
+                              font.family: root.fontFamily
+                              font.pixelSize: Style.font.body
+                              font.bold: parent.current
+                            }
+                          }
+                        }
+                      }
+                    }
+
+                    // The line the design draws under each cluster. Between
+                    // blocks only: a rule under the last one separates the
+                    // list from nothing.
+                    Item {
+                      width: parent.width
+                      implicitHeight: Style.space(12)
+                      visible: block.index < root.sidebarBlocks.length - 1
+
+                      Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: Style.spacing.hairline
+                        color: root.hairline
+                      }
+                    }
+                  }
+                }
+
+                // Said about the search rather than about any one item: an
+                // emptied sidebar is otherwise a blank column that reads as a
+                // window which failed to load.
+                Text {
+                  width: parent.width
+                  visible: root.searching && root.sidebarBlocks.length === 0
+                  padding: Style.space(10)
+                  text: "Nothing here for what you typed."
+                  wrapMode: Text.WordWrap
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+              }
+            }
 
             // The corner says something only when there is something to say:
             // when this window is behind its own remote.
             Column {
+              Layout.fillWidth: true
               visible: !root.busy && root.loaded && root.selfBehind > 0
               spacing: Style.space(2)
 
               Text {
-                text: "  Update available"
+                text: "\uf0e7  Update available"
                 color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -1925,11 +2212,13 @@ Item {
             }
           }
         }
+
         Rectangle {
           Layout.fillHeight: true
           Layout.preferredWidth: Style.spacing.hairline
           color: root.hairline
         }
+
 
         // ---------------- body ---------------------------------------------
         ColumnLayout {
@@ -2011,7 +2300,7 @@ Item {
 
               Ui.Tag {
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.changedSettings.length > 0
+                visible: root.changedSettings.length > 0 && root.pageShowsChanges
                 text: root.changedLabel
               }
 
@@ -2019,7 +2308,7 @@ Item {
               // had nothing to do with, and read as an action on the menu.
               Ui.Chip {
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.changedSettings.length > 0
+                visible: root.changedSettings.length > 0 && root.pageShowsChanges
                 text: "Undo all"
                 onClicked: resetAllDialog.opened = true
               }

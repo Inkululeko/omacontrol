@@ -15,13 +15,62 @@ wifi_saved() {
     | awk -F: '$NF ~ /wireless/ { name = $0; sub(/:[^:]*$/, "", name); print name }'
 }
 
+# The real signal in dBm, per access point, keyed by BSSID. NetworkManager
+# reports a percentage instead — a nonlinear curve over the dBm it was given —
+# and inverting that curve would be inventing a number, so the instrument
+# reading comes from the driver's own scan cache. `scan dump` reads that cache
+# and needs no privileges, unlike a scan trigger; an access point it has not
+# seen simply has no dBm, and the row says the percentage instead.
+wifi_dbm() {
+  local device=$1
+  [[ -n $device ]] || { echo '{}'; return; }
+  command -v iw >/dev/null 2>&1 || { echo '{}'; return; }
+
+  # Two ways in, because the two caches are not the same snapshot: nmcli lists
+  # access points the kernel's scan cache has already dropped, and vice versa.
+  # A network with no reading for the exact access point nmcli named still has
+  # a real reading for another of its own radios, which is the same reduction
+  # the list itself makes — one row per network, not per radio.
+  capture iw dev "$device" scan dump \
+    | awk '
+        function flush() {
+          if (bssid != "" && signal != "") printf "%s\t%s\t%s\n", bssid, signal, ssid
+          bssid = ""; signal = ""; ssid = ""
+        }
+        /^BSS / { flush(); bssid = tolower(substr($2, 1, 17)) }
+        /^\tsignal:/ { signal = $2 + 0 }
+        /^\tSSID: / { ssid = substr($0, index($0, "SSID: ") + 6) }
+        END { flush() }
+      ' \
+    | jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t"))
+      | map({ bssid: .[0], dbm: (.[1] | tonumber? // null), ssid: (.[2] // "") })
+      | { bssid: (map(select(.dbm != null) | { key: .bssid, value: .dbm }) | from_entries),
+          ssid: (map(select(.dbm != null and .ssid != "")) | group_by(.ssid)
+                 | map({ key: .[0].ssid, value: (map(.dbm) | max) }) | from_entries) }'
+}
+
 # Access points, strongest first, one row per network rather than one per
 # radio: the same network seen from three access points is still one choice.
 wifi_networks() {
-  local saved
+  local device=$1 saved dbm link associated live
   saved=$(wifi_saved | jq -R -s -c 'split("\n") | map(select(length > 0))')
+  dbm=$(wifi_dbm "$device")
 
-  capture nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list --rescan no \
+  # The access point actually associated with, and its signal as the driver
+  # reads it now. Both matter for one row: a network seen from three access
+  # points is one choice, but the one you are *on* has to be described by the
+  # access point you are on — grouping by strongest put a 5 GHz connection on
+  # screen as a 2.4 GHz one, because a nearer radio of the same name was
+  # louder. The live figure also outranks the scan cache, which can be minutes
+  # old for a network being used continuously.
+  link=$(command -v iw >/dev/null 2>&1 && capture iw dev "$device" link)
+  associated=$(awk '/^Connected to/ { print tolower($3); exit }' <<<"$link")
+  live=$(awk '/signal:/ { print $2 + 0; exit }' <<<"$link")
+
+  # BSSID and BAND ride along at the end so the field indices below stay put.
+  # nmcli escapes the colons inside a BSSID exactly as it does inside an SSID,
+  # which the unescaper above already handles.
+  capture nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY,BSSID,BAND dev wifi list --rescan no \
     | awk '
       {
         # Unescape "\:" so an SSID containing a colon survives the split.
@@ -36,22 +85,182 @@ wifi_networks() {
         }
         fields[++n] = field
         if (fields[2] == "") next
-        printf "%s\t%s\t%s\t%s\n", (fields[1] == "*" ? "true" : "false"), fields[2], fields[3], fields[4]
+        printf "%s\t%s\t%s\t%s\t%s\t%s\n", (fields[1] == "*" ? "true" : "false"),
+          fields[2], fields[3], fields[4], tolower(fields[5]), fields[6]
       }
     ' \
-    | jq -R -s -c --argjson saved "${saved:-[]}" 'split("\n")
+    | jq -R -s -c --argjson saved "${saved:-[]}" --argjson dbm "${dbm:-{\}}" \
+        --arg associated "${associated:-}" --arg live "${live:-}" 'split("\n")
       | map(select(length > 0) | split("\t") | . as $row
         | { ssid: $row[1],
             active: ($row[0] == "true"),
             signal: ($row[2] | tonumber? // 0),
             security: $row[3],
             secured: ($row[3] != "" and $row[3] != "--"),
+            # What the row prints: the words nmcli uses, or the fact that
+            # there are none. An open network is worth naming rather than
+            # leaving as the absence of a padlock.
+            securityLabel: (if ($row[3] == "" or $row[3] == "--") then "Open"
+                            else ($row[3] | split(" ") | join("/")) end),
+            band: ($row[5] // ""),
+            associated: ($associated != "" and $row[4] == $associated),
+            dbm: (if ($associated != "" and $row[4] == $associated and $live != "")
+                  then ($live | tonumber? // null)
+                  else ((($dbm.bssid // {})[$row[4]]) // (($dbm.ssid // {})[$row[1]]) // null) end),
             # Inside the pipe `.` is $saved, so the ssid is bound first —
             # otherwise index() would test $saved against itself.
             saved: (($saved | index($row[1])) != null) })
       | group_by(.ssid)
-      | map(reduce .[] as $ap (.[0]; if $ap.signal > .signal then $ap + { active: (.active or $ap.active) } else . + { active: (.active or $ap.active) } end))
+      # The access point in use wins its group outright; otherwise the loudest
+      # one does.
+      | map(reduce .[] as $ap (.[0];
+          if (.associated | not) and ($ap.associated or $ap.signal > .signal)
+          then $ap + { active: (.active or $ap.active) }
+          else . + { active: (.active or $ap.active) } end))
       | sort_by(-(if .active then 1000 else 0 end) - .signal)'
+}
+
+# The address the rest of the internet sees. The only lookup on this page that
+# leaves the machine, and unlike the news it is asked afresh every time the
+# page is opened: opening a settings page is a deliberate act a few times a
+# day, and an hour-old address is wrong the moment a VPN goes up.
+#
+# So the stored copy is not a cache to serve from, it is the last good answer
+# to fall back on when the lookup fails. What is left of the interval is a
+# debounce — a page rebuilt twice in a few seconds must not ask twice.
+#
+# Cloudflare, because `omarchy-network-status` already pings 1.1.1.1 for the
+# latency on this same page: they see this machine either way, where ipify or
+# ipinfo would be a new party learning an address. `cdn-cgi/trace` is plain
+# key=value text and needs no key, and `colo` names the datacentre that
+# answered, which is the nearest thing to a location that costs nothing.
+PUBLIC_IP_CACHE="${OMACONTROL_PUBLIC_IP_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/publicip.json}"
+PUBLIC_IP_MIN_INTERVAL=${OMACONTROL_PUBLIC_IP_MIN_INTERVAL:-15}
+
+public_ip_cached() {
+  [[ -f $PUBLIC_IP_CACHE ]] || { echo '{}'; return; }
+  emit_json "$(read_file "$PUBLIC_IP_CACHE")" '{}'
+}
+
+public_ip_fetch() {
+  local cache age now report ip colo next
+  cache=$(public_ip_cached)
+  now=$(date +%s)
+  age=$(( now - $(jq -r '.at // 0' <<<"$cache" 2>/dev/null || echo 0) ))
+  # Only inside the debounce window is the stored answer returned as-is.
+  if [[ -f $PUBLIC_IP_CACHE ]] && (( age <= PUBLIC_IP_MIN_INTERVAL )); then
+    printf '%s\n' "$cache"
+    return
+  fi
+
+  report=$(curl -fsS --max-time 4 https://1.1.1.1/cdn-cgi/trace 2>/dev/null)
+  ip=$(awk -F= '$1 == "ip" { print $2; exit }' <<<"$report")
+  colo=$(awk -F= '$1 == "colo" { print $2; exit }' <<<"$report")
+  # A failed lookup keeps the last good answer rather than blanking the row.
+  [[ -n $ip ]] || { printf '%s\n' "$cache"; return; }
+
+  next=$(jq -cn --arg ip "$ip" --arg colo "$colo" --argjson at "$now" \
+    '{ ip: $ip, colo: $colo, at: $at }')
+  mkdir -p "$(dirname "$PUBLIC_IP_CACHE")"
+  printf '%s\n' "$next" >"$PUBLIC_IP_CACHE" 2>/dev/null
+  printf '%s\n' "$next"
+}
+
+# What the connection is doing right now: the counters behind Receiving and
+# Sending, the live link, and the latency the bar's own network panel shows.
+#
+# Never part of the state document, and never on the path of a write. This is
+# a reading that changes by the second, like Disk and Processes: the page that
+# wants it polls for it, and nothing else in the window pays for the ping.
+#
+# The counters come from the Wi-Fi device itself rather than from
+# `omarchy-network-status`'s chosen interface. That interface is whatever the
+# default route points at, which with a VPN up is the tunnel — the same reason
+# the address below is read from the device.
+wifi_link() {
+  local device=$1
+  [[ -n $device ]] || { echo '{}'; return; }
+
+  local rx tx link station info scan status assoc
+  rx=$(cat "/sys/class/net/$device/statistics/rx_bytes" 2>/dev/null)
+  tx=$(cat "/sys/class/net/$device/statistics/tx_bytes" 2>/dev/null)
+  if command -v iw >/dev/null 2>&1; then
+    link=$(capture iw dev "$device" link)
+    station=$(capture iw dev "$device" station dump)
+    info=$(capture iw dev "$device" info)
+    assoc=$(awk '/^Connected to/ { print tolower($3); exit }' <<<"$link")
+    # The generation is the access point's, advertised in its beacon, so it is
+    # read out of the scan entry for the one we are on rather than from our own
+    # radio — a Wi-Fi 6 card on a Wi-Fi 5 router is on Wi-Fi 5.
+    scan=$(capture iw dev "$device" scan dump \
+      | awk -v want="$assoc" '
+          tolower($0) ~ /^bss / { on = (index(tolower($0), want) > 0) }
+          on { print }
+        ')
+  fi
+  # Omarchy's own command, so the latency here is the number its network panel
+  # shows rather than a second opinion about the same round trip.
+  status=$(capture omarchy-network-status --verbose)
+
+  {
+    printf 'iface\t%s\n' "$device"
+    printf 'rx\t%s\n' "${rx:-}"
+    printf 'tx\t%s\n' "${tx:-}"
+    printf 'signalDbm\t%s\n' "$(awk '/signal:/ { print $2 + 0; exit }' <<<"$link")"
+    printf 'rxBitrate\t%s\n' "$(awk '/rx bitrate:/ { print $3, $4; exit }' <<<"$link")"
+    printf 'txBitrate\t%s\n' "$(awk '/tx bitrate:/ { print $3, $4; exit }' <<<"$link")"
+    printf 'channel\t%s\n' "$(awk '/^\tchannel /{ print $2; exit }' <<<"$info")"
+    printf 'width\t%s\n' "$(sed -n 's/.*width: \([0-9]*\) MHz.*/\1/p' <<<"$info" | head -n1)"
+    # Newest capability the access point advertises wins; anything older than
+    # HT is plain 802.11 and says so as a blank.
+    printf 'generation\t%s\n' "$(
+      if grep -qi 'EHT capabilities' <<<"$scan"; then echo 7
+      elif grep -qi 'HE capabilities' <<<"$scan"; then echo 6
+      elif grep -qi 'VHT capabilities' <<<"$scan"; then echo 5
+      elif grep -qi 'HT capabilities' <<<"$scan"; then echo 4
+      fi)"
+    # Two different ages, and they answer different questions. The driver's
+    # `connected time` is the age of the association with *one* access point,
+    # so it resets on every roam — on a mesh with four radios of the same name
+    # it read 12 minutes while the network connection was nearly nine hours
+    # old. NetworkManager's timestamp is when the profile last came up, which
+    # is what a person means by "connected for".
+    printf 'apFor\t%s\n' "$(awk '/connected time:/ { print $3; exit }' <<<"$station")"
+    printf 'connectedSince\t%s\n' "$(capture nmcli -t -f TYPE,TIMESTAMP con show --active \
+      | awk -F: '$1 == "802-11-wireless" { print $2; exit }')"
+    # Since this association, not since boot. The interface counters above are
+    # the machine's whole uptime, which is not what "this session" means.
+    printf 'sessionRx\t%s\n' "$(awk '/rx bytes:/ { print $3; exit }' <<<"$station")"
+    printf 'sessionTx\t%s\n' "$(awk '/tx bytes:/ { print $3; exit }' <<<"$station")"
+    printf 'txPackets\t%s\n' "$(awk '/tx packets:/ { print $3; exit }' <<<"$station")"
+    printf 'txRetries\t%s\n' "$(awk '/tx retries:/ { print $3; exit }' <<<"$station")"
+    printf 'beaconLoss\t%s\n' "$(awk '/beacon loss:/ { print $3; exit }' <<<"$station")"
+    printf 'pingMs\t%s\n' "$(awk -F'\t' '$1 == "internet_ping_ms" { print $2; exit }' <<<"$status")"
+    printf 'routerPingMs\t%s\n' "$(awk -F'\t' '$1 == "router_ping_ms" { print $2; exit }' <<<"$status")"
+  } | jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t"))
+    | map({ key: .[0], value: (.[1] // "") }) | from_entries
+    | { iface: .iface,
+        rx: (.rx | tonumber? // null),
+        tx: (.tx | tonumber? // null),
+        signalDbm: (.signalDbm | tonumber? // null),
+        rxBitrate: .rxBitrate,
+        txBitrate: .txBitrate,
+        channel: (.channel | tonumber? // null),
+        width: (.width | tonumber? // null),
+        generation: (.generation | tonumber? // null),
+        apFor: (.apFor | tonumber? // null),
+        connectedSince: (.connectedSince | tonumber? // null),
+        sessionRx: (.sessionRx | tonumber? // null),
+        sessionTx: (.sessionTx | tonumber? // null),
+        txPackets: (.txPackets | tonumber? // null),
+        txRetries: (.txRetries | tonumber? // null),
+        beaconLoss: (.beaconLoss | tonumber? // null),
+        pingMs: (.pingMs | tonumber? // null),
+        routerPingMs: (.routerPingMs | tonumber? // null) }
+    # A retry count on its own says nothing: it only ever climbs, and it climbs
+    # beside a packet count climbing faster. The share is the reading.
+    | . + { retryShare: (if (.txPackets // 0) > 0
+                         then ((.txRetries // 0) / .txPackets * 100) else null end) }'
 }
 
 # Address, gateway and resolvers as the Wi-Fi device itself has them. The
@@ -86,11 +295,35 @@ wifi_band() {
         available: ((.available // "") | split(" ") | map(select(length > 0))) }' <<<"$report"
 }
 
+# The other half of a page called Network. Read, never written: a cable is
+# plugged in or it is not, and nothing here configures one.
+wired_state() {
+  capture nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status \
+    | awk -F: '$2 == "ethernet" { print $1 "\t" $3 "\t" $4 }' \
+    | while IFS=$'\t' read -r dev state conn; do
+        # Docker's veth pairs are ethernet devices too, and a page about the
+        # network on this desk is not about them. A physical NIC is the one
+        # with hardware behind it in sysfs, which every virtual interface
+        # lacks — a firmer test than matching names.
+        [[ -e /sys/class/net/$dev/device ]] || continue
+        # `carrier` is the cable itself, which is the question a row about
+        # ethernet is actually answering; NetworkManager's state says what it
+        # then did about it.
+        printf '%s\t%s\t%s\t%s\t%s\n' "$dev" "$state" "$conn" \
+          "$(cat "/sys/class/net/$dev/carrier" 2>/dev/null)" \
+          "$(cat "/sys/class/net/$dev/speed" 2>/dev/null)"
+      done \
+    | jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t"))
+      | map({ device: .[0], state: .[1], connection: .[2],
+              plugged: (.[3] == "1"),
+              speedMbit: (.[4] | tonumber? // null) })'
+}
+
 wifi_state() {
   local enabled device networks connection band
   enabled=$(capture nmcli -t -f WIFI general status | head -n1)
   device=$(wifi_device)
-  networks=$([[ $enabled == enabled ]] && wifi_networks || echo '[]')
+  networks=$([[ $enabled == enabled ]] && wifi_networks "$device" || echo '[]')
   connection=$(wifi_connection "$device")
   band=$(wifi_band)
 
@@ -111,19 +344,39 @@ wifi_cmd() {
 
   case $action in
     list) wifi_state ;;
+    wired) wired_state ;;
     rescan)
       nmcli dev wifi rescan >/dev/null 2>&1 || true
       # A scan takes a moment to land; without the pause the list that comes
       # back is the one we already had.
       sleep 2
       wifi_state ;;
+    publicip) public_ip_fetch ;;
+    speedtest)
+      # The bar's network panel does not run `omarchy-network-speedtest`
+      # itself: the speed test is its own panel plugin, so a replacement design
+      # can take it over and whichever implementation is enabled answers the
+      # summon. Same call here, with the network named the way that panel names
+      # it, rather than a second copy of the measurement.
+      local ssid=${2:-}
+      omarchy-shell -q shell summon omarchy.speedtest \
+        "$(jq -cn --arg c "${ssid:-Wi-Fi}" '{ connection: $c }')" >/dev/null 2>&1 || true ;;
+    link)
+      local device
+      device=$(wifi_device)
+      wifi_link "$device" ;;
     poll)
-      # For the page's own refresh loop: ask for a scan and return what is
-      # known right now, without waiting for it. NetworkManager rate-limits
-      # rescans and answers the request with an error when one came too soon,
-      # which is fine — the next poll picks up whatever that scan found.
-      nmcli dev wifi rescan >/dev/null 2>&1 || true
-      wifi_state ;;
+      # For the page's own refresh loop: return what is known right now, then
+      # ask for a scan the *next* poll will pick up. NetworkManager
+      # rate-limits rescans and answers the request with an error when one
+      # came too soon, which is fine.
+      #
+      # Read first, scan second, and not the other way round: a scan in
+      # flight empties the driver's BSS cache, which is where the dBm reading
+      # comes from, so asking first made the signal fall back to
+      # NetworkManager's percentage every few polls.
+      wifi_state
+      nmcli dev wifi rescan >/dev/null 2>&1 || true ;;
     radio)
       case $ssid in
         on|off) nmcli radio wifi "$ssid" >/dev/null 2>&1 || die "could not turn Wi-Fi $ssid" ;;
