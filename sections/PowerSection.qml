@@ -91,24 +91,19 @@ Ui.SectionBody {
 
   readonly property var batteryFacts: {
     var out = [
-      // What the battery is doing this minute: how much is in it, and how
-      // fast that is moving. The rate is named for what is happening to it —
-      // power going out is being used, power going in is charging — and on a
-      // full battery on the mains nothing is happening to it at all, so the
-      // cell goes rather than reporting a nought under a word for movement.
-      { key: "stored", label: "In it now" }
+      // Charge against capacity, as one cell and one pair — the way a battery
+      // is quoted everywhere else. Two cells could not be told apart on a
+      // full battery, where they hold the same number, and no label short
+      // enough to sit over a column made the difference clear.
+      { key: "charge", label: "Charge / capacity" }
     ]
     if (page.onBattery) out.push({ key: "rate", label: "Using now" })
     else if (String(reading.state || "") === "charging")
       out.push({ key: "rate", label: "Charging at" })
     out = out.concat([
       { rule: true },
-      // Then the pack's life, which is three figures only useful as a
-      // sequence: what it holds when full, what it was sold as holding, and
-      // the two compared. The labels carry that, because on a full battery
-      // the first of them equals "In it now" above, and a reader with no way
-      // to tell them apart concludes the card is repeating itself.
-      { key: "full", label: "When full, today", small: true },
+      // Then the pack's life: what it was sold as holding, that against what
+      // it holds now, and how many cycles got it there.
       { key: "rated", label: "Rated capacity", small: true },
       { key: "health", label: "Health", small: true },
       { key: "cycles", label: "Charge cycles", small: true }
@@ -124,14 +119,15 @@ Ui.SectionBody {
     var levels = { "low": "Low", "critical": "Critical", "action": "About to shut down" }
     var warning = String(reading.warning || "")
     return {
-      stored: reading.energy > 0 ? Number(reading.energy).toFixed(1) + " Wh" : "—",
+      charge: reading.energy > 0 && reading.energyFull > 0
+        ? Number(reading.energy).toFixed(1) + " / " + Number(reading.energyFull).toFixed(1) + " Wh"
+        : "—",
       // Zero while a full battery sits on the mains, which is the truth: no
       // energy is going either way.
       rate: reading.watts !== null && reading.watts !== undefined
         ? Number(reading.watts).toFixed(1) + " W" : "—",
       health: reading.health !== null && reading.health !== undefined
         ? reading.health + "% of rated" : "—",
-      full: reading.energyFull > 0 ? Number(reading.energyFull).toFixed(1) + " Wh" : "—",
       // Makers rate conservatively and the gauge recalibrates as it learns
       // the pack, so a healthy battery measures a little above this.
       rated: reading.energyDesign > 0 ? Number(reading.energyDesign).toFixed(1) + " Wh" : "—",
@@ -236,7 +232,7 @@ Ui.SectionBody {
     // Inside the card, because it is about these cells and not about the page.
     Text {
       width: parent.width
-      text: "In it now changes as you use it. When full is what the battery holds today, which its gauge re-learns as the cells age. Rated capacity is what the maker printed on the pack rather than anything measured, and they print it low — so Health, which is those two compared, stops at 100% even when the battery holds more."
+      text: "Charge is what is in the battery; capacity is what it holds when full, which its gauge re-learns as the cells age. Rated capacity is what the maker printed on the pack rather than anything measured, and they print it low — so Health, which is capacity against that rating, stops at 100% even when the battery holds more."
       wrapMode: Text.WordWrap
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
