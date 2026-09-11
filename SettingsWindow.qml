@@ -1523,10 +1523,10 @@ Item {
       { id: "displays", label: "Displays", icon: "\uf108", pages: ["displays"] }
     ] },
     { title: "System", items: [
-      // A battery rather than a power symbol: the page is about the pack and
-      // the profile it runs at, and a power symbol beside Idle & Lock reads
-      // as shutting the machine down.
-      { id: "pwr", label: "Power", icon: "\uf240", pages: ["power"] },
+      // A bolt: the page is the battery and the profile the machine runs at,
+      // which a desktop has too. A power symbol read as shutting the machine
+      // down, and a battery promised a page a desktop does not get.
+      { id: "pwr", label: "Power", icon: "\uf0e7", pages: ["power"] },
       { id: "idle", label: "Idle & Lock", icon: "\uf023", pages: ["idle"] },
       { id: "disk", label: "Storage", icon: "\uf0a0", pages: ["disk"] },
       { id: "proc", label: "Processes", icon: "\uf080", pages: ["processes"] },
