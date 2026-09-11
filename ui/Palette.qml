@@ -20,6 +20,18 @@ QtObject {
   readonly property color background: Qt.rgba(Color.popups.background.r, Color.popups.background.g, Color.popups.background.b, 1)
   readonly property color accent: Color.accent
   readonly property color urgent: Color.urgent
+
+  // A charge level is red, amber or green in every window that has ever shown
+  // one, and a theme supplies only the red. The other two are struck from that
+  // red — its saturation and lightness kept, the hue moved — so a muted theme
+  // gets a muted green and a loud one gets a loud one, and none of it is a
+  // colour typed into a page.
+  function statusHue(hue) {
+    return Qt.hsla(hue, urgent.hslSaturation, urgent.hslLightness, 1)
+  }
+  readonly property color bad: urgent
+  readonly property color caution: statusHue(0.11)
+  readonly property color good: statusHue(0.33)
   readonly property color muted: shade(0.6)
   readonly property color hairline: shade(0.16)
   readonly property color hover: shade(0.08)

@@ -48,10 +48,6 @@ Ui.SectionBody {
     return state
   }
 
-  // Charging is the only one of the three that is something happening rather
-  // than something being the case, so it is the only one drawn in the accent.
-  readonly property bool stateIsAccented: String(reading.state || "") === "charging"
-
   // The bar's own ten-step battery set, and its charging bolt — the same
   // glyphs the power widget draws, so a laptop reads the same on the page as
   // it does in the corner of the screen.
@@ -68,17 +64,32 @@ Ui.SectionBody {
     ? levelGlyphs[Math.max(0, Math.min(9, Math.floor(Number(reading.percentage || 0) / 10)))]
     : chargingGlyph
 
-  // What is left over once the two pills have said the state: how long, and
-  // how fast. An estimate of how long the battery lasts is about running on
-  // it, so on the mains it is an answer to a question nobody asked.
+  // Under the state: the percentage, then how long it has at that rate, then
+  // how fast it is going. An estimate of how long the battery lasts is about
+  // running on it, so on the mains it answers a question nobody asked.
   readonly property string batterySummary: {
     var parts = []
+    if (reading.percentage !== null && reading.percentage !== undefined)
+      parts.push(reading.percentage + "%")
     var left = String(reading.remaining || "")
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
     if (reading.watts !== null && reading.watts !== undefined)
       parts.push(Number(reading.watts).toFixed(1) + " W")
     return parts.join("  ·  ")
+  }
+
+  // Red, amber, green, on the thresholds a battery indicator has always used:
+  // under a fifth left is the one worth a colour that alarms, under a half is
+  // worth noticing, and the rest is fine. Charging is green whatever the
+  // level, because the number is on its way up and a red icon over a battery
+  // that is filling is a warning about nothing.
+  readonly property color levelColor: {
+    if (!onBattery || reading.state === "charging") return Ui.Palette.good
+    var percentage = Number(reading.percentage || 0)
+    if (percentage <= 20) return Ui.Palette.bad
+    if (percentage <= 50) return Ui.Palette.caution
+    return Ui.Palette.good
   }
 
   readonly property var batteryFacts: {
@@ -125,30 +136,33 @@ Ui.SectionBody {
 
     Item {
       width: parent.width
-      implicitHeight: identity.implicitHeight
+      implicitHeight: Math.max(glyph.implicitHeight, identity.implicitHeight, source.implicitHeight)
 
+      // Big, and coloured by how much is left: the one thing on this page
+      // that should be readable from across the desk, and the reason the
+      // percentage below it can be a quiet line rather than a headline.
       Text {
         id: glyph
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         text: page.batteryGlyph
-        color: page.onBattery ? Ui.Palette.foreground : Ui.Palette.accent
+        color: page.levelColor
         font.family: Ui.Palette.fontFamily
-        font.pixelSize: Style.font.display
+        font.pixelSize: Style.font.displayLarge * 1.6
       }
 
       Column {
         id: identity
         anchors.left: glyph.right
-        anchors.leftMargin: Style.space(12)
-        anchors.right: parent.right
+        anchors.leftMargin: Style.space(14)
+        anchors.right: source.left
+        anchors.rightMargin: Style.space(12)
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(2)
 
         Text {
           width: parent.width
-          text: reading.percentage !== null && reading.percentage !== undefined
-            ? reading.percentage + "%" : "\u2014"
+          text: page.stateLabel
           elide: Text.ElideRight
           color: Ui.Palette.foreground
           font.family: Ui.Palette.fontFamily
@@ -156,35 +170,27 @@ Ui.SectionBody {
           font.bold: true
         }
 
-        // The two states as pills rather than as words in a sentence: these
-        // are the two facts anyone opens this page for, and a reader should
-        // not have to parse a comma to get them.
-        Row {
-          spacing: Style.space(6)
-
-          Ui.Tag {
-            visible: page.stateLabel !== ""
-            text: page.stateLabel
-            accented: page.stateIsAccented
-          }
-
-          Ui.Tag {
-            text: page.sourceLabel
-            // The plug is the fact about the desk rather than about the
-            // pack, and it is never the alarming one.
-            accented: false
-          }
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: page.batterySummary !== ""
-            text: page.batterySummary
-            color: Ui.Palette.muted
-            font.family: Ui.Palette.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
-          }
+        Text {
+          width: parent.width
+          visible: page.batterySummary !== ""
+          text: page.batterySummary
+          elide: Text.ElideRight
+          color: Ui.Palette.muted
+          font.family: Ui.Palette.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
         }
+      }
+
+      // Where the power comes from is a different question from what the pack
+      // is doing — a docked laptop at 100% reports discharging while plainly
+      // on the mains — so it is a badge of its own rather than another clause.
+      Ui.Tag {
+        id: source
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        text: page.sourceLabel
+        accented: !page.onBattery
       }
     }
 
