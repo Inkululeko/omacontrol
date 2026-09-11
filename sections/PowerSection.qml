@@ -41,11 +41,19 @@ Ui.SectionBody {
     var state = String(reading.state || "")
     var percentage = Number(reading.percentage || 0)
     if (state === "empty") return "Empty"
+    // The rate belongs to the word for what is happening, not to a clause of
+    // its own: "Charging at 2.2 W" is one fact, where "Charging" and then
+    // "2.2 W" two lines later is the reader assembling it.
     if (onBattery) return state === "discharging" || state === "pending-discharge"
-      ? "Discharging" : "On battery"
-    if (state === "charging" || state === "pending-charge") return "Charging"
+      ? "Discharging" + page.atRate() : "On battery"
+    if (state === "charging" || state === "pending-charge") return "Charging" + page.atRate()
     if (state === "fully-charged" || percentage >= 99) return "Fully charged"
     return "Not charging"
+  }
+
+  function atRate() {
+    if (reading.watts === null || reading.watts === undefined) return ""
+    return " at " + Number(reading.watts).toFixed(1) + " W"
   }
 
   // Whether the machine is running off the battery, which is the first thing
@@ -62,14 +70,6 @@ Ui.SectionBody {
     var left = page.roundedTime(String(reading.remaining || ""))
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
-    // Beside the time, because it is the rate that time is computed at: how
-    // long is left only means anything at the speed it is going out, and how
-    // long until full only at the speed it is going in. Named, because a
-    // second figure after a dot is otherwise a number with no question.
-    if (reading.watts !== null && reading.watts !== undefined
-        && (onBattery || reading.state === "charging"))
-      parts.push((reading.state === "charging" ? "Charging at " : "Using ")
-        + Number(reading.watts).toFixed(1) + " W")
     return parts.join("  ·  ")
   }
 
