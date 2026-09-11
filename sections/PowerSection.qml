@@ -32,18 +32,25 @@ Ui.SectionBody {
   // connection you are on, and for the same reason: these are facts about one
   // object, and a column of rows asks the reader to read every name to find
   // the one they came for.
-  // Where the power is coming from, which is UPower's question to answer and
-  // not the battery's: a docked laptop at 100% often trickles a few tenths of
-  // a watt *out* of the pack, so the battery calls itself discharging while
-  // the machine is plainly on the mains. The icon and this line read the same
-  // property, or the page shows a plug beside the words "on battery".
+  // Two questions, two answers, and they are not the same question — which is
+  // exactly what one merged line hid. Where the power comes from is UPower's
+  // OnBattery; what the pack is doing about it is the battery's own state,
+  // and a docked laptop at 100% commonly reports `discharging` while it
+  // trickles a few tenths of a watt out. Said as one sentence that reads as a
+  // contradiction; said as two, it is simply the truth twice.
+  readonly property string sourceLabel: onBattery ? "On battery" : "Plugged in"
   readonly property string stateLabel: {
-    if (onBattery) return "On battery"
     var state = String(reading.state || "")
     if (state === "charging" || state === "pending-charge") return "Charging"
-    if (state === "fully-charged") return "Plugged in, fully charged"
-    return "Plugged in"
+    if (state === "discharging" || state === "pending-discharge") return "Discharging"
+    if (state === "fully-charged") return "Fully charged"
+    if (state === "empty") return "Empty"
+    return state
   }
+
+  // Charging is the only one of the three that is something happening rather
+  // than something being the case, so it is the only one drawn in the accent.
+  readonly property bool stateIsAccented: String(reading.state || "") === "charging"
 
   // The bar's own ten-step battery set, and its charging bolt — the same
   // glyphs the power widget draws, so a laptop reads the same on the page as
@@ -61,17 +68,16 @@ Ui.SectionBody {
     ? levelGlyphs[Math.max(0, Math.min(9, Math.floor(Number(reading.percentage || 0) / 10)))]
     : chargingGlyph
 
+  // What is left over once the two pills have said the state: how long, and
+  // how fast. An estimate of how long the battery lasts is about running on
+  // it, so on the mains it is an answer to a question nobody asked.
   readonly property string batterySummary: {
     var parts = []
-    if (stateLabel !== "") parts.push(stateLabel)
-    // An estimate of how long the battery lasts is about running on it. On
-    // the mains it is an answer to a question nobody asked.
     var left = String(reading.remaining || "")
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
     if (reading.watts !== null && reading.watts !== undefined)
       parts.push(Number(reading.watts).toFixed(1) + " W")
-
     return parts.join("  ·  ")
   }
 
@@ -150,14 +156,34 @@ Ui.SectionBody {
           font.bold: true
         }
 
-        Text {
-          width: parent.width
-          text: page.batterySummary
-          elide: Text.ElideRight
-          color: Ui.Palette.muted
-          font.family: Ui.Palette.fontFamily
-          font.pixelSize: Style.font.caption
-          font.bold: true
+        // The two states as pills rather than as words in a sentence: these
+        // are the two facts anyone opens this page for, and a reader should
+        // not have to parse a comma to get them.
+        Row {
+          spacing: Style.space(6)
+
+          Ui.Tag {
+            visible: page.stateLabel !== ""
+            text: page.stateLabel
+            accented: page.stateIsAccented
+          }
+
+          Ui.Tag {
+            text: page.sourceLabel
+            // The plug is the fact about the desk rather than about the
+            // pack, and it is never the alarming one.
+            accented: false
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: page.batterySummary !== ""
+            text: page.batterySummary
+            color: Ui.Palette.muted
+            font.family: Ui.Palette.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
         }
       }
     }
