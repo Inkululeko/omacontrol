@@ -86,7 +86,6 @@ Ui.SectionBody {
     note: app.usage.updatedAt !== undefined && app.usage.updatedAt !== ""
       ? "The provider's own figures, read " + app.usage.updatedAt.slice(11, 16) + "." : ""
     visible: !searchEmpty && limits.length > 0
-    framed: false
 
     Ui.DataTable {
       columns: [
@@ -118,7 +117,6 @@ Ui.SectionBody {
       ? app.usage.prompts + " prompts all told · " + app.formatTokens(app.usage.tokens) + " tokens"
       : ""
     visible: !searchEmpty && days.length > 0
-    framed: false
 
     // A bar per day. Tokens rather than messages: a message is not a unit of
     // anything comparable — one can be a word, one can be a repository — and

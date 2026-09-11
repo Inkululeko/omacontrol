@@ -29,6 +29,7 @@
 #   usage.sh         what the coding agent has been spending
 #   news.sh          headlines from omarchy.org — the one outbound request
 #   about.sh         what this machine is
+#   branding.sh      the ASCII the screensaver and About screen draw
 #   audio.sh         outputs, inputs, volume and mute
 #   setters.sh       the `set` subcommand's routing
 #   state.sh         one JSON document assembled from all of the above
@@ -40,7 +41,7 @@ OMACONTROL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
 # itself: it is started from the window's own copy, which is not on any PATH.
 OMACONTROL_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages usage news about overview setters state; do
+for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages usage news about branding overview setters state; do
   # shellcheck source=/dev/null
   source "$OMACONTROL_LIB/$module.sh"
 done

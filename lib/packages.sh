@@ -12,6 +12,12 @@
 
 PACKAGES_CACHE="${OMACONTROL_PACKAGES_CACHE:-${XDG_CACHE_HOME:-$HOME_DIR/.cache}/omarchy/omacontrol/updates.json}"
 PACKAGES_MAX_AGE=${OMACONTROL_PACKAGES_MAX_AGE:-3600}
+# How long a check may stand before the page makes one itself. A day, because
+# that is how often a rolling distribution is worth asking about unprompted:
+# short enough that "nothing waiting" is never a week old, long enough that
+# opening the page ten times in an afternoon is still ten local reads and no
+# network at all.
+PACKAGES_AUTO_AGE=${OMACONTROL_PACKAGES_AUTO_AGE:-86400}
 
 packages_counts() {
   par_begin || { echo '{}'; return; }
@@ -51,6 +57,20 @@ packages_stale() {
   local at
   at=$(packages_pending_cached | jq -r '.checkedAt // 0' 2>/dev/null)
   (( $(date +%s) - ${at:-0} > PACKAGES_MAX_AGE ))
+}
+
+# Asked on open, and free to ask: the age is compared here rather than in the
+# page, so the page may ask as often as it likes and only a check that is
+# actually owed costs a sync. The same shape as `news fetch`, for the same
+# reason.
+packages_fetch() {
+  local at
+  at=$(packages_pending_cached | jq -r '.checkedAt // 0' 2>/dev/null)
+  if (( $(date +%s) - ${at:-0} > PACKAGES_AUTO_AGE )); then
+    packages_refresh
+  else
+    packages_pending_cached
+  fi
 }
 
 packages_refresh() {
@@ -220,6 +240,7 @@ packages_cmd() {
   case ${1:-state} in
     state|poll) packages_state ;;
     refresh) packages_refresh ;;
+    fetch) packages_fetch ;;
     stale) packages_stale && echo true || echo false ;;
     # Every one of these is a terminal job with a password prompt and a
     # confirmation, so it is handed to a terminal rather than run headless.
@@ -235,6 +256,6 @@ packages_cmd() {
     pacnew) setsid -f omarchy-launch-floating-terminal-with-presentation \
       "sudo DIFFPROG='nvim -d' pacdiff" >/dev/null 2>&1 ;;
     log) setsid -f omarchy-launch-tui "less +G /var/log/pacman.log" >/dev/null 2>&1 ;;
-    *) die "usage: omacontrol packages poll|refresh|stale|update|snapshot-update|mirrors|clean|orphans|pacnew|log" ;;
+    *) die "usage: omacontrol packages poll|refresh|fetch|stale|update|snapshot-update|mirrors|clean|orphans|pacnew|log" ;;
   esac
 }

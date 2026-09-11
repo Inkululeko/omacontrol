@@ -22,6 +22,7 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
+    title: "Battery"
     visible: !searchEmpty && power.hasBattery === true
 
     Ui.ReadingRow {

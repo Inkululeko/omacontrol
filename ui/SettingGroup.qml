@@ -9,10 +9,17 @@ Column {
   property string note: ""
   default property alias content: groupContent.data
 
-  // Whether the rows sit in a card at all. Off for a group whose content
-  // carries its own edges — a grid of tiles, a table — where a card around
-  // cards is a border drawn twice and a padding paid for twice.
-  property bool framed: true
+  // The gap between rows. A group that is a *list* — devices, networks,
+  // bindings — sets it tighter: the rows belong to one another there, and
+  // settings-sized air between them breaks the list into fragments.
+  property real rowSpacing: Style.space(20)
+
+  // Settings do not sit in a card: down a page of eight groups the edges were
+  // more chrome than structure, and a heading large enough to be read as one
+  // separates just as well. A card is for a group that is one *thing* being
+  // reported on — the connection you are on, what needs attention — where the
+  // edge says where the thing stops.
+  property bool framed: false
 
   // The padding inside the card. Rows read it so a cursor band can run the
   // full width of the card rather than stopping short of its edges.
@@ -66,13 +73,25 @@ Column {
 
   visible: !searchEmpty
 
+  // With no card edge between groups, the space above a heading is what
+  // separates one from the last.
   Text {
     visible: group.title !== ""
+    topPadding: Style.space(8)
     text: group.title
     color: Local.Palette.foreground
     font.family: Local.Palette.fontFamily
-    font.pixelSize: Style.font.title
+    font.pixelSize: Style.font.heading
     font.bold: true
+  }
+
+  // A rule under the heading, so a group reads as a band of the page rather
+  // than as a heading that happens to have rows after it.
+  Rectangle {
+    visible: group.title !== ""
+    width: group.width
+    height: Style.spacing.hairline
+    color: Local.Palette.divider
   }
 
   Text {
@@ -86,10 +105,15 @@ Column {
     bottomPadding: Style.space(4)
   }
 
-  // What belongs to a heading used to be stepped in from it. A card says the
-  // same thing and says it better: an indent has to be compared against the
-  // heading above to be read at all, while an edge is visible on its own, and
-  // it holds even where the rows are a table or a list rather than settings.
+  // The air a note leaves under the rule is what the band wants; a group
+  // without one had its first row up against the line and read as tighter
+  // than its neighbour for no reason the page could show.
+  Item {
+    visible: group.title !== "" && group.note === ""
+    width: group.width
+    height: Style.space(4)
+  }
+
   Rectangle {
     width: group.width
     implicitHeight: groupContent.implicitHeight + group.pad * 2
@@ -103,7 +127,7 @@ Column {
       x: group.pad
       y: group.pad
       width: group.width - group.pad * 2
-      spacing: Style.space(12)
+      spacing: group.rowSpacing
     }
   }
 }

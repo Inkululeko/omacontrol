@@ -123,6 +123,7 @@ state_slice() {
     selfUpdate) jq -cn --argjson v "$(self_update_state)" '{ selfUpdate: $v }' ;;
     agents) jq -cn --argjson v "$(agents_state)" '{ agents: $v }' ;;
     iconFonts) jq -cn --argjson v "$(icon_font_state)" '{ iconFonts: $v }' ;;
+    branding) jq -cn --argjson v "$(branding_state)" '{ branding: $v }' ;;
     datetime) jq -cn --argjson v "$(datetime_state)" '{ datetime: $v }' ;;
     herdr) jq -cn --argjson v "$(herdr_state)" '{ herdr: $v }' ;;
     tmux) jq -cn --argjson v "$(tmux_state)" '{ tmux: $v }' ;;
@@ -178,7 +179,7 @@ state() {
   # Named slices answer on their own; with nothing named, the whole document.
   if (( $# > 0 )); then state_slices "$@"; return; fi
 
-  local cfg themes fonts theme font nightlight hypr hyprchanged searchindex monitors compose plugins pluginupdates selfupdate agents groups iconfonts datetime herdr textscale workspaces
+  local cfg themes fonts theme font nightlight hypr hyprchanged searchindex monitors compose plugins pluginupdates selfupdate agents groups iconfonts datetime herdr textscale workspaces branding
   cfg=$(read_shell_json)
 
   # Before the block, both of them: this is the one part of a state read that
@@ -207,6 +208,7 @@ state() {
   par_run editor menu_group_state setup.default.editor
   par_run dns menu_group_state setup.network.dns
   par_run iconfonts icon_font_state
+  par_run branding branding_state
   par_run datetime datetime_state
   par_run herdr herdr_state
   par_run tmuxstate tmux_state
@@ -244,6 +246,7 @@ state() {
     --argjson dns "$(par_get dns '{}')" \
     '{ browser: $browser, terminal: $terminal, editor: $editor, dns: $dns }')
   iconfonts=$(par_get iconfonts '{}')
+  branding=$(par_get branding '{}')
   datetime=$(par_get datetime '{}')
   herdr=$(par_get herdr '{}')
   tmuxstate=$(par_get tmuxstate '{}')
@@ -301,6 +304,7 @@ state() {
     --argjson selfUpdate "${selfupdate:-{\}}" \
     --argjson agents "${agents:-null}" \
     --argjson iconFonts "${iconfonts:-{\}}" \
+    --argjson branding "${branding:-{\}}" \
     --argjson datetime "${datetime:-{\}}" \
     --argjson groups "${groups:-{\}}" \
     --argjson herdr "${herdr:-{\}}" \
@@ -349,6 +353,7 @@ state() {
       bluetooth: $bluetooth,
       power: $power,
       audio: $audio,
-      iconFonts: $iconFonts
+      iconFonts: $iconFonts,
+      branding: $branding
     }'
 }

@@ -103,8 +103,9 @@ Ui.SectionBody {
   Ui.SettingGroup {
     title: "Snapping"
 
+    // "Enabled": the heading has already said which setting this is.
     Ui.SwitchRow {
-      label: "Snapping"
+      label: "Enabled"
       description: "Snap floating windows to each other and to screen edges."
       checked: app.hyprValue("snap", false) === true
       onRequested: function(next) { app.setHypr("snap", next ? "true" : "false") }
@@ -225,7 +226,7 @@ Ui.SectionBody {
     title: "Animations"
 
     Ui.SwitchRow {
-      label: "Animations"
+      label: "Enabled"
       checked: app.hyprValue("animations", true) === true
       onRequested: function(next) { app.setHypr("animations", next ? "true" : "false") }
       changed: app.isChanged("animations")

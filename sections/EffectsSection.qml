@@ -21,8 +21,11 @@ Ui.SectionBody {
     title: "Blur"
     note: "Blurs whatever is behind translucent windows and layers. Costs GPU."
 
+    // "Enabled", not the effect's own name: the heading above has already
+    // said which effect this is, and a row repeating it read as a second,
+    // different Blur.
     Ui.SwitchRow {
-      label: "Blur"
+      label: "Enabled"
       checked: blurOn
       onRequested: function(next) { app.setHypr("blur", next ? "true" : "false") }
       changed: app.isChanged("blur")
@@ -142,8 +145,11 @@ Ui.SectionBody {
     title: "Shadow"
     note: "Drop shadow cast by windows."
 
+    // "Enabled", not the effect's own name: the heading above has already
+    // said which effect this is, and a row repeating it read as a second,
+    // different Blur.
     Ui.SwitchRow {
-      label: "Shadow"
+      label: "Enabled"
       checked: shadowOn
       onRequested: function(next) { app.setHypr("shadow", next ? "true" : "false") }
       changed: app.isChanged("shadow")
@@ -200,8 +206,11 @@ Ui.SectionBody {
     title: "Glow"
     note: "Halo around the focused window. Its colour is a separate Hyprland option this page leaves alone."
 
+    // "Enabled", not the effect's own name: the heading above has already
+    // said which effect this is, and a row repeating it read as a second,
+    // different Blur.
     Ui.SwitchRow {
-      label: "Glow"
+      label: "Enabled"
       checked: glowOn
       onRequested: function(next) { app.setHypr("glow", next ? "true" : "false") }
       changed: app.isChanged("glow")

@@ -70,6 +70,12 @@ Ui.SectionBody {
     }
   }
 
+  // A check the reader never asked for, and only when the last one has gone
+  // stale: a day-old "nothing waiting" is not an answer, and nobody should
+  // have to press a button to find out that they are behind. The reader
+  // decides whether it is owed, so this is free whenever it is not.
+  Component.onCompleted: app.fetchPackages()
+
   // Counts come off the local database and cost nothing; the pending list is
   // whatever the last sync left behind. So this polls, and syncing is a button.
   Timer {
@@ -81,7 +87,6 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
-    framed: false
 
     RowLayout {
       width: parent.width
@@ -122,7 +127,6 @@ Ui.SectionBody {
     note: checkedAt > 0
       ? "Mirrors last checked " + app.formatWhen(checkedAt)
       : "Mirrors have not been checked yet — nothing below is known to be current."
-    framed: false
 
     Row {
       spacing: Style.space(8)

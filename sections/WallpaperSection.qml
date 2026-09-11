@@ -21,6 +21,9 @@ Ui.SectionBody {
 
     Ui.PictureGrid {
       items: page.wallpaperTiles
+      // Two, as the themes are: a wallpaper is judged on what it looks like,
+      // and four across is a thumbnail of a thumbnail.
+      columns: 2
       aspect: 16 / 9
       onChose: function(path) { app.run(["theme", "bg", path]) }
     }

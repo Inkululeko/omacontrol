@@ -57,14 +57,9 @@ Ui.SectionBody {
     return items
   }
 
-  readonly property string headerNote: {
-    var up = app.overview.uptime !== undefined
-      ? "up " + app.formatDuration(app.overview.uptime) : ""
-    if (attention.length === 0) return up
-    var needs = attention.length === 1 ? "1 thing needs attention"
-      : attention.length + " things need attention"
-    return up === "" ? needs : up + " · " + needs
-  }
+  readonly property string headerNote: attention.length === 0 ? ""
+    : (attention.length === 1 ? "1 thing needs attention"
+                              : attention.length + " things need attention")
 
   // Switch state is held in the running system — hyprsunset's temperature, the
   // shell's own do-not-disturb — so it can be changed from the bar or a
@@ -92,16 +87,53 @@ Ui.SectionBody {
     onTriggered: app.fetchNews()
   }
 
-  // First, because the reader did not ask for it: anything they would want to
-  // know before they got to whatever they opened the window for.
-  // Gone entirely when there is nothing, heading and all — not replaced by a
-  // note saying so. A section that reports its own emptiness is a section that
-  // takes up room on every good day to reassure the reader on none of them,
-  // and the page has a better way of saying it: the top of the page is the
-  // toggles, which is what you came for when nothing is wrong.
+  // First, and tiles across rather than rows down, with no heading over them.
+  // They are the strip of chrome the page opens with rather than a section of
+  // it: the question they
+  // answer is *which of these are on*, asked of all four at once, and a filled
+  // tile answers it from across the room where four knobs in a line do not.
   Ui.SettingGroup {
+    // The tiles are the cards.
+    Grid {
+      id: toggleGrid
+      width: parent.width
+      columns: 4
+      spacing: Style.space(10)
+
+      Repeater {
+        model: toggles
+
+        Ui.ToggleTile {
+          required property var modelData
+
+          // Grid does not stretch what it lays out, so a tile is told its
+          // share of the row.
+          width: (toggleGrid.width - (toggleGrid.columns - 1) * toggleGrid.spacing)
+            / toggleGrid.columns
+          glyph: toggleGlyphs[modelData.id] !== undefined ? toggleGlyphs[modelData.id] : ""
+          label: modelData.label
+          note: modelData.note !== undefined ? modelData.note : ""
+          checked: modelData.on === true
+          // The command that owns the switch is the one that flips it, side
+          // effects and all — starting hyprsunset, telling the bar to redraw.
+          // Then the page asks again rather than assuming it worked.
+          onRequested: {
+            app.run(["overview", "toggle", modelData.id])
+          }
+        }
+      }
+    }
+  }
+
+  // Anything the reader would want to know before they got to whatever they
+  // opened the window for. Gone entirely when there is nothing, heading and
+  // all — not replaced by a note saying so. A section that reports its own
+  // emptiness takes up room on every good day to reassure the reader on none
+  // of them, and the page says it better by its absence: with nothing wrong,
+  // the toggles run straight into the updates.
+  Ui.SettingGroup {
+    framed: true
     title: "Needs attention"
-    note: attention.length === 1 ? "1 thing" : attention.length + " things"
     visible: !searchEmpty && attention.length > 0
 
     Repeater {
@@ -134,49 +166,11 @@ Ui.SectionBody {
     }
   }
 
-  // Tiles across, not rows down, and no heading over them. They are a strip of
-  // chrome the page opens with rather than a section of it: the question they
-  // answer is *which of these are on*, asked of all four at once, and a filled
-  // tile answers it from across the room where four knobs in a line do not.
-  Ui.SettingGroup {
-    // The tiles are the cards. One around them would be a border drawn twice.
-    framed: false
-
-    Grid {
-      id: toggleGrid
-      width: parent.width
-      columns: 4
-      spacing: Style.space(10)
-
-      Repeater {
-        model: toggles
-
-        Ui.ToggleTile {
-          required property var modelData
-
-          // Grid does not stretch what it lays out, so a tile is told its
-          // share of the row.
-          width: (toggleGrid.width - (toggleGrid.columns - 1) * toggleGrid.spacing)
-            / toggleGrid.columns
-          glyph: toggleGlyphs[modelData.id] !== undefined ? toggleGlyphs[modelData.id] : ""
-          label: modelData.label
-          note: modelData.note !== undefined ? modelData.note : ""
-          checked: modelData.on === true
-          // The command that owns the switch is the one that flips it, side
-          // effects and all — starting hyprsunset, telling the bar to redraw.
-          // Then the page asks again rather than assuming it worked.
-          onRequested: {
-            app.run(["overview", "toggle", modelData.id])
-          }
-        }
-      }
-    }
-  }
-
   // What is waiting, from three caches and no network. The note says when the
   // package list was last synced, because a count of updates is meaningless
   // without knowing how old it is.
   Ui.SettingGroup {
+    framed: true
     title: "Updates"
     note: updates.checkedAt > 0
       ? "Mirrors last checked " + app.formatWhen(updates.checkedAt)
@@ -217,6 +211,7 @@ Ui.SectionBody {
   // The only thing in this window that comes off the network. It is last
   // because it is the only thing on the page that is not about this machine.
   Ui.SettingGroup {
+    framed: true
     title: "News from omarchy.org"
     // The count first, because it is the only part of this heading anyone
     // scans for; the age second, because a headline with no age on it is one

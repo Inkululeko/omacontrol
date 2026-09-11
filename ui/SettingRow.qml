@@ -69,10 +69,8 @@ NavRow {
         color: Local.Palette.foreground
         font.family: Local.Palette.fontFamily
         font.pixelSize: Style.font.subtitle
-        // A setting's name carries the row. Against a card the old weight
-        // sat level with its own description, and the pair read as two lines
-        // of prose rather than as a name and a note about it.
-        font.bold: true
+        // Regular: the group heading is the bold thing on the page, and a
+        // column of bold labels under it flattens that back out.
       }
 
       Text {

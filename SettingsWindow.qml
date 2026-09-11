@@ -83,6 +83,7 @@ Item {
   readonly property var agentsState: state.agents !== undefined ? state.agents : ({})
   readonly property var datetime: state.datetime !== undefined ? state.datetime : ({})
   readonly property var groups: state.groups !== undefined ? state.groups : ({})
+  readonly property var branding: state.branding !== undefined ? state.branding : ({})
 
   // Mute and volume are the server's, not this window's: the media keys, the
   // bar widget and any other panel move them too. While the Audio page is up,
@@ -231,6 +232,18 @@ Item {
   Process {
     id: packagesSync
     onRunningChanged: if (!running) { root.packagesSyncing = false; root.pollPackages() }
+  }
+
+  // Asking is free: `packages fetch` compares the cache's age itself and does
+  // nothing if the last check is under a day old, so the page asks on open
+  // without that being a sync. It goes through the same process as the button
+  // so the page shows "Checking…" for an automatic check exactly as it does
+  // for one the reader asked for.
+  function fetchPackages() {
+    if (packagesSync.running) return
+    packagesSyncing = true
+    packagesSync.command = ["bash", root.helperPath, "packages", "fetch"]
+    packagesSync.running = true
   }
 
   property var usageLive: null
@@ -1400,14 +1413,6 @@ Item {
 
   // A page may say something truer about itself than its file path — what the
   // adapter is connected to, say. When it does, that is what the header shows.
-  // A page can drop the changed count and Undo all from its own header. The
-  // live pages — network, audio, bluetooth, power — change nothing this window
-  // tracks, so the count beside their name is about settings on other pages
-  // and reads as though it were about this one. It stays in the window bar
-  // above, which is where a window-wide fact belongs.
-  readonly property bool pageShowsChanges: !(bodyLoader.item
-    && bodyLoader.item.headerChanges === false)
-
   readonly property string pageHeaderNote: bodyLoader.item && bodyLoader.item.headerNote !== undefined
     ? String(bodyLoader.item.headerNote) : ""
 
@@ -1455,7 +1460,8 @@ Item {
       { id: "displays", label: "Displays", icon: "\uf108", pages: ["displays"] }
     ] },
     { title: "System", items: [
-      { id: "pwr", label: "Power", icon: "\uf011", pages: ["power", "idle"] },
+      { id: "pwr", label: "Power", icon: "\uf011", pages: ["power"] },
+      { id: "idle", label: "Idle & Lock", icon: "\uf023", pages: ["idle"] },
       { id: "disk", label: "Storage", icon: "\uf0a0", pages: ["disk"] },
       { id: "proc", label: "Processes", icon: "\uf080", pages: ["processes"] },
       { id: "time", label: "Date & Time", icon: "\uf017", pages: ["datetime"] },
@@ -1881,6 +1887,10 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(8)
 
+          // What has changed is a fact about the window, not about the page
+          // on screen — the live pages change nothing this window tracks, and
+          // a count beside their name read as though it were about them. So
+          // the count and what undoes it sit here, together, once.
           Text {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.changedLabel !== ""
@@ -1889,6 +1899,13 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             font.bold: true
+          }
+
+          Ui.Chip {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.changedSettings.length > 0
+            text: "Undo all"
+            onClicked: resetAllDialog.opened = true
           }
 
           Ui.KeyCap {
@@ -2298,20 +2315,6 @@ Item {
                   ? bodyLoader.item.headerControl : null
               }
 
-              Ui.Tag {
-                anchors.verticalCenter: parent.verticalCenter
-                visible: root.changedSettings.length > 0 && root.pageShowsChanges
-                text: root.changedLabel
-              }
-
-              // Beside what it undoes. In the sidebar it sat under a menu it
-              // had nothing to do with, and read as an action on the menu.
-              Ui.Chip {
-                anchors.verticalCenter: parent.verticalCenter
-                visible: root.changedSettings.length > 0 && root.pageShowsChanges
-                text: "Undo all"
-                onClicked: resetAllDialog.opened = true
-              }
             }
           }
 

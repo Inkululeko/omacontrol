@@ -411,6 +411,7 @@ Ui.SectionBody {
   // Not settings, but the other half of the layout: what the bar could show
   // and does not.
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
     title: "Disabled"
     note: page.offWidgets.length === 0
       ? "Every widget you have is in the bar."

@@ -15,12 +15,6 @@ Ui.SectionBody {
   readonly property bool radioOn: hasRadio && wifi.enabled === true
   readonly property bool connected: wifi.connected !== ""
 
-  // Nothing on this page is a setting this window tracks — a network moves on
-  // its own — so a changed count beside the page name is about other pages and
-  // Undo all would undo things you cannot see from here. Both stay in the
-  // window bar above.
-  property bool headerChanges: false
-
   // The radio governs the whole page, so its switch sits beside the page name
   // rather than as the first of a card of one row — and the page then opens on
   // the connection, which is what anyone comes here for.
@@ -248,6 +242,7 @@ Ui.SectionBody {
   // same one thing, and a heading outside the box read as a label for a
   // separate block that happened to follow.
   Ui.SettingGroup {
+    framed: true
     visible: page.connected
       && (app.searching !== true
           || app.rowMatches(page.wifi.connected + " " + page.linkSummary, "", ""))
@@ -366,6 +361,8 @@ Ui.SectionBody {
 
   // ---- the reason people open this page ------------------------------------
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
+    framed: app.otherNetworks.length > 0
     title: page.connected ? "Other networks" : "Networks"
     // Nothing while there is a list — the list is the answer. "Looking" only
     // until the first scan lands, and once the network we are on proves one
@@ -376,7 +373,6 @@ Ui.SectionBody {
     visible: !searchEmpty && page.radioOn
     // No card around nothing: an empty rounded box reads as a list that failed
     // to load, where the note above it has already given the answer.
-    framed: app.otherNetworks.length > 0
 
     Repeater {
       model: page.radioOn ? app.otherNetworks : []

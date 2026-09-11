@@ -34,6 +34,7 @@ Ui.SectionBody {
   readonly property var currentInput: selected(inputs)
 
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
     title: "Output"
 
     Ui.PercentRow {
@@ -63,6 +64,7 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
     title: "Input"
 
     Ui.PercentRow {
