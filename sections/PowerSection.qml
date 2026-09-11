@@ -73,16 +73,23 @@ Ui.SectionBody {
       // Wear is the number that decides whether a battery is worth replacing,
       // and nothing else on the desktop shows it.
       visible: !searchHidden && reading.health !== null && reading.health !== undefined
-      value: reading.health + "% of when it was new"
+      value: reading.health + "% of its rated capacity"
     }
 
-    // The two figures that percentage is computed from, and the ones to hold
-    // against the spec of a replacement.
+    // The two figures health is computed from, and the ones to hold against
+    // the spec of a replacement.
+    //
+    // "when new" was the first wording and it is a thing that cannot be true:
+    // the second figure is the manufacturer's rating, not a measurement of
+    // the cell when it was new. Vendors rate conservatively and the fuel
+    // gauge recalibrates as it learns the pack, so a healthy battery measures
+    // a little *above* its rating — and the page was then claiming it held
+    // more than it did new.
     Ui.ReadingRow {
       label: "Capacity"
       visible: !searchHidden && reading.energyFull > 0 && reading.energyDesign > 0
-      value: Number(reading.energyFull).toFixed(1) + " Wh, "
-        + Number(reading.energyDesign).toFixed(1) + " Wh when new"
+      value: Number(reading.energyFull).toFixed(1) + " Wh, rated "
+        + Number(reading.energyDesign).toFixed(1) + " Wh"
     }
 
     // The other half of "is this battery worn out", and not every firmware
