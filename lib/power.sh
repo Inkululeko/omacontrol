@@ -16,23 +16,42 @@ power_battery_reading() {
   local device=$1
   [[ -n $device ]] || { echo '{}'; return; }
 
+  # `energy-full-design` also matches /energy-full:/ and `energy-empty` matches
+  # /energy:/, so every one of these is anchored on the whole field name.
   capture upower -i "$device" | awk -F': +' '
     function trim(v) { gsub(/^[ \t]+|[ \t]+$/, "", v); return v }
+    function number(v) { gsub(/[^0-9.].*$/, "", v); return v }
     /state:/ { state = trim($2) }
     /percentage:/ { percentage = trim($2); sub(/%$/, "", percentage) }
     /time to empty:/ { remaining = trim($2) }
     /time to full:/ { untilFull = trim($2) }
     /^ +capacity:/ { health = trim($2); sub(/%$/, "", health) }
     /energy-rate:/ { rate = trim($2); sub(/ W$/, "", rate) }
+    /^ +energy:/ { energy = number(trim($2)) }
+    /^ +energy-full:/ { energyFull = number(trim($2)) }
+    /^ +energy-full-design:/ { energyDesign = number(trim($2)) }
+    # Not every firmware counts them, and the ones that do not say so in
+    # several ways — a missing line, N/A, or -1.
+    /charge-cycles:/ { cycles = trim($2) }
+    /warning-level:/ { warning = trim($2) }
     END {
-      printf "%s\t%s\t%s\t%s\t%s\t%s\n", state, percentage, remaining, untilFull, health, rate
+      printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+        state, percentage, remaining, untilFull, health, rate,
+        energy, energyFull, energyDesign, cycles, warning
     }
   ' | jq -R -s -c 'split("\n") | .[0] | split("\t")
     | { state: .[0],
         percentage: ((.[1] | tonumber?) // null),
         remaining: (if .[0] == "charging" then .[3] else .[2] end),
         health: ((.[4] | tonumber?) // null),
-        watts: ((.[5] | tonumber?) // null) }'
+        watts: ((.[5] | tonumber?) // null),
+        energy: ((.[6] | tonumber?) // null),
+        energyFull: ((.[7] | tonumber?) // null),
+        energyDesign: ((.[8] | tonumber?) // null),
+        cycles: ((.[9] | tonumber?) | if . == null or . < 0 then null else . end),
+        # "none" is the answer on every healthy battery, which is a row that
+        # says nothing on every day but the bad ones.
+        warning: (if .[10] == "none" then "" else (.[10] // "") end) }'
 }
 
 power_state() {

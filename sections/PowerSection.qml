@@ -36,6 +36,26 @@ Ui.SectionBody {
         ? reading.percentage + "%" : "—"
     }
 
+    // Which of the three things a battery can be doing. The row below says
+    // how long it has left, which on a full battery on the mains is nothing
+    // at all — leaving the group with a percentage and no account of it.
+    Ui.ReadingRow {
+      label: "State"
+      visible: !searchHidden && String(reading.state || "") !== ""
+      value: {
+        var states = {
+          "charging": "Charging",
+          "discharging": "On battery",
+          "fully-charged": "Fully charged",
+          "pending-charge": "Waiting to charge",
+          "pending-discharge": "Waiting to discharge",
+          "empty": "Empty"
+        }
+        var state = String(reading.state || "")
+        return states[state] !== undefined ? states[state] : state
+      }
+    }
+
     Ui.ReadingRow {
       label: reading.state === "charging" ? "Until full" : "Remaining"
       visible: !searchHidden && reading.remaining !== undefined && String(reading.remaining) !== ""
@@ -54,6 +74,35 @@ Ui.SectionBody {
       // and nothing else on the desktop shows it.
       visible: !searchHidden && reading.health !== null && reading.health !== undefined
       value: reading.health + "% of when it was new"
+    }
+
+    // The two figures that percentage is computed from, and the ones to hold
+    // against the spec of a replacement.
+    Ui.ReadingRow {
+      label: "Capacity"
+      visible: !searchHidden && reading.energyFull > 0 && reading.energyDesign > 0
+      value: Number(reading.energyFull).toFixed(1) + " Wh, "
+        + Number(reading.energyDesign).toFixed(1) + " Wh when new"
+    }
+
+    // The other half of "is this battery worn out", and not every firmware
+    // counts them — so the row goes rather than reporting that it cannot say.
+    Ui.ReadingRow {
+      label: "Charge cycles"
+      visible: !searchHidden && reading.cycles !== null && reading.cycles !== undefined
+      value: String(reading.cycles)
+    }
+
+    // Only ever on a bad day: UPower says "none" the rest of the time, and a
+    // row that reads "Warning: none" trains people not to read it.
+    Ui.ReadingRow {
+      label: "Warning"
+      visible: !searchHidden && String(reading.warning || "") !== ""
+      value: {
+        var levels = { "low": "Low", "critical": "Critical", "action": "About to shut down" }
+        var level = String(reading.warning || "")
+        return levels[level] !== undefined ? levels[level] : level
+      }
     }
   }
 
