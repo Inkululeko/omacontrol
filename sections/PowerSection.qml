@@ -71,7 +71,10 @@ Ui.SectionBody {
     Ui.ReadingRow {
       label: "Health"
       // Wear is the number that decides whether a battery is worth replacing,
-      // and nothing else on the desktop shows it.
+      // and nothing else on the desktop shows it. It stops at 100 because
+      // UPower stops it there, which is worth saying: a reader who works the
+      // ratio out from the row below will get 102 and wonder which is wrong.
+      description: "A full charge as a share of the rating. It stops at 100%, however far above the rating the battery measures."
       visible: !searchHidden && reading.health !== null && reading.health !== undefined
       value: reading.health + "% of its rated capacity"
     }
@@ -87,6 +90,12 @@ Ui.SectionBody {
     // more than it did new.
     Ui.ReadingRow {
       label: "Capacity"
+      // The pair is worth showing and worth explaining in the same breath:
+      // a first reading of "61.8 Wh, rated 60.6 Wh" is a battery that holds
+      // more than it did new, which is not a thing that happens. It is the
+      // rating that is low, and knowing that is the difference between the
+      // row being useful and the row being alarming.
+      description: "What a full charge measures now, against the rating on the pack. Makers rate low, so a healthy battery often measures above it."
       visible: !searchHidden && reading.energyFull > 0 && reading.energyDesign > 0
       value: Number(reading.energyFull).toFixed(1) + " Wh, rated "
         + Number(reading.energyDesign).toFixed(1) + " Wh"
