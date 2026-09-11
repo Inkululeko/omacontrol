@@ -73,6 +73,12 @@ Ui.SectionBody {
     var left = String(reading.remaining || "")
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
+    // Beside the time, because it is the rate that time is computed at: how
+    // long is left only means anything at the speed it is going out, and how
+    // long until full only at the speed it is going in.
+    if (reading.watts !== null && reading.watts !== undefined
+        && (onBattery || reading.state === "charging"))
+      parts.push(Number(reading.watts).toFixed(1) + " W")
     return parts.join("  ·  ")
   }
 
@@ -95,19 +101,14 @@ Ui.SectionBody {
       // is quoted everywhere else. Two cells could not be told apart on a
       // full battery, where they hold the same number, and no label short
       // enough to sit over a column made the difference clear.
-      { key: "charge", label: "Charge / capacity" }
-    ]
-    if (page.onBattery) out.push({ key: "rate", label: "Using now" })
-    else if (String(reading.state || "") === "charging")
-      out.push({ key: "rate", label: "Charging at" })
-    out = out.concat([
+      { key: "charge", label: "Charge / capacity" },
       { rule: true },
       // Then the pack's life: what it was sold as holding, that against what
       // it holds now, and how many cycles got it there.
       { key: "rated", label: "Rated capacity", small: true },
       { key: "health", label: "Health", small: true },
       { key: "cycles", label: "Charge cycles", small: true }
-    ])
+    ]
     // Only ever on a bad day: UPower answers "none" the rest of the time, and
     // a cell reading "Warning: none" trains people not to read it.
     if (String(reading.warning || "") !== "")
@@ -122,10 +123,6 @@ Ui.SectionBody {
       charge: reading.energy > 0 && reading.energyFull > 0
         ? Number(reading.energy).toFixed(1) + " / " + Number(reading.energyFull).toFixed(1) + " Wh"
         : "—",
-      // Zero while a full battery sits on the mains, which is the truth: no
-      // energy is going either way.
-      rate: reading.watts !== null && reading.watts !== undefined
-        ? Number(reading.watts).toFixed(1) + " W" : "—",
       health: reading.health !== null && reading.health !== undefined
         ? reading.health + "% of rated" : "—",
       // Makers rate conservatively and the gauge recalibrates as it learns
