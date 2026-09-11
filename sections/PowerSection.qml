@@ -59,7 +59,6 @@ Ui.SectionBody {
 
   Ui.SettingGroup {
     title: "Profile"
-    note: "Remembered per power source and applied when you plug in or unplug."
 
     Ui.ChoiceRow {
       label: "On battery"
