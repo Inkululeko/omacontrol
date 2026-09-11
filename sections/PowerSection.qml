@@ -64,16 +64,15 @@ Ui.SectionBody {
     ? levelGlyphs[Math.max(0, Math.min(9, Math.floor(Number(reading.percentage || 0) / 10)))]
     : chargingGlyph
 
-  // Under the headline: how long it has at this rate, and how fast it is
-  // going. An estimate of how long the battery lasts is about running on it,
-  // so on the mains it answers a question nobody asked.
+  // Under the headline: how long it has at this rate. An estimate of how long
+  // the battery lasts is about running on it, so on the mains it answers a
+  // question nobody asked — and how fast it is going is a reading like the
+  // others, so it sits with them rather than in the headline.
   readonly property string batterySummary: {
     var parts = []
     var left = String(reading.remaining || "")
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
-    if (reading.watts !== null && reading.watts !== undefined)
-      parts.push(Number(reading.watts).toFixed(1) + " W")
     return parts.join("  ·  ")
   }
 
@@ -92,16 +91,19 @@ Ui.SectionBody {
 
   readonly property var batteryFacts: {
     var out = [
-      // Four figures that are only useful as a sequence: what is in the pack,
-      // what the pack holds when it is full, what it was sold as holding, and
-      // the last two compared. The labels carry that, because on a full
-      // battery the first two are the same number and a reader with no way to
-      // tell them apart concludes the card is repeating itself.
+      // What the battery is doing this minute: how much is in it, and how
+      // fast that is moving.
       { key: "stored", label: "In it now" },
-      { key: "full", label: "When full, today" },
-      { key: "rated", label: "Maker's rating" },
-      { key: "health", label: "Health" },
+      { key: "rate", label: page.onBattery ? "Using now" : "Flowing now" },
       { rule: true },
+      // Then the pack's life, which is three figures only useful as a
+      // sequence: what it holds when full, what it was sold as holding, and
+      // the two compared. The labels carry that, because on a full battery
+      // the first of them equals "In it now" above, and a reader with no way
+      // to tell them apart concludes the card is repeating itself.
+      { key: "full", label: "When full, today", small: true },
+      { key: "rated", label: "Maker's rating", small: true },
+      { key: "health", label: "Health", small: true },
       { key: "cycles", label: "Charge cycles", small: true }
     ]
     // Only ever on a bad day: UPower answers "none" the rest of the time, and
@@ -116,6 +118,10 @@ Ui.SectionBody {
     var warning = String(reading.warning || "")
     return {
       stored: reading.energy > 0 ? Number(reading.energy).toFixed(1) + " Wh" : "—",
+      // Zero while a full battery sits on the mains, which is the truth: no
+      // energy is going either way.
+      rate: reading.watts !== null && reading.watts !== undefined
+        ? Number(reading.watts).toFixed(1) + " W" : "—",
       health: reading.health !== null && reading.health !== undefined
         ? reading.health + "% of rated" : "—",
       full: reading.energyFull > 0 ? Number(reading.energyFull).toFixed(1) + " Wh" : "—",
