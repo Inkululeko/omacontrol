@@ -24,20 +24,12 @@ Item {
   readonly property real border: Math.max(1, Style.space(2))
   readonly property real inset: gauge.border + Math.max(1, Style.space(1.5))
 
-  // While charging the fill sweeps from empty up to where the charge actually
-  // is, over and over: the same thing every phone does, and the only way a
-  // still picture of a battery can say that something is happening to it.
-  property real sweep: 0
-  readonly property real shown: charging
-    ? Math.max(0, Math.min(1, sweep)) : Math.max(0, Math.min(1, level))
+  readonly property real shown: Math.max(0, Math.min(1, level))
 
-  SequentialAnimation on sweep {
-    running: gauge.charging
-    loops: Animation.Infinite
-    alwaysRunToEnd: false
-    NumberAnimation { from: 0; to: gauge.level; duration: 1400; easing.type: Easing.InOutQuad }
-    PauseAnimation { duration: 600 }
-  }
+  // A sheen struck from the fill rather than from white: over a pale green
+  // a white band is invisible, and half the themes here are pale.
+  readonly property color sheen: fill.hslLightness > 0.55
+    ? Qt.rgba(0, 0, 0, 0.30) : Qt.rgba(1, 1, 1, 0.45)
 
   Rectangle {
     id: body
@@ -49,6 +41,7 @@ Item {
     border.color: gauge.fill
 
     Rectangle {
+      id: fillBar
       x: gauge.inset
       y: gauge.inset
       height: parent.height - gauge.inset * 2
@@ -59,8 +52,35 @@ Item {
                       (parent.width - gauge.inset * 2) * gauge.shown)
       radius: Math.max(Style.space(3), Style.cornerRadius / 2)
       color: gauge.fill
+      clip: true
 
       Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+
+      // The charge itself does not move while charging — it is what it is,
+      // and a gauge that keeps redrawing itself from empty cannot be read at
+      // a glance. What moves is a light travelling along the charge already
+      // there, which is what energy going in looks like.
+      Rectangle {
+        id: flow
+        visible: gauge.charging
+        width: Math.max(parent.width * 0.4, parent.height * 2)
+        height: parent.height
+        gradient: Gradient {
+          orientation: Gradient.Horizontal
+          GradientStop { position: 0.0; color: "transparent" }
+          GradientStop { position: 0.5; color: gauge.sheen }
+          GradientStop { position: 1.0; color: "transparent" }
+        }
+
+        NumberAnimation on x {
+          running: gauge.charging
+          loops: Animation.Infinite
+          from: -flow.width
+          to: fillBar.width
+          duration: 1600
+          easing.type: Easing.InOutSine
+        }
+      }
     }
   }
 
