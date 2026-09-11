@@ -70,7 +70,7 @@ Ui.SectionBody {
   // others, so it sits with them rather than in the headline.
   readonly property string batterySummary: {
     var parts = []
-    var left = String(reading.remaining || "")
+    var left = page.roundedTime(String(reading.remaining || ""))
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
     // Beside the time, because it is the rate that time is computed at: how
@@ -82,6 +82,19 @@ Ui.SectionBody {
       parts.push((reading.state === "charging" ? "Charging at " : "Using ")
         + Number(reading.watts).toFixed(1) + " W")
     return parts.join("  ·  ")
+  }
+
+  // upower answers in tenths — "49.6 minutes", "3.1 hours" — and a tenth of
+  // an hour is six minutes of a figure that is an estimate to begin with.
+  // Whole units, and the unit named in the singular when it is one of them.
+  function roundedTime(text) {
+    var match = /^([0-9.]+)\s+(\w+)$/.exec(String(text || "").trim())
+    if (!match) return String(text || "")
+    var amount = Math.round(Number(match[1]))
+    if (!isFinite(amount) || amount <= 0) return String(text || "")
+    var unit = match[2]
+    if (amount === 1 && unit.charAt(unit.length - 1) === "s") unit = unit.slice(0, -1)
+    return amount + " " + unit
   }
 
   // Red, amber, green, on the thresholds a battery indicator has always used:
