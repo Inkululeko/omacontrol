@@ -225,7 +225,12 @@ disk_cmd() {
       capture_err udisksctl mount -b "$1" ;;
     unmount) shift; [[ -n ${1:-} ]] || die "usage: omacontrol disk unmount <device>"
       capture_err udisksctl unmount -b "$1" ;;
-    trim) capture_err fstrim --all --verbose ;;
+    # Needs root, and `fstrim --all` without it is the worst kind of failure:
+    # it skips every mount it may not touch, prints nothing and exits 0, so
+    # the button looked like it worked and trimmed nothing. To a terminal with
+    # a password prompt, like every other privileged job this window offers.
+    trim) setsid -f omarchy-launch-floating-terminal-with-presentation \
+      "sudo fstrim --all --verbose" >/dev/null 2>&1 ;;
     snapshot) capture_err omarchy-snapshot ;;
     open) shift; [[ -n ${1:-} ]] || die "usage: omacontrol disk open <path>"
       setsid -f xdg-open "$1" >/dev/null 2>&1 ;;

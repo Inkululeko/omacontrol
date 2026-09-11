@@ -229,10 +229,12 @@ Ui.SectionBody {
       }
 
       // Trimming tells the drive which blocks it may forget, which is a thing
-      // to do to the machine rather than to whichever row is selected.
+      // to do to the machine rather than to whichever row is selected. Named
+      // for that rather than for fstrim: nothing else on these pages is named
+      // after the command underneath it.
       Ui.Chip {
-        text: "Run fstrim"
-        onClicked: app.run(["disk", "trim"])
+        text: "Free unused blocks"
+        onClicked: { app.run(["disk", "trim"]); app.hide() }
       }
     }
   }
