@@ -12,6 +12,29 @@ Ui.SectionBody {
   readonly property var power: app.power
   readonly property var reading: power.battery !== undefined ? power.battery : ({})
 
+  // What is keeping the machine awake. Nothing on Linux reports watts per
+  // application — the kernel measures the pack, not the programs — so the
+  // honest answer to "what is using it" is what is using the processor, which
+  // is what the pack is mostly paying for. The page says as much rather than
+  // implying a figure it cannot have.
+  readonly property var busiest: {
+    var list = app.processes.processes !== undefined ? app.processes.processes : []
+    var out = []
+    for (var i = 0; i < list.length && out.length < 5; i++) out.push(list[i])
+    return out
+  }
+
+  // The process reader is two frames of `top` a fifth of a second apart, so
+  // it is asked for less often than the battery, and only while this is the
+  // page on screen.
+  Timer {
+    interval: 10000
+    running: app.shown
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: app.pollProcesses()
+  }
+
   // Power profiles are named for machines, not people. The icons are the
   // bar's own, from its power widget: the same three glyphs for the same
   // three profiles, since the bar is where most people meet them and two
@@ -252,6 +275,47 @@ Ui.SectionBody {
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
       font.pixelSize: Style.font.caption
+    }
+  }
+
+  // Under the battery rather than on the Processes page as well, because the
+  // question "what is draining it" is asked here, on the page that says how
+  // long is left.
+  Ui.SettingGroup {
+    title: "What is using it"
+    visible: !searchEmpty && busiest.length > 0
+
+    Ui.DataTable {
+      columns: [
+        { title: "Command", weight: 2.6 },
+        { title: "CPU", weight: 1.2 },
+        { title: "Memory", weight: 1.2, align: "right" }
+      ]
+      rows: {
+        var out = []
+        // Scaled to the busiest row rather than to the core count: a column
+        // of bars is read by comparing it down, and on an idle machine every
+        // bar against sixteen cores is a pixel.
+        var top = 0
+        for (var h = 0; h < busiest.length; h++) top = Math.max(top, Number(busiest[h].cpu))
+        for (var i = 0; i < busiest.length; i++) {
+          var process = busiest[i]
+          out.push({ cells: [
+            { text: process.command, strong: true },
+            { text: Number(process.cpu).toFixed(0) + " %",
+              meter: top > 0 ? Number(process.cpu) / top : 0 },
+            { text: app.formatBytes(process.memory), align: "right" }
+          ] })
+        }
+        return out
+      }
+    }
+
+    Ui.ActionRow {
+      label: "All processes"
+      description: "Linux reports power for the battery, not for each program — so this is what is using the processor, which is most of what the battery is paying for."
+      buttonText: "Open"
+      onTriggered: app.pageId = "processes"
     }
   }
 
