@@ -55,6 +55,7 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
     title: "Connected"
     visible: !searchEmpty && bluetooth.powered === true && connectedDevices.length > 0
 
@@ -65,6 +66,7 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
     title: "Paired"
     visible: !searchEmpty && bluetooth.powered === true && pairedDevices.length > 0
 
@@ -75,12 +77,29 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
+    rowSpacing: Style.space(2)
     title: "Nearby"
     visible: !searchEmpty && bluetooth.powered === true
 
     Repeater {
       model: nearbyDevices
       delegate: DeviceDelegate {}
+    }
+  }
+
+  // At the foot rather than the top: pairing usually starts from this
+  // machine, and only the other direction needs this.
+  Ui.SettingGroup {
+    title: "This computer"
+    visible: !searchEmpty && bluetooth.powered === true
+
+    Ui.SwitchRow {
+      label: "Let other devices find this one"
+      description: bluetooth.adapter !== undefined && bluetooth.adapter !== ""
+        ? "Phones and headsets pairing from their own side see it as \u201c" + bluetooth.adapter + "\u201d. Switches itself off again after a few minutes."
+        : "Needed only when the other device is doing the pairing. Switches itself off again after a few minutes."
+      checked: bluetooth.discoverable === true
+      onRequested: function(next) { app.run(["bluetooth", "discoverable", next ? "on" : "off"]) }
     }
   }
 
@@ -96,6 +115,7 @@ Ui.SectionBody {
     paired: modelData.paired === true
     connected: modelData.connected === true
     battery: modelData.battery !== null && modelData.battery !== undefined ? Number(modelData.battery) : -1
+    rssi: modelData.rssi !== null && modelData.rssi !== undefined ? Number(modelData.rssi) : -200
     onConnectRequested: app.run(["bluetooth", "connect", modelData.address])
     onDisconnectRequested: app.run(["bluetooth", "disconnect", modelData.address])
     onPairRequested: app.run(["bluetooth", "pair", modelData.address])

@@ -15,6 +15,9 @@ Item {
   property bool paired: false
   property bool connected: false
   property int battery: -1
+  // dBm as BlueZ reports it while it can hear the device; -200 stands for
+  // "not heard", which is every device we are not currently scanning.
+  property int rssi: -200
 
   signal connectRequested()
   signal disconnectRequested()
@@ -40,16 +43,31 @@ Item {
   // than blank.
   readonly property string title: name !== "" ? name : address
 
+  readonly property var batteryIcons: ["\udb80\udc7a", "\udb80\udc7b", "\udb80\udc7c", "\udb80\udc7d",
+                                       "\udb80\udc7e", "\udb80\udc7f", "\udb80\udc80", "\udb80\udc81",
+                                       "\udb80\udc82", "\udb80\udc79"]
+  // Bluetooth has no percentage of its own, so the usable span is mapped to
+  // the one SignalBars already draws: about -50 dBm is as close as a thing
+  // gets, -95 is the edge of hearing.
+  readonly property int signalStrength:
+    Math.max(0, Math.min(100, Math.round((deviceRow.rssi + 95) * 100 / 45)))
+
+  readonly property string batteryIcon:
+    batteryIcons[Math.max(0, Math.min(9, Math.floor(deviceRow.battery / 10)))]
+
   visible: !nav.searchHidden
   width: parent ? parent.width : 0
-  implicitHeight: Style.spacing.controlHeight
+  implicitHeight: Style.spacing.controlHeight + Style.space(4)
 
   Rectangle {
     anchors.fill: parent
     radius: Style.cornerRadius
     color: deviceRow.connected
       ? Qt.rgba(Local.Palette.accent.r, Local.Palette.accent.g, Local.Palette.accent.b, 0.14)
-      : (deviceMouse.containsMouse ? Local.Palette.hover : "transparent")
+      // The forget mark takes the pointer off the row's own area, so the row
+      // has to count it as hover of its own or the band blinks out from under
+      // the cursor.
+      : (deviceMouse.containsMouse || forgetMouse.containsMouse ? Local.Palette.hover : "transparent")
   }
 
   MouseArea {
@@ -87,6 +105,12 @@ Item {
       width: Style.space(20)
     }
 
+    Local.SignalBars {
+      anchors.verticalCenter: parent.verticalCenter
+      visible: deviceRow.rssi > -200 && !deviceRow.paired
+      strength: deviceRow.signalStrength
+    }
+
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: deviceRow.title
@@ -107,47 +131,42 @@ Item {
     Text {
       anchors.verticalCenter: parent.verticalCenter
       visible: deviceRow.battery >= 0
-      text: deviceRow.battery + "%"
+      // The same ten-step set the bar's power plugin draws a battery with, so
+      // a peripheral's charge reads the way the machine's own does.
+      text: deviceRow.batteryIcon + " " + deviceRow.battery + "%"
       // A device about to die is worth noticing before it dies.
       color: deviceRow.battery <= 20 ? Color.urgent : Local.Palette.muted
       font.family: Local.Palette.fontFamily
       font.pixelSize: Style.font.caption
     }
 
-    Button {
+    // No Connect / Disconnect / Pair button: the row already does whatever the
+    // device is asking for, and a button repeating it is a second target for
+    // one action. Forget is the exception — it is not what a click does, so it
+    // needs somewhere of its own, and it wears the mark the bar's own
+    // Bluetooth panel gives it.
+    Item {
       anchors.verticalCenter: parent.verticalCenter
-      visible: deviceRow.connected || (deviceRow.paired && deviceMouse.containsMouse)
-      text: deviceRow.connected ? "Disconnect" : "Connect"
-      bordered: true
-      foreground: Local.Palette.foreground
-      accent: Local.Palette.accent
-      fontFamily: Local.Palette.fontFamily
-      fontSize: Style.font.caption
-      onClicked: deviceRow.connected ? deviceRow.disconnectRequested() : deviceRow.connectRequested()
-    }
+      visible: deviceRow.paired
+      opacity: deviceMouse.containsMouse || forgetMouse.containsMouse ? 1 : 0
+      implicitWidth: Style.spacing.controlHeight
+      implicitHeight: Style.spacing.controlHeight
 
-    Button {
-      anchors.verticalCenter: parent.verticalCenter
-      visible: deviceRow.paired && deviceMouse.containsMouse
-      text: "Forget"
-      bordered: true
-      foreground: Local.Palette.foreground
-      accent: Local.Palette.accent
-      fontFamily: Local.Palette.fontFamily
-      fontSize: Style.font.caption
-      onClicked: deviceRow.forgetRequested()
-    }
+      Text {
+        anchors.centerIn: parent
+        text: "\udb80\udd59"
+        color: forgetMouse.containsMouse ? Local.Palette.accent : Local.Palette.muted
+        font.family: Local.Palette.fontFamily
+        font.pixelSize: Style.font.subtitle
+      }
 
-    Button {
-      anchors.verticalCenter: parent.verticalCenter
-      visible: !deviceRow.paired && deviceMouse.containsMouse
-      text: "Pair"
-      bordered: true
-      foreground: Local.Palette.foreground
-      accent: Local.Palette.accent
-      fontFamily: Local.Palette.fontFamily
-      fontSize: Style.font.caption
-      onClicked: deviceRow.pairRequested()
+      MouseArea {
+        id: forgetMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: deviceRow.forgetRequested()
+      }
     }
   }
 }

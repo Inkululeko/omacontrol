@@ -104,7 +104,7 @@ Item {
   Item {
     id: line
     width: parent.width
-    implicitHeight: Style.spacing.controlHeight
+    implicitHeight: Style.spacing.controlHeight + Style.space(4)
 
     Rectangle {
       anchors.fill: parent

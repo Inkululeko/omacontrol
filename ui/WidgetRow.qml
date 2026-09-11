@@ -28,7 +28,7 @@ Item {
 
   visible: !nav.searchHidden
   width: parent ? parent.width : 0
-  implicitHeight: Style.spacing.controlHeight
+  implicitHeight: Style.spacing.controlHeight + Style.space(4)
 
   Button {
     id: actionButton
