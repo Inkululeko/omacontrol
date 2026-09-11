@@ -12,11 +12,54 @@ Ui.SectionBody {
   readonly property var power: app.power
   readonly property var reading: power.battery !== undefined ? power.battery : ({})
 
-  // What is keeping the machine awake. Nothing on Linux reports watts per
-  // application — the kernel measures the pack, not the programs — so the
-  // honest answer to "what is using it" is what is using the processor, which
-  // is what the pack is mostly paying for. The page says as much rather than
-  // implying a figure it cannot have.
+  // What the machine is drawing, which is not the same question as what the
+  // battery has left — and the machine draws it plugged in too.
+  //
+  // The pack is the only whole-machine figure there is, and only while the
+  // machine is running off it: on the mains nothing measures what the wall is
+  // supplying. What is left is the chips that report their own draw, which on
+  // a laptop is most of what varies.
+  readonly property var drawFacts: {
+    var out = []
+    if (onBattery && reading.watts !== null && reading.watts !== undefined)
+      out.push({ key: "whole", label: "Whole machine" })
+    var chips = power.draw !== undefined ? power.draw : []
+    for (var i = 0; i < chips.length; i++)
+      out.push({ key: "chip" + i, label: page.chipLabel(chips[i]) })
+    return out
+  }
+
+  readonly property var drawValues: {
+    var values = {}
+    if (reading.watts !== null && reading.watts !== undefined)
+      values.whole = Number(reading.watts).toFixed(1) + " W"
+    var chips = power.draw !== undefined ? power.draw : []
+    for (var i = 0; i < chips.length; i++)
+      values["chip" + i] = Number(chips[i].watts).toFixed(1) + " W"
+    return values
+  }
+
+  // The kernel names these after the driver that reports them. `amdgpu` on a
+  // laptop is the whole package — processor and graphics on one die — which
+  // is why it is not called the graphics chip here.
+  function chipLabel(chip) {
+    var names = {
+      "amdgpu": "Processor and graphics",
+      "i915": "Graphics",
+      "xe": "Graphics",
+      "nvidia": "Graphics",
+      "coretemp": "Processor",
+      "k10temp": "Processor"
+    }
+    var name = String(chip.name || "")
+    return names[name] !== undefined ? names[name] : name
+  }
+
+  // And what is keeping them busy. Nothing on Linux reports watts per
+  // application — the kernel measures the pack and the chips, never the
+  // programs — so the honest answer to "which program" is which program is
+  // using the processor, and the page says as much rather than implying a
+  // figure it cannot have.
   readonly property var busiest: {
     var list = app.processes.processes !== undefined ? app.processes.processes : []
     var out = []
@@ -283,7 +326,24 @@ Ui.SectionBody {
   // long is left.
   Ui.SettingGroup {
     title: "What is using it"
-    visible: !searchEmpty && busiest.length > 0
+    visible: !searchEmpty && (drawFacts.length > 0 || busiest.length > 0)
+
+    Ui.FactGrid {
+      layout: page.drawFacts
+      values: page.drawValues
+    }
+
+    Text {
+      width: parent.width
+      visible: page.drawFacts.length > 0
+      text: page.onBattery
+        ? "What the pack is giving out is everything the machine is using. The chips report their own draw within that."
+        : "On the mains nothing measures what the wall is supplying, so what is left is the chips that report their own draw."
+      wrapMode: Text.WordWrap
+      color: Ui.Palette.muted
+      font.family: Ui.Palette.fontFamily
+      font.pixelSize: Style.font.caption
+    }
 
     Ui.DataTable {
       columns: [
@@ -313,7 +373,7 @@ Ui.SectionBody {
 
     Ui.ActionRow {
       label: "All processes"
-      description: "Linux reports power for the battery, not for each program — so this is what is using the processor, which is most of what the battery is paying for."
+      description: "The watts above are all Linux measures: the pack and the chips, never the programs. So which program is doing it is answered in processor time."
       buttonText: "Open"
       onTriggered: app.pageId = "processes"
     }
