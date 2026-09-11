@@ -1,8 +1,13 @@
 # Part of OmaControl. Sourced by bin/omacontrol; not run on its own.
 #
 # What the disks are holding, and what they are doing about it. Nothing here
-# writes: mounting and trimming are Omarchy's or the system's to do, and the
-# page offers them as actions rather than as settings.
+# writes: mounting and snapshotting are Omarchy's or the system's to do, and
+# the page offers them as actions rather than as settings.
+#
+# Trimming used to be one of them. `fstrim --all` needs privileges it does not
+# have here and, given `--all`, skips what it may not touch without a word —
+# so the button reported success and trimmed nothing. It belongs to
+# `fstrim.timer`, which is the system's job and not a settings window's.
 #
 # None of this joins the state document. A state read happens after every
 # write in the window, and `df` on a machine with a network mount is the one
@@ -225,15 +230,9 @@ disk_cmd() {
       capture_err udisksctl mount -b "$1" ;;
     unmount) shift; [[ -n ${1:-} ]] || die "usage: omacontrol disk unmount <device>"
       capture_err udisksctl unmount -b "$1" ;;
-    # Needs root, and `fstrim --all` without it is the worst kind of failure:
-    # it skips every mount it may not touch, prints nothing and exits 0, so
-    # the button looked like it worked and trimmed nothing. To a terminal with
-    # a password prompt, like every other privileged job this window offers.
-    trim) setsid -f omarchy-launch-floating-terminal-with-presentation \
-      "sudo fstrim --all --verbose" >/dev/null 2>&1 ;;
     snapshot) capture_err omarchy-snapshot ;;
     open) shift; [[ -n ${1:-} ]] || die "usage: omacontrol disk open <path>"
       setsid -f xdg-open "$1" >/dev/null 2>&1 ;;
-    *) die "usage: omacontrol disk state|poll|breakdown|mount <device>|unmount <device>|trim|snapshot|open <path>" ;;
+    *) die "usage: omacontrol disk state|poll|breakdown|mount <device>|unmount <device>|snapshot|open <path>" ;;
   esac
 }
