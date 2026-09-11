@@ -75,10 +75,12 @@ Ui.SectionBody {
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
     // Beside the time, because it is the rate that time is computed at: how
     // long is left only means anything at the speed it is going out, and how
-    // long until full only at the speed it is going in.
+    // long until full only at the speed it is going in. Named, because a
+    // second figure after a dot is otherwise a number with no question.
     if (reading.watts !== null && reading.watts !== undefined
         && (onBattery || reading.state === "charging"))
-      parts.push(Number(reading.watts).toFixed(1) + " W")
+      parts.push((reading.state === "charging" ? "Charging at " : "Using ")
+        + Number(reading.watts).toFixed(1) + " W")
     return parts.join("  ·  ")
   }
 
