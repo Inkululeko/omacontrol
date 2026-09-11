@@ -25,6 +25,7 @@ Ui.SectionBody {
       if (Number(d.width) <= 0 || Number(d.height) <= 0) continue
       var position = String(d.position || "").split("x")
       out.push({ name: String(d.name), label: String(d.label || d.name),
+                 output: String(d.output || ""),
                  focused: d.focused === true,
                  x: Number(position[0] || 0), y: Number(position[1] || 0),
                  width: Number(d.width), height: Number(d.height),

@@ -30,6 +30,7 @@ Item {
       var size = Geometry.logicalSize(items[i])
       if (size.w <= 0 || size.h <= 0) continue
       out.push({ name: String(items[i].name), label: String(items[i].label),
+                 output: String(items[i].output || ""),
                  focused: items[i].focused === true,
                  x: Number(items[i].x), y: Number(items[i].y), w: size.w, h: size.h })
     }
@@ -96,10 +97,18 @@ Item {
             font.pixelSize: Style.font.caption
           }
 
+          // The connector beside the size, because the name on the tile is
+          // the screen and the socket is how it is spoken about everywhere
+          // else — in a monitor rule someone wrote, in hyprctl, on the row
+          // below. A tile too short for a second line keeps the name.
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.max(0, tile.width - Style.space(16))
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
             visible: tile.height > Style.space(46)
-            text: tile.modelData.w + " × " + tile.modelData.h
+            text: (tile.modelData.output !== "" ? tile.modelData.output + "  ·  " : "")
+              + tile.modelData.w + " × " + tile.modelData.h
             color: Local.Palette.muted
             font.family: Local.Palette.fontFamily
             font.pixelSize: Style.font.caption
