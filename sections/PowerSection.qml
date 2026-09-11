@@ -55,55 +55,6 @@ Ui.SectionBody {
     return names[name] !== undefined ? names[name] : name
   }
 
-  // And what is keeping them busy. Nothing on Linux reports watts per
-  // application — the kernel measures the pack and the chips, never the
-  // programs — so the honest answer to "which program" is which program is
-  // using the processor, and the page says as much rather than implying a
-  // figure it cannot have.
-  readonly property var busiest: {
-    var list = app.processes.processes !== undefined ? app.processes.processes : []
-    var out = []
-    for (var i = 0; i < list.length && out.length < 5; i++) out.push(list[i])
-    return out
-  }
-
-  // The process reader is two frames of `top` a fifth of a second apart, so
-  // it is asked for less often than the battery, and only while this is the
-  // page on screen.
-  Timer {
-    interval: 10000
-    running: app.shown
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: app.pollProcesses()
-  }
-
-  // Power profiles are named for machines, not people. The icons are the
-  // bar's own, from its power widget: the same three glyphs for the same
-  // three profiles, since the bar is where most people meet them and two
-  // pictures for one profile is one too many.
-  function profileOptions() {
-    var labels = { "power-saver": "Power saver", "balanced": "Balanced", "performance": "Performance" }
-    var icons = { "power-saver": "\udb80\udf2a", "balanced": "\udb80\ude9a", "performance": "\udb81\udcc5" }
-    var list = power.profiles !== undefined ? power.profiles : []
-    var out = []
-    for (var i = 0; i < list.length; i++)
-      out.push({ value: String(list[i]), label: labels[list[i]] || String(list[i]),
-                 icon: icons[list[i]] || "" })
-    return out
-  }
-
-  // The state a battery is in, as one thing rather than as seven rows of a
-  // name and a number. It is the same shape the Network page gives the
-  // connection you are on, and for the same reason: these are facts about one
-  // object, and a column of rows asks the reader to read every name to find
-  // the one they came for.
-  // Two questions, two answers, and they are not the same question — which is
-  // exactly what one merged line hid. Where the power comes from is UPower's
-  // OnBattery; what the pack is doing about it is the battery's own state,
-  // and a docked laptop at 100% commonly reports `discharging` while it
-  // trickles a few tenths of a watt out. Said as one sentence that reads as a
-  // contradiction; said as two, it is simply the truth twice.
   readonly property string sourceLabel: onBattery ? "On battery" : "Plugged in"
 
   // On the mains the battery's own word for itself is not a state anyone
@@ -326,7 +277,7 @@ Ui.SectionBody {
   // long is left.
   Ui.SettingGroup {
     title: "What is using it"
-    visible: !searchEmpty && (drawFacts.length > 0 || busiest.length > 0)
+    visible: !searchEmpty && drawFacts.length > 0
 
     Ui.FactGrid {
       layout: page.drawFacts
@@ -343,39 +294,6 @@ Ui.SectionBody {
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
       font.pixelSize: Style.font.caption
-    }
-
-    Ui.DataTable {
-      columns: [
-        { title: "Command", weight: 2.6 },
-        { title: "CPU", weight: 1.2 },
-        { title: "Memory", weight: 1.2, align: "right" }
-      ]
-      rows: {
-        var out = []
-        // Scaled to the busiest row rather than to the core count: a column
-        // of bars is read by comparing it down, and on an idle machine every
-        // bar against sixteen cores is a pixel.
-        var top = 0
-        for (var h = 0; h < busiest.length; h++) top = Math.max(top, Number(busiest[h].cpu))
-        for (var i = 0; i < busiest.length; i++) {
-          var process = busiest[i]
-          out.push({ cells: [
-            { text: process.command, strong: true },
-            { text: Number(process.cpu).toFixed(0) + " %",
-              meter: top > 0 ? Number(process.cpu) / top : 0 },
-            { text: app.formatBytes(process.memory), align: "right" }
-          ] })
-        }
-        return out
-      }
-    }
-
-    Ui.ActionRow {
-      label: "All processes"
-      description: "The watts above are all Linux measures: the pack and the chips, never the programs. So which program is doing it is answered in processor time."
-      buttonText: "Open"
-      onTriggered: app.pageId = "processes"
     }
   }
 
