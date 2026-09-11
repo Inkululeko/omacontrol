@@ -11,13 +11,18 @@ Ui.SectionBody {
   readonly property var power: app.power
   readonly property var reading: power.battery !== undefined ? power.battery : ({})
 
-  // Power profiles are named for machines, not people.
+  // Power profiles are named for machines, not people. The icons are the
+  // bar's own, from its power widget: the same three glyphs for the same
+  // three profiles, since the bar is where most people meet them and two
+  // pictures for one profile is one too many.
   function profileOptions() {
     var labels = { "power-saver": "Power saver", "balanced": "Balanced", "performance": "Performance" }
+    var icons = { "power-saver": "\udb80\udf2a", "balanced": "\udb80\ude9a", "performance": "\udb81\udcc5" }
     var list = power.profiles !== undefined ? power.profiles : []
     var out = []
     for (var i = 0; i < list.length; i++)
-      out.push({ value: String(list[i]), label: labels[list[i]] || String(list[i]) })
+      out.push({ value: String(list[i]), label: labels[list[i]] || String(list[i]),
+                 icon: icons[list[i]] || "" })
     return out
   }
 
