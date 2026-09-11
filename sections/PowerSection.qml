@@ -64,13 +64,11 @@ Ui.SectionBody {
     ? levelGlyphs[Math.max(0, Math.min(9, Math.floor(Number(reading.percentage || 0) / 10)))]
     : chargingGlyph
 
-  // Under the state: the percentage, then how long it has at that rate, then
-  // how fast it is going. An estimate of how long the battery lasts is about
-  // running on it, so on the mains it answers a question nobody asked.
+  // Under the headline: how long it has at this rate, and how fast it is
+  // going. An estimate of how long the battery lasts is about running on it,
+  // so on the mains it answers a question nobody asked.
   readonly property string batterySummary: {
     var parts = []
-    if (reading.percentage !== null && reading.percentage !== undefined)
-      parts.push(reading.percentage + "%")
     var left = String(reading.remaining || "")
     if (left !== "" && (onBattery || reading.state === "charging"))
       parts.push(reading.state === "charging" ? left + " until full" : left + " left")
@@ -160,14 +158,33 @@ Ui.SectionBody {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(2)
 
-        Text {
+        // "100% Fully charged" as one line, the number carrying it. A
+        // percentage is what the reader is here for and it is the thing they
+        // can take in without reading — so it is the size of the headline,
+        // and the words sit on its baseline rather than above or below it.
+        Row {
           width: parent.width
-          text: page.stateLabel
-          elide: Text.ElideRight
-          color: Ui.Palette.foreground
-          font.family: Ui.Palette.fontFamily
-          font.pixelSize: Style.font.heading
-          font.bold: true
+          spacing: Style.space(8)
+
+          Text {
+            id: level
+            text: reading.percentage !== null && reading.percentage !== undefined
+              ? reading.percentage + "%" : "\u2014"
+            color: Ui.Palette.foreground
+            font.family: Ui.Palette.fontFamily
+            font.pixelSize: Style.font.displayLarge
+            font.bold: true
+          }
+
+          Text {
+            anchors.baseline: level.baseline
+            text: page.stateLabel
+            elide: Text.ElideRight
+            color: Ui.Palette.muted
+            font.family: Ui.Palette.fontFamily
+            font.pixelSize: Style.font.heading
+            font.bold: true
+          }
         }
 
         Text {
