@@ -15,8 +15,11 @@ Item {
   id: canvas
 
   property var items: []
-  // Where a display was dropped, in logical pixels, after snapping.
-  signal moved(string name, int x, int y)
+  // The whole layout after a drop, as [{ name, x, y }] in logical pixels —
+  // not just the display that moved. Snapping can only anchor the dragged
+  // display to the others, so a layout that is dragged rightwards walks away
+  // from the origin a screen at a time unless it is re-anchored as a whole.
+  signal arranged(var positions)
 
   width: parent ? parent.width : 0
   implicitHeight: Style.space(220)
@@ -112,7 +115,16 @@ Item {
         drag.target: tile
         drag.threshold: Style.space(3)
 
+        // A click is not a drag, and a click that rewrites the arrangement is
+        // a click that can only do harm: the position it computes is the one
+        // already in force, but every display would be written again.
+        property bool dragged: false
+        onPositionChanged: if (drag.active) dragged = true
+
         onReleased: {
+          if (!dragged) return
+          dragged = false
+
           // Back from the canvas to the layout: where the tile now is, in
           // logical pixels, snapped against the displays it was not dragging.
           var wanted = {
@@ -128,7 +140,9 @@ Item {
           // A threshold in logical pixels rather than in canvas pixels, or how
           // near is near enough would depend on the size of the window.
           var snapped = Geometry.snapPosition(wanted, others, Math.round(60 / canvas.fit))
-          canvas.moved(wanted.name, snapped.x, snapped.y)
+          var laid = others.concat([{ name: wanted.name, x: snapped.x, y: snapped.y,
+                                      w: wanted.w, h: wanted.h }])
+          canvas.arranged(Geometry.normalize(laid))
         }
       }
     }

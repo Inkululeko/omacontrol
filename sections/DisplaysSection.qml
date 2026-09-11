@@ -3,6 +3,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "../ui" as Ui
+import "../ui/displays.js" as Geometry
 
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
@@ -54,8 +55,18 @@ Ui.SectionBody {
 
     Ui.DisplayCanvas {
       items: arrangeable
-      onMoved: function(name, x, y) {
-        app.set("monitor:" + name + ":position", x + "x" + y)
+      // Only the displays that actually moved: re-anchoring the layout can
+      // shift every one of them, and a write per display per drag would be
+      // three state reads to say what one of them already said.
+      onArranged: function(positions) {
+        for (var i = 0; i < positions.length; i++) {
+          var wanted = positions[i].x + "x" + positions[i].y
+          var was = ""
+          for (var j = 0; j < arrangeable.length; j++)
+            if (arrangeable[j].name === positions[i].name)
+              was = arrangeable[j].x + "x" + arrangeable[j].y
+          if (wanted !== was) app.set("monitor:" + positions[i].name + ":position", wanted)
+        }
       }
     }
   }
@@ -199,13 +210,34 @@ Ui.SectionBody {
         onPicked: function(next) { app.set("monitor:" + name + ":mode", resolution + "@" + next) }
       }
 
-      Ui.FactorRow {
+      // Hyprland only takes a scale where the mode divides into whole logical
+      // pixels, and silently rounds anything else — so a slider offered a
+      // hundred numbers of which a handful were real, and showed the one that
+      // was asked for rather than the one in force. The choices are computed
+      // from the resolution instead, and there are few enough to sit side by
+      // side.
+      readonly property var scaleOptions: {
+        var size = resolution.split("x")
+        var width = Number(size[0]) || Number(modelData.width) || 0
+        var height = Number(size[1]) || Number(modelData.height) || 0
+        var presets = ["1", "1.25", "1.5", "1.6", "2", "3"]
+        var clean = width > 0 && height > 0
+          ? Geometry.availableScales(presets, width, height) : presets
+        // Whatever the display is actually on belongs among the choices even
+        // when no preset lands there — a row that cannot show its own value
+        // reads as a setting that is off.
+        var current = Geometry.normalizeScale(modelData.scale)
+        if (current !== "" && clean.indexOf(current) < 0)
+          clean = clean.concat([current]).sort(function(a, b) { return Number(a) - Number(b) })
+        return clean.map(function(value) { return { value: value, label: value + "\u00d7" } })
+      }
+
+      Ui.ChoiceRow {
         label: "Scale"
         visible: !searchHidden && !off
-        minimum: 0.5
-        maximum: 3
-        value: Number(modelData.scale)
-        onCommitted: function(next) { app.set("monitor:" + name + ":scale", next) }
+        value: Geometry.normalizeScale(modelData.scale)
+        options: scaleOptions
+        onPicked: function(next) { app.set("monitor:" + name + ":scale", next) }
         changed: app.isChanged("monitor:" + name + ":scale")
         onResetRequested: app.resetSetting("monitor:" + name + ":scale")
       }

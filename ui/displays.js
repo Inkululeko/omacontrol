@@ -125,3 +125,74 @@ function snapPosition(moving, others, threshold) {
   }
   return { x: Math.round(rect.x), y: Math.round(rect.y) }
 }
+
+// The layout shifted so its top-left corner is 0,0. Hyprland is happy with
+// negative coordinates and with a layout that starts at 5440, but dragging
+// right and re-snapping walks the whole arrangement away from the origin a
+// screen at a time, and the numbers stop meaning anything.
+function normalize(rects) {
+  var box = bounds(rects)
+  var out = []
+  for (var i = 0; i < rects.length; i++)
+    out.push({ name: rects[i].name, x: rects[i].x - box.x, y: rects[i].y - box.y,
+               w: rects[i].w, h: rects[i].h })
+  return out
+}
+
+// ---------------------------------------------------------------- scale
+//
+// Hyprland only accepts a scale where the mode divides into whole logical
+// pixels in 1/120 steps; anything else it silently rounds, and the page then
+// shows a number the screen is not using. So the choices offered are computed
+// from the mode rather than typed in, which is the same rule
+// omarchy-hyprland-monitor-scaling follows.
+
+function normalizeScale(scale) {
+  var n = parseFloat(String(scale || ""))
+  if (!isFinite(n)) return ""
+  return String(Math.round(n * 100) / 100)
+}
+
+function gcd(a, b) {
+  while (b) {
+    var remainder = a % b
+    a = b
+    b = remainder
+  }
+  return a
+}
+
+// The requested scale rounded up to the nearest one this mode can actually do.
+function cleanScale(scale, width, height) {
+  var requested = Number(scale)
+  var modeWidth = Number(width)
+  var modeHeight = Number(height)
+  if (!isFinite(requested) || !isFinite(modeWidth) || !isFinite(modeHeight)
+      || requested <= 0 || modeWidth <= 0 || modeHeight <= 0) return ""
+
+  var divisor = gcd(Math.round(modeWidth * 120), Math.round(modeHeight * 120))
+  var units = Math.round(requested * 120)
+  if (units > divisor) units = divisor
+  while (divisor % units !== 0) units++
+  return normalizeScale(units / 120)
+}
+
+// The presets collapsed to the distinct scales this mode can do, each kept
+// under the preset closest to it — two presets that round to the same number
+// are one choice, not two that look different and are not.
+function availableScales(presets, width, height) {
+  var byEffective = {}
+  for (var i = 0; i < presets.length; i++) {
+    var requested = Number(presets[i])
+    var effective = cleanScale(requested, width, height)
+    if (effective === "") continue
+    var distance = Math.abs(requested - Number(effective))
+    var existing = byEffective[effective]
+    if (!existing || distance < existing.distance)
+      byEffective[effective] = { value: effective, index: i, distance: distance }
+  }
+  return Object.keys(byEffective)
+    .map(function(key) { return byEffective[key] })
+    .sort(function(a, b) { return a.index - b.index })
+    .map(function(candidate) { return candidate.value })
+}
