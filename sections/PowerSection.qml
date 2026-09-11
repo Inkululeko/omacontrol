@@ -102,7 +102,7 @@ Ui.SectionBody {
       // the first of them equals "In it now" above, and a reader with no way
       // to tell them apart concludes the card is repeating itself.
       { key: "full", label: "When full, today", small: true },
-      { key: "rated", label: "Maker's rating", small: true },
+      { key: "rated", label: "Rated capacity", small: true },
       { key: "health", label: "Health", small: true },
       { key: "cycles", label: "Charge cycles", small: true }
     ]
@@ -229,7 +229,7 @@ Ui.SectionBody {
     // Inside the card, because it is about these cells and not about the page.
     Text {
       width: parent.width
-      text: "In it now changes as you use it. When full is what the battery holds today, which its gauge re-learns as the cells age. The maker's rating is printed rather than measured, and printed low — so Health, which is those two compared, stops at 100% even when the battery holds more."
+      text: "In it now changes as you use it. When full is what the battery holds today, which its gauge re-learns as the cells age. Rated capacity is what the maker printed on the pack rather than anything measured, and they print it low — so Health, which is those two compared, stops at 100% even when the battery holds more."
       wrapMode: Text.WordWrap
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
