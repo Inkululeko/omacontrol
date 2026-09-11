@@ -520,6 +520,59 @@ Item {
     onTriggered: root.readThemes()
   }
 
+  // The unlock screens, read the same way and for the same reason: it changes
+  // when someone changes it. The claim a click makes lives here too, because
+  // setting one runs in a terminal and answers long after the click.
+  property var unlockList: []
+  property string unlockPending: ""
+
+  function readUnlocks() {
+    if (unlockProcess.running) return
+    unlockProcess.command = ["bash", root.helperPath, "theme", "unlock-list"]
+    unlockProcess.running = true
+  }
+
+  function setUnlock(name) {
+    unlockPending = name
+    run(["theme", "unlock", name])
+    unlockConfirm.restart()
+  }
+
+  // Rebuilding the initramfs takes a while and the terminal that does it is
+  // not this window's to wait on, so the list is asked again a few times and
+  // then left alone rather than sitting on a claim for ever.
+  property int unlockTries: 0
+  Timer {
+    id: unlockConfirm
+    interval: 2000
+    onTriggered: root.readUnlocks()
+  }
+
+  Process {
+    id: unlockProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var next = JSON.parse(text)
+          if (!Array.isArray(next)) return
+          root.unlockList = next
+          if (root.unlockPending === "") return
+          for (var i = 0; i < next.length; i++)
+            if (next[i].current === true && next[i].name === root.unlockPending) {
+              root.unlockPending = ""
+              root.unlockTries = 0
+              return
+            }
+          if (root.unlockTries < 15) { root.unlockTries++; unlockConfirm.restart() }
+          else { root.unlockPending = ""; root.unlockTries = 0 }
+        } catch (e) {
+          // Leaves the last good list on screen.
+        }
+      }
+    }
+  }
+
   function readWallpapers() {
     if (wallpaperProcess.running) return
     wallpaperProcess.command = ["bash", root.helperPath, "theme", "backgrounds"]
