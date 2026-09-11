@@ -140,8 +140,8 @@ Ui.SectionBody {
         : "—",
       health: reading.health !== null && reading.health !== undefined
         ? reading.health + "% of rated" : "—",
-      // Makers rate conservatively and the gauge recalibrates as it learns
-      // the pack, so a healthy battery measures a little above this.
+      // Manufacturers specify conservatively and the gauge recalibrates as it
+      // learns the pack, so a healthy battery measures a little above this.
       rated: reading.energyDesign > 0 ? Number(reading.energyDesign).toFixed(1) + " Wh" : "—",
       cycles: reading.cycles !== null && reading.cycles !== undefined
         ? String(reading.cycles) : "Not counted",
@@ -241,7 +241,7 @@ Ui.SectionBody {
     // its rating, and Health sits at 100% anyway — and not a word more.
     Text {
       width: parent.width
-      text: "Capacity is what the battery holds today; rated capacity is the number the maker printed on it. Health is the two compared, and stops at 100%."
+      text: "Capacity is what the battery holds today; rated capacity is what the manufacturer specified. Health is the two compared, and stops at 100%."
       wrapMode: Text.WordWrap
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
