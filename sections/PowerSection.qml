@@ -6,6 +6,7 @@ import "../ui" as Ui
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   readonly property var power: app.power
@@ -26,99 +27,140 @@ Ui.SectionBody {
     return out
   }
 
+  // The state a battery is in, as one thing rather than as seven rows of a
+  // name and a number. It is the same shape the Network page gives the
+  // connection you are on, and for the same reason: these are facts about one
+  // object, and a column of rows asks the reader to read every name to find
+  // the one they came for.
+  // Where the power is coming from, which is UPower's question to answer and
+  // not the battery's: a docked laptop at 100% often trickles a few tenths of
+  // a watt *out* of the pack, so the battery calls itself discharging while
+  // the machine is plainly on the mains. The icon and this line read the same
+  // property, or the page shows a plug beside the words "on battery".
+  readonly property string stateLabel: {
+    if (onBattery) return "On battery"
+    var state = String(reading.state || "")
+    if (state === "charging" || state === "pending-charge") return "Charging"
+    if (state === "fully-charged") return "Plugged in, fully charged"
+    return "Plugged in"
+  }
+
+  // The bar's own ten-step battery set, and its charging bolt — the same
+  // glyphs the power widget draws, so a laptop reads the same on the page as
+  // it does in the corner of the screen.
+  readonly property var levelGlyphs: ["\udb80\udc7a", "\udb80\udc7b", "\udb80\udc7c", "\udb80\udc7d",
+                                      "\udb80\udc7e", "\udb80\udc7f", "\udb80\udc80", "\udb80\udc81",
+                                      "\udb80\udc82", "\udb80\udc79"]
+  readonly property string chargingGlyph: "\udb80\udc84"
+
+  // Whether the machine is running off the battery, which is the first thing
+  // anyone opening this page wants to know and the one thing a percentage on
+  // its own does not say.
+  readonly property bool onBattery: power.onBattery === true
+  readonly property string batteryGlyph: onBattery
+    ? levelGlyphs[Math.max(0, Math.min(9, Math.floor(Number(reading.percentage || 0) / 10)))]
+    : chargingGlyph
+
+  readonly property string batterySummary: {
+    var parts = []
+    if (stateLabel !== "") parts.push(stateLabel)
+    // An estimate of how long the battery lasts is about running on it. On
+    // the mains it is an answer to a question nobody asked.
+    var left = String(reading.remaining || "")
+    if (left !== "" && (onBattery || reading.state === "charging"))
+      parts.push(reading.state === "charging" ? left + " until full" : left + " left")
+    if (reading.watts !== null && reading.watts !== undefined)
+      parts.push(Number(reading.watts).toFixed(1) + " W")
+
+    return parts.join("  ·  ")
+  }
+
+  readonly property var batteryFacts: {
+    var out = [
+      // Health is what the reader came for, and the two figures it is
+      // computed from stand beside it as their own facts. As one cell it
+      // read "61.8 Wh, rated 60.6 Wh" — a battery holding more than it did
+      // new, which is not a thing that happens; it is the rating that is low.
+      { key: "health", label: "Health" },
+      { key: "full", label: "Full charge" },
+      { key: "rated", label: "Rated" },
+      { key: "cycles", label: "Charge cycles" }
+    ]
+    // Only ever on a bad day: UPower answers "none" the rest of the time, and
+    // a cell reading "Warning: none" trains people not to read it.
+    if (String(reading.warning || "") !== "")
+      out.push({ rule: true }, { key: "warning", label: "Warning" })
+    return out
+  }
+
+  readonly property var batteryValues: {
+    var levels = { "low": "Low", "critical": "Critical", "action": "About to shut down" }
+    var warning = String(reading.warning || "")
+    return {
+      health: reading.health !== null && reading.health !== undefined
+        ? reading.health + "% of rated" : "—",
+      full: reading.energyFull > 0 ? Number(reading.energyFull).toFixed(1) + " Wh" : "—",
+      // Makers rate conservatively and the gauge recalibrates as it learns
+      // the pack, so a healthy battery measures a little above this.
+      rated: reading.energyDesign > 0 ? Number(reading.energyDesign).toFixed(1) + " Wh" : "—",
+      cycles: reading.cycles !== null && reading.cycles !== undefined
+        ? String(reading.cycles) : "Not counted",
+      warning: levels[warning] !== undefined ? levels[warning] : warning
+    }
+  }
+
   Ui.SettingGroup {
-    title: "Battery"
+    framed: true
     visible: !searchEmpty && power.hasBattery === true
 
-    Ui.ReadingRow {
-      label: "Charge"
-      value: reading.percentage !== null && reading.percentage !== undefined
-        ? reading.percentage + "%" : "—"
-    }
+    Item {
+      width: parent.width
+      implicitHeight: identity.implicitHeight
 
-    // Which of the three things a battery can be doing. The row below says
-    // how long it has left, which on a full battery on the mains is nothing
-    // at all — leaving the group with a percentage and no account of it.
-    Ui.ReadingRow {
-      label: "State"
-      visible: !searchHidden && String(reading.state || "") !== ""
-      value: {
-        var states = {
-          "charging": "Charging",
-          "discharging": "On battery",
-          "fully-charged": "Fully charged",
-          "pending-charge": "Waiting to charge",
-          "pending-discharge": "Waiting to discharge",
-          "empty": "Empty"
+      Text {
+        id: glyph
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        text: page.batteryGlyph
+        color: page.onBattery ? Ui.Palette.foreground : Ui.Palette.accent
+        font.family: Ui.Palette.fontFamily
+        font.pixelSize: Style.font.display
+      }
+
+      Column {
+        id: identity
+        anchors.left: glyph.right
+        anchors.leftMargin: Style.space(12)
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: Style.space(2)
+
+        Text {
+          width: parent.width
+          text: reading.percentage !== null && reading.percentage !== undefined
+            ? reading.percentage + "%" : "\u2014"
+          elide: Text.ElideRight
+          color: Ui.Palette.foreground
+          font.family: Ui.Palette.fontFamily
+          font.pixelSize: Style.font.heading
+          font.bold: true
         }
-        var state = String(reading.state || "")
-        return states[state] !== undefined ? states[state] : state
+
+        Text {
+          width: parent.width
+          text: page.batterySummary
+          elide: Text.ElideRight
+          color: Ui.Palette.muted
+          font.family: Ui.Palette.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
       }
     }
 
-    Ui.ReadingRow {
-      label: reading.state === "charging" ? "Until full" : "Remaining"
-      visible: !searchHidden && reading.remaining !== undefined && String(reading.remaining) !== ""
-      value: String(reading.remaining)
-    }
-
-    Ui.ReadingRow {
-      label: "Drawing"
-      visible: !searchHidden && reading.watts !== null && reading.watts !== undefined
-      value: Number(reading.watts).toFixed(1) + " W"
-    }
-
-    Ui.ReadingRow {
-      label: "Health"
-      // Wear is the number that decides whether a battery is worth replacing,
-      // and nothing else on the desktop shows it. It stops at 100 because
-      // UPower stops it there, which is worth saying: a reader who works the
-      // ratio out from the row below will get 102 and wonder which is wrong.
-      description: "A full charge as a share of the rating. It stops at 100%, however far above the rating the battery measures."
-      visible: !searchHidden && reading.health !== null && reading.health !== undefined
-      value: reading.health + "% of its rated capacity"
-    }
-
-    // The two figures health is computed from, and the ones to hold against
-    // the spec of a replacement.
-    //
-    // "when new" was the first wording and it is a thing that cannot be true:
-    // the second figure is the manufacturer's rating, not a measurement of
-    // the cell when it was new. Vendors rate conservatively and the fuel
-    // gauge recalibrates as it learns the pack, so a healthy battery measures
-    // a little *above* its rating — and the page was then claiming it held
-    // more than it did new.
-    Ui.ReadingRow {
-      label: "Capacity"
-      // The pair is worth showing and worth explaining in the same breath:
-      // a first reading of "61.8 Wh, rated 60.6 Wh" is a battery that holds
-      // more than it did new, which is not a thing that happens. It is the
-      // rating that is low, and knowing that is the difference between the
-      // row being useful and the row being alarming.
-      description: "What a full charge measures now, against the rating on the pack. Makers rate low, so a healthy battery often measures above it."
-      visible: !searchHidden && reading.energyFull > 0 && reading.energyDesign > 0
-      value: Number(reading.energyFull).toFixed(1) + " Wh, rated "
-        + Number(reading.energyDesign).toFixed(1) + " Wh"
-    }
-
-    // The other half of "is this battery worn out", and not every firmware
-    // counts them — so the row goes rather than reporting that it cannot say.
-    Ui.ReadingRow {
-      label: "Charge cycles"
-      visible: !searchHidden && reading.cycles !== null && reading.cycles !== undefined
-      value: String(reading.cycles)
-    }
-
-    // Only ever on a bad day: UPower says "none" the rest of the time, and a
-    // row that reads "Warning: none" trains people not to read it.
-    Ui.ReadingRow {
-      label: "Warning"
-      visible: !searchHidden && String(reading.warning || "") !== ""
-      value: {
-        var levels = { "low": "Low", "critical": "Critical", "action": "About to shut down" }
-        var level = String(reading.warning || "")
-        return levels[level] !== undefined ? levels[level] : level
-      }
+    Ui.FactGrid {
+      layout: page.batteryFacts
+      values: page.batteryValues
     }
   }
 
