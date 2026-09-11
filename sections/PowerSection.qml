@@ -48,21 +48,10 @@ Ui.SectionBody {
     return "Not charging"
   }
 
-  // The bar's own ten-step battery set, and its charging bolt — the same
-  // glyphs the power widget draws, so a laptop reads the same on the page as
-  // it does in the corner of the screen.
-  readonly property var levelGlyphs: ["\udb80\udc7a", "\udb80\udc7b", "\udb80\udc7c", "\udb80\udc7d",
-                                      "\udb80\udc7e", "\udb80\udc7f", "\udb80\udc80", "\udb80\udc81",
-                                      "\udb80\udc82", "\udb80\udc79"]
-  readonly property string chargingGlyph: "\udb80\udc84"
-
   // Whether the machine is running off the battery, which is the first thing
   // anyone opening this page wants to know and the one thing a percentage on
   // its own does not say.
   readonly property bool onBattery: power.onBattery === true
-  readonly property string batteryGlyph: onBattery
-    ? levelGlyphs[Math.max(0, Math.min(9, Math.floor(Number(reading.percentage || 0) / 10)))]
-    : chargingGlyph
 
   // Under the headline: how long it has at this rate. An estimate of how long
   // the battery lasts is about running on it, so on the mains it answers a
@@ -157,17 +146,18 @@ Ui.SectionBody {
       width: parent.width
       implicitHeight: Math.max(glyph.implicitHeight, identity.implicitHeight, source.implicitHeight)
 
-      // Big, and coloured by how much is left: the one thing on this page
-      // that should be readable from across the desk, and the reason the
-      // percentage below it can be a quiet line rather than a headline.
-      Text {
+      // Drawn rather than set in a font: a glyph steps through ten levels in
+      // one colour, where this fills to the charge and takes the colour the
+      // level has earned. While charging it fills itself over and over, which
+      // is the only way a still picture of a battery says that something is
+      // happening to it.
+      Ui.BatteryGauge {
         id: glyph
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        text: page.batteryGlyph
-        color: page.levelColor
-        font.family: Ui.Palette.fontFamily
-        font.pixelSize: Style.font.displayLarge * 1.6
+        level: Number(reading.percentage || 0) / 100
+        charging: String(reading.state || "") === "charging"
+        fill: page.levelColor
       }
 
       Column {
