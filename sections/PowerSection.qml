@@ -39,13 +39,24 @@ Ui.SectionBody {
   // trickles a few tenths of a watt out. Said as one sentence that reads as a
   // contradiction; said as two, it is simply the truth twice.
   readonly property string sourceLabel: onBattery ? "On battery" : "Plugged in"
+
+  // On the mains the battery's own word for itself is not a state anyone
+  // recognises: a full pack on a dock reports `discharging` while it trickles
+  // a few hundredths of a watt out, so the card read "100% Discharging" on a
+  // laptop that was plainly done charging. What the reader means by the
+  // question is whether energy is going in, and on the mains that is answered
+  // by the charge rather than by the flag — full is full, and anything short
+  // of it with nothing going in is a battery being held there, which is what
+  // a charge limit does.
   readonly property string stateLabel: {
     var state = String(reading.state || "")
-    if (state === "charging" || state === "pending-charge") return "Charging"
-    if (state === "discharging" || state === "pending-discharge") return "Discharging"
-    if (state === "fully-charged") return "Fully charged"
+    var percentage = Number(reading.percentage || 0)
     if (state === "empty") return "Empty"
-    return state
+    if (onBattery) return state === "discharging" || state === "pending-discharge"
+      ? "Discharging" : "On battery"
+    if (state === "charging" || state === "pending-charge") return "Charging"
+    if (state === "fully-charged" || percentage >= 99) return "Fully charged"
+    return "Not charging"
   }
 
   // The bar's own ten-step battery set, and its charging bolt — the same
