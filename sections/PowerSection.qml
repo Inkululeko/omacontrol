@@ -77,19 +77,24 @@ Ui.SectionBody {
 
   readonly property var batteryFacts: {
     var out = [
-      // Health is what the reader came for, and the two figures it is
-      // computed from stand beside it as their own facts. As one cell it
-      // read "61.8 Wh, rated 60.6 Wh" — a battery holding more than it did
-      // new, which is not a thing that happens; it is the rating that is low.
-      { key: "health", label: "Health" },
+      // What is in the pack right now, which the percentage above answers as
+      // a share and this answers as an amount — the one that can be held
+      // against a charger, a power bank, or how long a flight is.
+      { key: "stored", label: "Stored now" },
+      // Then what a full charge comes to, what the maker rates it at, and
+      // health, which is the first over the second. As one cell it read
+      // "61.8 Wh, rated 60.6 Wh" — a battery holding more than it did new,
+      // which is not a thing that happens; it is the rating that is low.
       { key: "full", label: "Full charge" },
       { key: "rated", label: "Rated" },
-      { key: "cycles", label: "Charge cycles" }
+      { key: "health", label: "Health" },
+      { rule: true },
+      { key: "cycles", label: "Charge cycles", small: true }
     ]
     // Only ever on a bad day: UPower answers "none" the rest of the time, and
     // a cell reading "Warning: none" trains people not to read it.
     if (String(reading.warning || "") !== "")
-      out.push({ rule: true }, { key: "warning", label: "Warning" })
+      out.push({ key: "warning", label: "Warning", small: true })
     return out
   }
 
@@ -97,6 +102,7 @@ Ui.SectionBody {
     var levels = { "low": "Low", "critical": "Critical", "action": "About to shut down" }
     var warning = String(reading.warning || "")
     return {
+      stored: reading.energy > 0 ? Number(reading.energy).toFixed(1) + " Wh" : "—",
       health: reading.health !== null && reading.health !== undefined
         ? reading.health + "% of rated" : "—",
       full: reading.energyFull > 0 ? Number(reading.energyFull).toFixed(1) + " Wh" : "—",
