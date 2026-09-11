@@ -12,49 +12,6 @@ Ui.SectionBody {
   readonly property var power: app.power
   readonly property var reading: power.battery !== undefined ? power.battery : ({})
 
-  // What the machine is drawing, which is not the same question as what the
-  // battery has left — and the machine draws it plugged in too.
-  //
-  // The pack is the only whole-machine figure there is, and only while the
-  // machine is running off it: on the mains nothing measures what the wall is
-  // supplying. What is left is the chips that report their own draw, which on
-  // a laptop is most of what varies.
-  readonly property var drawFacts: {
-    var out = []
-    if (onBattery && reading.watts !== null && reading.watts !== undefined)
-      out.push({ key: "whole", label: "Whole machine" })
-    var chips = power.draw !== undefined ? power.draw : []
-    for (var i = 0; i < chips.length; i++)
-      out.push({ key: "chip" + i, label: page.chipLabel(chips[i]) })
-    return out
-  }
-
-  readonly property var drawValues: {
-    var values = {}
-    if (reading.watts !== null && reading.watts !== undefined)
-      values.whole = Number(reading.watts).toFixed(1) + " W"
-    var chips = power.draw !== undefined ? power.draw : []
-    for (var i = 0; i < chips.length; i++)
-      values["chip" + i] = Number(chips[i].watts).toFixed(1) + " W"
-    return values
-  }
-
-  // The kernel names these after the driver that reports them. `amdgpu` on a
-  // laptop is the whole package — processor and graphics on one die — which
-  // is why it is not called the graphics chip here.
-  function chipLabel(chip) {
-    var names = {
-      "amdgpu": "Processor and graphics",
-      "i915": "Graphics",
-      "xe": "Graphics",
-      "nvidia": "Graphics",
-      "coretemp": "Processor",
-      "k10temp": "Processor"
-    }
-    var name = String(chip.name || "")
-    return names[name] !== undefined ? names[name] : name
-  }
-
   readonly property string sourceLabel: onBattery ? "On battery" : "Plugged in"
 
   // On the mains the battery's own word for itself is not a state anyone
@@ -275,28 +232,6 @@ Ui.SectionBody {
   // Under the battery rather than on the Processes page as well, because the
   // question "what is draining it" is asked here, on the page that says how
   // long is left.
-  Ui.SettingGroup {
-    title: "What is using it"
-    visible: !searchEmpty && drawFacts.length > 0
-
-    Ui.FactGrid {
-      layout: page.drawFacts
-      values: page.drawValues
-    }
-
-    Text {
-      width: parent.width
-      visible: page.drawFacts.length > 0
-      text: page.onBattery
-        ? "What the pack is giving out is everything the machine is using. The chips report their own draw within that."
-        : "On the mains nothing measures what the wall is supplying, so what is left is the chips that report their own draw."
-      wrapMode: Text.WordWrap
-      color: Ui.Palette.muted
-      font.family: Ui.Palette.fontFamily
-      font.pixelSize: Style.font.caption
-    }
-  }
-
   Ui.SettingGroup {
     title: "Profile"
 

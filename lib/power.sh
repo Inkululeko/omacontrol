@@ -54,37 +54,6 @@ power_battery_reading() {
         warning: (if .[10] == "none" then "" else (.[10] // "") end) }'
 }
 
-# What the machine is actually drawing, which is a different question from
-# what the battery has left — and one nothing answers in full.
-#
-# Three sources, in descending order of how much of the machine they cover:
-#
-#   the pack          upower's energy-rate, and the only whole-machine figure
-#                     there is — but only while running on it. On the mains
-#                     nothing measures what the wall is supplying.
-#   hwmon power       a chip reporting its own draw: `power1_input` in
-#                     microwatts. On an APU that is processor and graphics
-#                     together, which is most of the machine's variable draw.
-#   intel-rapl        the same idea, and root-only to read, so it is not
-#                     offered rather than shown as a permission error.
-#
-# Per-application watts is not on the list because Linux does not have it: the
-# kernel measures the pack and the chips, never the programs.
-power_draw() {
-  local chips='[]' dir name label microwatts
-  for dir in /sys/class/hwmon/hwmon*; do
-    [[ -r $dir/power1_input ]] || continue
-    microwatts=$(read_file "$dir/power1_input")
-    [[ $microwatts =~ ^[0-9]+$ ]] || continue
-    (( microwatts > 0 )) || continue
-    name=$(read_file "$dir/name")
-    label=$(read_file "$dir/power1_label")
-    chips=$(jq -c --arg n "${name:-power}" --arg l "${label:-}" --argjson w "$microwatts" \
-      '. + [{ name: $n, label: $l, watts: (($w / 1000000) * 10 | round / 10) }]' <<<"$chips")
-  done
-  printf '%s\n' "$chips"
-}
-
 power_state() {
   local device reading profiles current onbattery saved_ac saved_battery
 
@@ -97,8 +66,6 @@ power_state() {
   onbattery=$(busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery 2>/dev/null)
   saved_ac=$(read_file "$POWERPROFILES_STATE/ac")
   saved_battery=$(read_file "$POWERPROFILES_STATE/battery")
-  local draw
-  draw=$(power_draw)
 
   # A machine with no battery still has power profiles worth setting; the
   # battery half of the page simply has nothing to say.
@@ -109,12 +76,10 @@ power_state() {
     --arg savedAc "${saved_ac:-}" \
     --arg savedBattery "${saved_battery:-}" \
     --argjson hasBattery "$([[ -n $device ]] && echo true || echo false)" \
-    --argjson draw "${draw:-[]}" \
     '{ available: true,
        hasBattery: $hasBattery,
        onBattery: $onBattery,
        battery: $reading,
-       draw: $draw,
        profiles: $profiles,
        current: $current,
        # What is remembered for each source, falling back to what
