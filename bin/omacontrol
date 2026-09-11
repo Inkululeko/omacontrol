@@ -65,6 +65,7 @@ case ${1:-state} in
   keys) shift; keys_cmd "$@" ;;
   workspaces) shift; workspaces_cmd "$@" ;;
   devices) shift; devices_cmd "$@" ;;
+  display) shift; monitor_cmd "$@" ;;
   theme) shift; themes_cmd "$@" ;;
   wifi) shift; wifi_cmd "$@" ;;
   bluetooth) shift; bluetooth_cmd "$@" ;;
@@ -95,6 +96,7 @@ usage:
   omacontrol herdr state | set <key> <value>
   omacontrol tmux state | tmux set <option> <value>
   omacontrol nvim state | nvim set <option> <value>
+  omacontrol display state | display brightness [<display> <percent>]
   omacontrol devices state | set <device> <option> <value> keyboard|pointer
                  | clear <device> [option] | remove <device>
   omacontrol workspaces state | add <class> | set <class> <field> <value> | remove <class>

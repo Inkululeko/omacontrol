@@ -388,6 +388,48 @@ The one exception is `monitors.lua`, below: the clamshell watcher looks the
 laptop panel up by the connector name `omarchy-hyprland-monitor-laptop` prints,
 so a `desc:` rule there is a rule it cannot see.
 
+**The whole of a monitor rule, and one place that renders it.** Beyond
+resolution and scale a display carries a refresh rate, a rotation, variable
+refresh, HDR, a mirror and a position — and two of those are not written the
+way they are stored. `disabled` is the *whole* rule (a display that is off has
+no mode or position to be given), and HDR is two Hyprland keys, `cm = "hdr"`
+and `bitdepth = 10`. That translation lives in `MONITOR_FIELDS_JQ` and nowhere
+else. It had to: the live apply and the generated file each rendered the store
+their own way, and the file wrote `hdr = true`, which Hyprland does not know —
+so the switch worked until the next reload and then quietly did not.
+
+A rule of ours **replaces** Omarchy's rather than merging with it, so every
+write fills in what the user did not set from what the display is doing now
+(`monitor_in_force`). Position is the exception: pinning coordinates nobody
+asked for would freeze a layout that currently follows whatever is plugged in,
+so it joins the rule only once a display has actually been dragged. A display
+that is off reports its mode as `0x0@60`, which is not a resolution and must
+never reach a rule — it reads as `preferred` instead.
+
+**The arrangement is a picture because the question is one.** "Is the laptop
+left of the monitor" cannot be answered from two pairs of coordinates. Dragging
+snaps to the neighbours' edges, pushes out of any overlap along the cheapest
+axis, and then *closes whatever gap is left* — that last step is the one worth
+keeping: Hyprland will lay out two displays with a hole between them, and the
+pointer then cannot cross. The geometry is in `ui/displays.js` so it can be
+read, and tested, without a compositor. The approach is Fluffet's
+`omarchy-advanced-displays` (MIT).
+
+**Brightness is a reading, not a setting.** It is moved by the media keys and
+Omarchy's own OSD, and on a desktop monitor asking means a DDC/CI round trip
+over the video cable — two thirds of a second cold, which is not a price every
+write on every other page should pay. So it is not in the state document: the
+Displays page polls `display brightness` while it is the page on screen, the
+way Network and Bluetooth do, and `omarchy-brightness-display` is what answers,
+because it already knows that a laptop panel is the kernel backlight and
+everything else is DDC.
+
+**A switch is only offered when it can work.** HDR appears only for a display
+whose EDID claims it, and the variable-refresh row shows the range the EDID
+gives. Both come from `di-edid-decode`, which exits non-zero over a warning in
+an EDID most displays ship with, having printed everything asked of it — so
+the output decides whether it worked, not the status.
+
 **The laptop panel's scale is not ours to keep.** Omarchy watches the internal
 display: while a laptop is docked, `omarchy-hyprland-monitor-clamshell` runs
 every couple of seconds, reads the scale out of `monitors.lua`, and puts the

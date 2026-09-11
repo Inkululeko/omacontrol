@@ -246,6 +246,14 @@ Item {
     packagesSync.running = true
   }
 
+  // Brightness is a reading, not a setting: the media keys and Omarchy's own
+  // OSD move it, and on a desktop monitor asking costs a DDC round trip over
+  // the video cable. So it is not in the state document — the Displays page
+  // asks while it is the page on screen, exactly as Network and Bluetooth do.
+  property var displayBrightness: ({})
+  function pollBrightness() { pollInto(brightnessPoll, ["display", "brightness"]) }
+  Poller { id: brightnessPoll; onParsed: function(value) { root.displayBrightness = value } }
+
   property var usageLive: null
   readonly property var usage: usageLive !== null ? usageLive : ({})
   function pollUsage() { pollInto(usagePoll, ["usage", "poll"]) }
@@ -1280,6 +1288,8 @@ Item {
     return command === "overview" || command === "disk" || command === "processes"
       || command === "packages" || command === "usage" || command === "news"
       || command === "about"
+      // Brightness is the screen in front of you and nothing this window holds.
+      || command === "display"
   }
 
   // `set` is the one command that is many: what it touches is named by its

@@ -114,18 +114,67 @@ monitor_live() {
           key: (if $desc == "" then $m.name else "desc:" + $desc end),
           description: $desc,
           disabled: ($m.disabled // false),
+          focused: ($m.focused // false),
           scale: $m.scale,
           width: $m.width,
           height: $m.height,
           refreshRate: ($m.refreshRate | floor),
           transform: ($m.transform // 0),
+          # Hyprland reports vrr as a boolean when it is off and as the mode
+          # number when it is on, so both shapes have to come back as a number.
+          vrr: (($m.vrr // 0) | if . == true then 1 elif . == false then 0 else . end),
+          hdr: ((($m.colorManagementPreset // "") | ascii_downcase) == "hdr"),
+          # "none" is Hyprland saying a display mirrors nothing, which is not
+          # the name of a display.
+          mirror: (if ($m.mirrorOf // "none") == "none" then "" else $m.mirrorOf end),
+          # Where the display sits in the layout, in logical pixels. A disabled
+          # display reports -1x-1, which is not a position.
+          x: (if ($m.disabled // false) then 0 else ($m.x // 0) end),
+          y: (if ($m.disabled // false) then 0 else ($m.y // 0) end),
           modes: $modes,
-          mode: (($modes
-                  | map(select(startswith("\($m.width)x\($m.height)@")))
-                  | sort_by((split("@")[1] | tonumber) - $m.refreshRate | fabs)
-                  | first)
-                 // "\($m.width)x\($m.height)@\($m.refreshRate | floor)"),
+          # A display that is off reports no mode at all — 0x0 at 60 Hz, which
+          # is not a resolution and must never be written into a rule. What it
+          # will do when it comes back on is whatever it asks for.
+          mode: (if ($m.width // 0) > 0 and ($m.height // 0) > 0
+                 then (($modes
+                        | map(select(startswith("\($m.width)x\($m.height)@")))
+                        | sort_by((split("@")[1] | tonumber) - $m.refreshRate | fabs)
+                        | first)
+                       // "\($m.width)x\($m.height)@\($m.refreshRate | floor)")
+                 else "preferred" end),
           connected: true } ]' 2>/dev/null || echo '[]'
+}
+
+# What a display says about itself that Hyprland does not pass on: whether it
+# can do HDR at all, and the refresh range it will accept as variable. Both are
+# in the EDID the kernel keeps, and neither is worth offering a switch for when
+# the answer is no — an HDR switch on a monitor without HDR is a switch that
+# does nothing and says nothing about why.
+#
+# Keyed by connector, which is what /sys names, and folded onto displays by the
+# caller. Missing di-edid-decode is not an error: every row it feeds is
+# optional.
+monitor_edid() {
+  command -v di-edid-decode >/dev/null 2>&1 || { echo '{}'; return 0; }
+  local out
+  out=$(for dir in /sys/class/drm/card*-*/; do
+          [[ -r $dir/edid ]] || continue
+          local decoded connector
+          # di-edid-decode exits non-zero over a warning in an EDID most
+          # displays ship with, having printed everything asked of it. The
+          # output decides whether it worked, not the status.
+          decoded=$(timeout 2 di-edid-decode "$dir/edid" 2>/dev/null)
+          [[ -n $decoded ]] || continue
+          connector=${dir%/}; connector=${connector##*/}; connector=${connector#*-}
+          local hdr=false range
+          grep -q 'HDR Static Metadata' <<<"$decoded" && hdr=true
+          range=$(grep -o -m1 '[0-9]*-[0-9]* Hz V' <<<"$decoded" | sed 's/ Hz V//')
+          printf '%s\t%s\t%s\n' "$connector" "$hdr" "$range"
+        done)
+  emit_json "$(jq -Rc -s '[ split("\n")[] | select(length > 0) | split("\t")
+                           | { key: .[0],
+                               value: { hdrCapable: (.[1] == "true"),
+                                        vrrRange: (.[2] // "") } } ] | from_entries' <<<"$out")" '{}'
 }
 
 # The live display a key names, or `null`. A key matches its own display, and a
@@ -214,7 +263,8 @@ monitor_state() {
   jq -c -n \
     --argjson live "$(monitor_live)" \
     --argjson stored "$(jq -c '.monitors // {}' <<<"$(read_store)")" \
-    --argjson configured "$(monitor_config_settings)" '
+    --argjson configured "$(monitor_config_settings)" \
+    --argjson edid "$(monitor_edid)" '
     def entry($name; $live):
       ($stored[$name] // {}) as $ours
       | ($configured[$name] // {}) as $theirs
@@ -238,6 +288,22 @@ monitor_state() {
           # it, else what it is actually running.
           mode: ($ours.mode // $live.mode // $theirs.mode // "preferred"),
           scale: ($ours.scale // $live.scale // $theirs.scale // 1),
+          # The rest of a monitor rule, each read the same way: what was set
+          # here, else what the display is actually doing. A display that is
+          # not here answers only from what we wrote down.
+          transform: (($ours.transform // $live.transform // 0) | tonumber? // 0),
+          vrr: (($ours.vrr // $live.vrr // 0) | tonumber? // 0),
+          hdr: (($ours.hdr // $live.hdr // false) == true),
+          mirror: (($ours.mirror // $live.mirror // "") | tostring),
+          # A disabled display is the one setting here that is a fact about
+          # the rule rather than about the screen: Hyprland reports a display
+          # it was told to turn off as disabled, which is the same answer.
+          off: (($ours.disabled // $live.disabled // false) == true),
+          position: ($ours.position // (if $live == null then "" else "\($live.x)x\($live.y)" end)),
+          # What the display can do, rather than what it is doing. Both come
+          # off its EDID, and neither is worth a control when the answer is no.
+          hdrCapable: ((($edid[$live.name // ""] // {}).hdrCapable // false) == true),
+          vrrRange: ((($edid[$live.name // ""] // {}).vrrRange // "") | tostring),
           settings: $ours,
           configured: $theirs };
     ($live | map(.key)) as $connected
@@ -247,17 +313,48 @@ monitor_state() {
         | entry($n; ($live | map(select(.key == $n)) | first)) ]'
 }
 
-# The Lua table a display's settings make, shared by the live apply and the
-# generated file so the two can never say different things.
+# The fields a display's settings make, in the order and the spelling Hyprland
+# takes them — one definition, because the live apply and the generated file
+# have to say exactly the same thing and once did not: the file rendered its
+# own `hdr = true`, which is not a Hyprland key at all.
+#
+# Two fields are not written the way they are stored. `disabled` is the whole
+# rule — a display that is off has no mode, position or scale to be given —
+# and HDR is two Hyprland keys rather than one, so it is kept as the switch
+# the page shows and rendered as what Hyprland takes.
+MONITOR_FIELDS_JQ='
+  def monitor_fields($s):
+    if ($s.disabled // false) == true then [["disabled", true]]
+    else
+      [ $s | to_entries[]
+        | select(.key != "disabled" and .key != "hdr")
+        # An empty mirror is a display mirroring nothing, which is what
+        # leaving the key out already says.
+        | select((.value | type) != "string" or .value != "")
+        | [.key, .value] ]
+      + (if ($s.hdr // false) == true then [["cm", "hdr"], ["bitdepth", 10]] else [] end)
+    end;
+  def monitor_field_text($pair):
+    $pair[0] + " = "
+    + (if ($pair[1] | type) == "string" then ($pair[1] | @json) else ($pair[1] | tostring) end);
+'
+
+# One `hl.monitor({...})` table on a single line, for `hyprctl eval`.
 monitor_lua_table() {
   local name=$1 settings=$2
-  jq -rn --arg n "$name" --argjson s "$settings" '
+  jq -rn --arg n "$name" --argjson s "$settings" "$MONITOR_FIELDS_JQ"'
     "{ output = " + ($n | @json)
-    + ([$s | to_entries[]
-        | ", " + .key + " = "
-          + (if (.value | type) == "string" then (.value | @json) else (.value | tostring) end)]
-       | join(""))
+    + ([monitor_fields($s)[] | ", " + monitor_field_text(.)] | join(""))
     + " }"'
+}
+
+# The same rule as the block the managed file carries.
+monitor_lua_block() {
+  local name=$1 settings=$2
+  jq -rn --arg n "$name" --argjson s "$settings" "$MONITOR_FIELDS_JQ"'
+    "hl.monitor({\n  output = " + ($n | @json) + ","
+    + ([monitor_fields($s)[] | "\n  " + monitor_field_text(.) + ","] | join(""))
+    + "\n})\n"'
 }
 
 monitor_settings() {
@@ -301,6 +398,37 @@ monitor_set() {
     scale)
       [[ $value =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "'$value' is not a scale"
       json=$value ;;
+    transform)
+      [[ $value =~ ^[0-7]$ ]] || die "'$value' is not a rotation"
+      json=$value ;;
+    # 0 off, 1 on, 2 only while something is fullscreen — Hyprland's own
+    # numbering, kept rather than renamed so the generated Lua reads like the
+    # documentation for it.
+    vrr)
+      [[ $value =~ ^[0-2]$ ]] || die "'$value' is not a variable refresh mode"
+      json=$value ;;
+    hdr|disabled)
+      [[ $value == true || $value == false ]] || die "'$value' is not true or false"
+      # A display cannot be the only one and be turned off: the desktop would
+      # have nowhere to be, and nothing on screen could turn it back on.
+      [[ $field == disabled && $value == true ]] && monitor_last_one_on "$name" \
+        && die "this is the only display that is on"
+      json=$value ;;
+    mirror)
+      if [[ -n $value ]]; then
+        # Hyprland mirrors by the name of another output, and a display cannot
+        # mirror itself.
+        local target
+        target=$(monitor_output_name "$(monitor_key "$value")")
+        [[ -n $target ]] || die "'$value' is not a display that is plugged in"
+        [[ $target == "$(monitor_output_name "$name")" ]] && die "a display cannot mirror itself"
+        value=$target
+      fi
+      json=$(jq -Rn --arg v "$value" '$v') ;;
+    position)
+      [[ $value == auto || $value =~ ^-?[0-9]+x-?[0-9]+$ ]] \
+        || die "'$value' is not a position"
+      json=$(jq -Rn --arg v "$value" '$v') ;;
     *) die "unknown display setting '$field'" ;;
   esac
 
@@ -330,14 +458,40 @@ monitor_set() {
   return 0
 }
 
-# What a display is running, in the shape a rule takes. No position: Omarchy's
-# own rule places every display with `position = "auto"`, so leaving it out is
-# what keeps the arrangement it already had.
+# What a display is running, in the shape a rule takes — because our rule
+# replaces Omarchy's whole, rather than merging with it. Sending a mode on its
+# own therefore used to take the scale with it.
+#
+# Position is deliberately absent unless the arrangement is already ours:
+# Omarchy places every display with `position = "auto"`, and pinning
+# coordinates nobody asked for would freeze a layout that currently follows
+# whatever is plugged in. Once a display has been dragged, its position is in
+# the store and stays in the rule like anything else.
 monitor_in_force() {
   local found
   found=$(monitor_find "$1")
   [[ $found == null ]] && { echo '{}'; return 0; }
-  jq -c '{ mode: .mode, scale: .scale }' <<<"$found"
+  # A display that is off has no mode and no position to record, and a rule
+  # carrying the 0x0 it reports would hand it that when it came back on.
+  jq -c '(if .mode == "preferred" then {} else { mode: .mode } end)
+         + { scale: .scale, transform: .transform, vrr: .vrr }
+         + (if .hdr then { hdr: true } else {} end)
+         + (if .mirror == "" then {} else { mirror: .mirror } end)' <<<"$found"
+}
+
+# Whether turning this display off would leave nothing on. Counted from what
+# is plugged in and not already off, since a display in a drawer is not a
+# screen the desktop can move to — and asked only of a display that is on
+# right now, or setting up a monitor that is still in its box would be refused
+# for taking away a screen it is not providing.
+monitor_last_one_on() {
+  local key=$1 live found on
+  live=$(monitor_live)
+  found=$(monitor_find "$key" "$live")
+  [[ $found == null ]] && return 1
+  jq -e '.disabled == true' <<<"$found" >/dev/null && return 1
+  on=$(jq -r '[ .[] | select(.disabled != true) ] | length' <<<"$live")
+  (( ${on:-0} <= 1 ))
 }
 
 # Putting one back writes the value the display had and then drops the rule:
@@ -522,9 +676,78 @@ monitor_forget() {
 
 # What a display is set to now, for the change marks and the way back. A
 # display that is not connected can only answer from what we wrote down.
+#
+# Position and disabled are asked for in the words a rule uses; the live
+# reading spells them as coordinates and as a flag, so they are translated
+# here rather than leaving two fields that silently never match.
 monitor_value_now() {
   local name=$1 field=$2 found
   found=$(monitor_find "$name")
   [[ $found == null ]] && return 0
-  jq -r --arg f "$field" 'if has($f) then .[$f] | tostring else empty end' <<<"$found"
+  case $field in
+    position) jq -r 'if .disabled then empty else "\(.x)x\(.y)" end' <<<"$found" ;;
+    disabled) jq -r '.disabled | tostring' <<<"$found" ;;
+    *) jq -r --arg f "$field" 'if has($f) then .[$f] | tostring else empty end' <<<"$found" ;;
+  esac
+}
+
+# ------------------------------------------------------------------ brightness
+#
+# Not a monitor rule and not in the state document: brightness is a live
+# reading like volume, moved by the media keys and by Omarchy's own OSD, and
+# on a desktop monitor it is a DDC/CI round trip over the video cable — two
+# thirds of a second the first time, which is not a price every write on every
+# other page should pay. The Displays page asks for it while it is open.
+#
+# omarchy-brightness-display already knows that a laptop panel is the kernel
+# backlight and everything else is DDC, and that an Apple display is neither.
+monitor_brightness() {
+  command -v omarchy-brightness-display >/dev/null 2>&1 || { echo '{}'; return 0; }
+  local outputs
+  outputs=$(monitor_live | jq -r '.[] | select(.disabled != true) | .name')
+  [[ -n $outputs ]] || { echo '{}'; return 0; }
+
+  par_begin || { echo '{}'; return 0; }
+  local output
+  while read -r output; do
+    [[ -n $output ]] || continue
+    par_run "$output" monitor_brightness_of "$output"
+  done <<<"$outputs"
+  par_wait
+
+  local out='{}' value
+  while read -r output; do
+    [[ -n $output ]] || continue
+    value=$(par_get "$output" '')
+    [[ $value =~ ^[0-9]+$ ]] || continue
+    out=$(jq -c --arg n "$output" --argjson v "$value" '.[$n] = $v' <<<"$out")
+  done <<<"$outputs"
+  par_end
+  printf '%s\n' "$out"
+}
+
+monitor_brightness_of() {
+  timeout 5 omarchy-brightness-display --no-osd --monitor "$1" 2>/dev/null \
+    | grep -oE '^[0-9]+' | head -n1
+}
+
+# The percentage goes to the display in front of the reader, so it is applied
+# and never written down: nothing here is undoing it later, and the next read
+# asks the screen rather than the store.
+monitor_brightness_set() {
+  local key=$1 value=$2 output
+  [[ $value =~ ^[0-9]+$ ]] || die "'$value' is not a brightness"
+  (( value >= 0 && value <= 100 )) || die "brightness is a percentage"
+  output=$(monitor_output_name "$(monitor_key "$key")")
+  [[ -n $output ]] || die "that display is not plugged in"
+  omarchy-brightness-display --no-osd --monitor "$output" "$value%" >/dev/null 2>&1
+}
+
+monitor_cmd() {
+  case ${1:-state} in
+    state) monitor_state ;;
+    brightness) shift
+      if (( $# >= 2 )); then monitor_brightness_set "$1" "$2"; else monitor_brightness; fi ;;
+    *) die "usage: omacontrol display state|brightness [<display> <percent>]" ;;
+  esac
 }

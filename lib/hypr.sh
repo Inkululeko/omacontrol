@@ -276,14 +276,16 @@ render_managed_lua() {
     # because a display is unplugged and plugged back in: Hyprland matches its
     # monitor rules again on connect, so this is what makes a resolution or a
     # scale outlast the cable.
-    jq -r '(.monitors // {}) | to_entries[]
-      | select(.value != {})
-      | "hl.monitor({\n  output = " + (.key | @json) + ","
-        + ([.value | to_entries[]
-            | "\n  " + .key + " = "
-              + (if (.value | type) == "string" then "\"" + .value + "\"" else (.value | tostring) end) + ","]
-           | join(""))
-        + "\n})\n"' <<<"$store"
+    # Through monitors.sh rather than rendered here: a display's settings are
+    # not written the way they are stored — HDR is two Hyprland keys, an
+    # off display is only ever `disabled = true` — and a second copy of those
+    # rules is a second copy that drifts. This one did: it wrote `hdr = true`,
+    # which Hyprland does not know, while the live apply wrote `cm = "hdr"`.
+    local display
+    while read -r display; do
+      [[ -n $display ]] || continue
+      monitor_lua_block "$display" "$(jq -c --arg n "$display" '.monitors[$n]' <<<"$store")"
+    done < <(jq -r '(.monitors // {}) | to_entries[] | select(.value != {}) | .key' <<<"$store")
   } | write_file "$MANAGED_LUA" managed
 }
 
