@@ -103,9 +103,16 @@ Ui.SectionBody {
   readonly property var batteryFacts: {
     var out = [
       // What the battery is doing this minute: how much is in it, and how
-      // fast that is moving.
-      { key: "stored", label: "In it now" },
-      { key: "rate", label: page.onBattery ? "Using now" : "Flowing now" },
+      // fast that is moving. The rate is named for what is happening to it —
+      // power going out is being used, power going in is charging — and on a
+      // full battery on the mains nothing is happening to it at all, so the
+      // cell goes rather than reporting a nought under a word for movement.
+      { key: "stored", label: "In it now" }
+    ]
+    if (page.onBattery) out.push({ key: "rate", label: "Using now" })
+    else if (String(reading.state || "") === "charging")
+      out.push({ key: "rate", label: "Charging at" })
+    out = out.concat([
       { rule: true },
       // Then the pack's life, which is three figures only useful as a
       // sequence: what it holds when full, what it was sold as holding, and
@@ -116,7 +123,7 @@ Ui.SectionBody {
       { key: "rated", label: "Rated capacity", small: true },
       { key: "health", label: "Health", small: true },
       { key: "cycles", label: "Charge cycles", small: true }
-    ]
+    ])
     // Only ever on a bad day: UPower answers "none" the rest of the time, and
     // a cell reading "Warning: none" trains people not to read it.
     if (String(reading.warning || "") !== "")
