@@ -77,16 +77,14 @@ Ui.SectionBody {
 
   readonly property var batteryFacts: {
     var out = [
-      // What is in the pack right now, which the percentage above answers as
-      // a share and this answers as an amount — the one that can be held
-      // against a charger, a power bank, or how long a flight is.
-      { key: "stored", label: "Stored now" },
-      // Then what a full charge comes to, what the maker rates it at, and
-      // health, which is the first over the second. As one cell it read
-      // "61.8 Wh, rated 60.6 Wh" — a battery holding more than it did new,
-      // which is not a thing that happens; it is the rating that is low.
-      { key: "full", label: "Full charge" },
-      { key: "rated", label: "Rated" },
+      // Four figures that are only useful as a sequence: what is in the pack,
+      // what the pack holds when it is full, what it was sold as holding, and
+      // the last two compared. The labels carry that, because on a full
+      // battery the first two are the same number and a reader with no way to
+      // tell them apart concludes the card is repeating itself.
+      { key: "stored", label: "In it now" },
+      { key: "full", label: "When full, today" },
+      { key: "rated", label: "Maker's rating" },
       { key: "health", label: "Health" },
       { rule: true },
       { key: "cycles", label: "Charge cycles", small: true }
@@ -169,15 +167,14 @@ Ui.SectionBody {
       values: page.batteryValues
     }
 
-    // The one line these four cells cannot say for themselves. Rated is a
-    // number printed on the pack rather than a measurement of it, makers
-    // print it low, and the gauge recalibrates as it learns the cells — so a
-    // healthy battery reads *above* its rating and the reader is left with a
-    // full charge that looks impossible and a health figure that looks stuck.
+    // The one line these four cells cannot say for themselves: which of them
+    // moves, which is learned, and which was only ever printed. Without it a
+    // full battery shows the same number twice and a rating it appears to
+    // beat, and the honest conclusion from that is that the card is wrong.
     // Inside the card, because it is about these cells and not about the page.
     Text {
       width: parent.width
-      text: "Rated is what the maker prints on the pack, not a measurement. They print it low, so a healthy battery often holds more than that — and Health stops at 100% when it does."
+      text: "In it now changes as you use it. When full is what the battery holds today, which its gauge re-learns as the cells age. The maker's rating is printed rather than measured, and printed low — so Health, which is those two compared, stops at 100% even when the battery holds more."
       wrapMode: Text.WordWrap
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
