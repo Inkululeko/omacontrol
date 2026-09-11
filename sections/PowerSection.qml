@@ -155,6 +155,12 @@ Ui.SectionBody {
         id: glyph
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
+        // Exactly as tall as the lines beside it, so the two read as one
+        // block rather than as a picture with some text near it — and so a
+        // state with nothing under it (plugged in and full) does not leave a
+        // gauge towering over one line.
+        height: identity.implicitHeight
+        width: Math.round(height * 2.1)
         level: Number(reading.percentage || 0) / 100
         charging: String(reading.state || "") === "charging"
         fill: page.levelColor
@@ -183,7 +189,7 @@ Ui.SectionBody {
               ? reading.percentage + "%" : "\u2014"
             color: Ui.Palette.foreground
             font.family: Ui.Palette.fontFamily
-            font.pixelSize: Style.font.displayLarge
+            font.pixelSize: Style.font.display
             font.bold: true
           }
 
