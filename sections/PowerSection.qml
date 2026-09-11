@@ -87,16 +87,14 @@ Ui.SectionBody {
   // upower answers in tenths — "49.6 minutes", "3.1 hours" — and a tenth of
   // an hour is six minutes of a figure that is an estimate to begin with.
   // Whole units, and the unit named in the singular when it is one of them.
+  // Seconds included: upower only reaches for them under a minute, and that
+  // is the one moment the exact number is worth having.
   function roundedTime(text) {
     var match = /^([0-9.]+)\s+(\w+)$/.exec(String(text || "").trim())
     if (!match) return String(text || "")
     var amount = Math.round(Number(match[1]))
     if (!isFinite(amount) || amount <= 0) return String(text || "")
     var unit = match[2]
-    // upower only reaches for seconds under a minute, and a battery counting
-    // itself down in seconds is not asking to be read to the second — it is
-    // asking you to find a socket.
-    if (unit.indexOf("second") === 0) return "under a minute"
     if (amount === 1 && unit.charAt(unit.length - 1) === "s") unit = unit.slice(0, -1)
     return amount + " " + unit
   }
