@@ -158,8 +158,9 @@ Ui.SectionBody {
         value: output
       }
 
-      // Everything below this switch is about a screen that is showing
-      // something, so it leads.
+      // What the display does when it is on can be set while it is off — a
+      // resolution or a scale chosen now is what it comes back to, and
+      // needing to turn a screen on to tell it how to come on is a loop.
       Ui.SwitchRow {
         label: "Enabled"
         visible: !searchHidden && connected
@@ -176,7 +177,7 @@ Ui.SectionBody {
         // A display that is not here reports no modes, so what it was given is
         // the only option there is to show.
         description: connected ? "" : "Applied when the display comes back."
-        visible: !searchHidden && !off
+        visible: !searchHidden
         value: resolution
         options: {
           var listed = resolutions
@@ -204,7 +205,7 @@ Ui.SectionBody {
 
       Ui.PickerRow {
         label: "Refresh rate"
-        visible: !searchHidden && !off && refreshRates.length > 1
+        visible: !searchHidden && refreshRates.length > 1
         value: refresh
         options: refreshRates
         onPicked: function(next) { app.set("monitor:" + name + ":mode", resolution + "@" + next) }
@@ -234,7 +235,7 @@ Ui.SectionBody {
 
       Ui.ChoiceRow {
         label: "Scale"
-        visible: !searchHidden && !off
+        visible: !searchHidden
         value: Geometry.normalizeScale(modelData.scale)
         options: scaleOptions
         onPicked: function(next) { app.set("monitor:" + name + ":scale", next) }
@@ -244,7 +245,7 @@ Ui.SectionBody {
 
       Ui.ChoiceRow {
         label: "Rotation"
-        visible: !searchHidden && !off
+        visible: !searchHidden
         value: String(Number(modelData.transform) || 0)
         options: [
           { value: "0", label: "None" },
@@ -264,7 +265,7 @@ Ui.SectionBody {
         description: String(modelData.vrrRange || "") !== ""
           ? "This display varies between " + modelData.vrrRange + " Hz."
           : "Lets the display follow what is being drawn instead of its own clock."
-        visible: !searchHidden && !off && connected
+        visible: !searchHidden && connected
         value: String(Number(modelData.vrr) || 0)
         options: [
           { value: "0", label: "Off" },
@@ -281,7 +282,7 @@ Ui.SectionBody {
       Ui.SwitchRow {
         label: "HDR"
         description: "Wide colour and ten-bit output. Everything that is not HDR is mapped into it, which some desktops render washed out."
-        visible: !searchHidden && !off && modelData.hdrCapable === true
+        visible: !searchHidden && modelData.hdrCapable === true
         checked: modelData.hdr === true
         onRequested: function(next) {
           app.set("monitor:" + name + ":hdr", next ? "true" : "false")
@@ -293,7 +294,7 @@ Ui.SectionBody {
       Ui.PickerRow {
         label: "Mirror"
         description: "Show what another display is showing."
-        visible: !searchHidden && !off && connected && mirrorOptions.length > 1
+        visible: !searchHidden && connected && mirrorOptions.length > 1
         value: String(modelData.mirror || "")
         options: mirrorOptions
         onPicked: function(next) { app.set("monitor:" + name + ":mirror", next) }
@@ -303,8 +304,10 @@ Ui.SectionBody {
 
       // The backlight on a laptop panel, DDC over the cable on a desktop
       // monitor — and nothing at all where neither answers, which is most
-      // docks. No change mark: this is the screen in front of you rather than
-      // a setting this window keeps.
+      // docks. The one row that does go with the display being off, because
+      // a screen that is not lit has no brightness to read or to set. No
+      // change mark either: this is the screen in front of you rather than a
+      // setting this window keeps.
       Ui.PercentRow {
         label: "Brightness"
         visible: !searchHidden && !off && brightness >= 0
