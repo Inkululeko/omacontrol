@@ -34,11 +34,6 @@
 # to speak connectors: see monitor_lua_scale.
 MONITOR_NAME_RE='^[A-Za-z][A-Za-z0-9]*(-[A-Za-z0-9]+)+$'
 
-# A description goes into Lua as a quoted string and into a setting key that is
-# split on colons, so the two characters that would break either are refused
-# rather than escaped.
-MONITOR_DESC_RE='^[^"\\]+$'
-
 MONITOR_SCHEMA=3
 
 # What an earlier version of this page wrote down.
@@ -628,34 +623,6 @@ monitor_lua_scale() {
     write_file "$file" <<<"$previous"
     die "the edit to monitors.lua would not compile; nothing was changed"
   fi
-}
-
-# Configuring a display before it is plugged in. What identifies it is the
-# question: a connector name is what you can read off the back of the machine,
-# but it is also the one thing that will not still mean this screen once
-# something else is in that socket. So a description is taken as well, and
-# preferred — `Dell Inc. DELL U2724D 1A2B3C4`, as `hyprctl monitors all`
-# prints it, or as much of the front of it as is unique.
-#
-# A connector name that is plugged in right now resolves to that display's
-# description; one that is not stands as its own key, since nothing here can
-# say what will be in it.
-monitor_remember() {
-  local given=$1 name
-  monitor_migrate
-  [[ -n $given ]] || die "no display given"
-
-  if [[ $given =~ $MONITOR_NAME_RE ]]; then
-    name=$(monitor_key "$given")
-  else
-    local desc=${given#desc:}
-    [[ $desc =~ $MONITOR_DESC_RE ]] \
-      || die "'$given' is not a display name, like DP-2, or a model, like DELL U2724D"
-    name=$(monitor_key "desc:$desc")
-  fi
-
-  edit_store '.monitors = ((.monitors // {}) | (if has($n) then . else .[$n] = {} end))' \
-    --arg n "$name"
 }
 
 # Handing a display back: our rule goes, and the reload is what makes their

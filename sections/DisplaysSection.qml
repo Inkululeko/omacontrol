@@ -323,26 +323,4 @@ Ui.SectionBody {
       }
     }
   }
-
-  // Setting up a display that is not plugged in: nothing can list it, so it is
-  // typed. Its model is the thing to type — that is what still names this
-  // screen at the next desk, where the connector only says which socket was
-  // free. A connector name is taken too, and becomes the model's identity the
-  // first time the display is actually seen.
-  Ui.SettingGroup {
-    title: "Another display"
-    visible: !searchEmpty
-
-    Ui.TextRow {
-      label: "Set up a display that is not connected"
-      // No real model as the example: a placeholder naming an actual monitor
-      // reads as a value this window detected rather than as an illustration.
-      description: "Its model, as hyprctl monitors all prints it under description, or a connector name like DP-3. What you set is kept for when it arrives."
-      placeholder: "Model, or a connector like DP-3"
-      value: ""
-      buttonText: "Add Display"
-      clearOnCommit: true
-      onCommitted: function(next) { app.set("monitor-remember", next) }
-    }
-  }
 }

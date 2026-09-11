@@ -366,8 +366,16 @@ setting:
 A display is the one thing here worth writing down as well as applying: it is
 unplugged and plugged back in, and Hyprland matches its monitor rules again on
 every connect. So a resolution or a scale set on the Displays page becomes an
-`hl.monitor` call in the managed file, and a display that is **not** connected
-can be set up by name for the next time it arrives. `hyprctl keyword monitor`
+`hl.monitor` call in the managed file, and stays there while the display is
+away so it is in force again the moment it is plugged back in.
+
+**A display is only set up while it is in front of you.** There was a row for
+typing the name of one that is not — the model, or a connector — and it asked
+the reader to know how Hyprland spells a screen they cannot see, to configure
+a resolution nothing could list, against an identity that was a guess until
+the display finally arrived to prove it wrong. A display that has *been*
+configured still keeps its group while it is unplugged, which is the half of
+this worth having. `hyprctl keyword monitor`
 was the original bug there — it answers "keyword can't work with non-legacy
 parsers" on stderr while exiting 0, so both settings looked applied and never
 were.

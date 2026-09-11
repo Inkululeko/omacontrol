@@ -40,8 +40,8 @@ One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 - **Displays.** Resolution, refresh rate, scale, rotation, variable refresh,
   HDR where the display supports it, mirroring, brightness, and which screens
   are on — plus the arrangement, dragged into the shape they are on the desk.
-  Settings follow the screen rather than the socket, and a display can be set
-  up before it is plugged in.
+  Settings follow the screen rather than the socket, so a display you have
+  configured keeps what it was given when you plug it back in.
 - **Applications.** Settings for tmux, Herdr and Neovim, written into their
   real configs.
 - **The live stuff.** Audio, network, bluetooth and power, so those widgets can

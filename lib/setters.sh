@@ -166,7 +166,6 @@ set_key_apply() {
       local output=${value%%=*} setting=${value#*=}
       [[ -n $output && $output != "$value" ]] || die "expected <output>=<value>"
       monitor_set "$output" "${key#monitor-}" "$setting" ;;
-    monitor-remember) monitor_remember "$value" ;;
     monitor-forget) monitor_forget "$value" ;;
     *)
       hypr_set "$key" "$value" || die "unknown key '$key'" ;;
