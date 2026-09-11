@@ -113,23 +113,21 @@ Ui.SectionBody {
   }
 
   readonly property var batteryFacts: {
+    // Four facts, one row, all the same weight: what is in it against what it
+    // holds, what it was sold as holding, the two compared, and how many
+    // cycles got it there. Charge and capacity share a cell because on a full
+    // battery they are the same number, and two columns of it read as the
+    // card repeating itself.
     var out = [
-      // Charge against capacity, as one cell and one pair — the way a battery
-      // is quoted everywhere else. Two cells could not be told apart on a
-      // full battery, where they hold the same number, and no label short
-      // enough to sit over a column made the difference clear.
       { key: "charge", label: "Charge / capacity" },
-      { rule: true },
-      // Then the pack's life: what it was sold as holding, that against what
-      // it holds now, and how many cycles got it there.
-      { key: "rated", label: "Rated capacity", small: true },
-      { key: "health", label: "Health", small: true },
-      { key: "cycles", label: "Charge cycles", small: true }
+      { key: "rated", label: "Rated capacity" },
+      { key: "health", label: "Health" },
+      { key: "cycles", label: "Charge cycles" }
     ]
     // Only ever on a bad day: UPower answers "none" the rest of the time, and
     // a cell reading "Warning: none" trains people not to read it.
     if (String(reading.warning || "") !== "")
-      out.push({ key: "warning", label: "Warning", small: true })
+      out.push({ rule: true }, { key: "warning", label: "Warning" })
     return out
   }
 
@@ -239,14 +237,11 @@ Ui.SectionBody {
       values: page.batteryValues
     }
 
-    // The one line these four cells cannot say for themselves: which of them
-    // moves, which is learned, and which was only ever printed. Without it a
-    // full battery shows the same number twice and a rating it appears to
-    // beat, and the honest conclusion from that is that the card is wrong.
-    // Inside the card, because it is about these cells and not about the page.
+    // Enough to stop a healthy battery looking broken — it holds more than
+    // its rating, and Health sits at 100% anyway — and not a word more.
     Text {
       width: parent.width
-      text: "Charge is what is in the battery; capacity is what it holds when full, which its gauge re-learns as the cells age. Rated capacity is what the maker printed on the pack rather than anything measured, and they print it low — so Health, which is capacity against that rating, stops at 100% even when the battery holds more."
+      text: "Capacity is what the battery holds today; rated capacity is the number the maker printed on it. Health is the two compared, and stops at 100%."
       wrapMode: Text.WordWrap
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
