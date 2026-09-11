@@ -162,6 +162,21 @@ Ui.SectionBody {
       layout: page.batteryFacts
       values: page.batteryValues
     }
+
+    // The one line these four cells cannot say for themselves. Rated is a
+    // number printed on the pack rather than a measurement of it, makers
+    // print it low, and the gauge recalibrates as it learns the cells — so a
+    // healthy battery reads *above* its rating and the reader is left with a
+    // full charge that looks impossible and a health figure that looks stuck.
+    // Inside the card, because it is about these cells and not about the page.
+    Text {
+      width: parent.width
+      text: "Rated is what the maker prints on the pack, not a measurement. They print it low, so a healthy battery often holds more than that — and Health stops at 100% when it does."
+      wrapMode: Text.WordWrap
+      color: Ui.Palette.muted
+      font.family: Ui.Palette.fontFamily
+      font.pixelSize: Style.font.caption
+    }
   }
 
   Ui.SettingGroup {
