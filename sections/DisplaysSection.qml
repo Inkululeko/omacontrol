@@ -50,7 +50,6 @@ Ui.SectionBody {
   // shape. Only with two to arrange — one display is not an arrangement.
   Ui.SettingGroup {
     title: "Arrangement"
-    note: "Drag a display. Edges snap to their neighbours, so the pointer can always cross."
     visible: !searchEmpty && arrangeable.length > 1
 
     Ui.DisplayCanvas {
@@ -90,7 +89,6 @@ Ui.SectionBody {
       readonly property bool connected: modelData.connected !== false
       readonly property bool off: modelData.off === true
       readonly property var settings: modelData.settings || ({})
-      readonly property var configured: modelData.configured || ({})
       readonly property var modes: modelData.modes || []
       readonly property string output: String(modelData.output || "")
 
@@ -143,11 +141,6 @@ Ui.SectionBody {
 
       width: parent.width
       title: label + (connected ? "" : "  (not connected)")
-      note: !connected
-        ? "Kept for the next time this display is plugged in."
-        : Object.keys(configured).length > 0 && Object.keys(settings).length === 0
-          ? "Set in your own Hyprland config."
-          : ""
 
       // The title says which screen this is. The connector is the part you
       // cannot tell from that, and the part that changes between docks — so it
