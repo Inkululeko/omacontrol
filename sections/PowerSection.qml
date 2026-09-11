@@ -241,7 +241,7 @@ Ui.SectionBody {
     // its rating, and Health sits at 100% anyway — and not a word more.
     Text {
       width: parent.width
-      text: "Capacity is what the battery holds today. Rated capacity is what the manufacturer specified. Health is capacity divided by rated capacity, never shown above 100%."
+      text: "Capacity is what the battery holds today. Rated capacity is what the manufacturer specified, and they specify it low, so a healthy battery holds a little more than that. Health is capacity divided by rated capacity, never shown above 100%."
       wrapMode: Text.WordWrap
       color: Ui.Palette.muted
       font.family: Ui.Palette.fontFamily
