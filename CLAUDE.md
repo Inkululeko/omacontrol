@@ -649,6 +649,15 @@ network, your bindings, the plugins you have — can only be described by the
 running system, and `state.sh` has already asked. The section sources give the
 rest. Rows named by the system say so through `NavCursor.searchText`.
 
+Two things are deliberately *not* in it. Wi-Fi networks and Bluetooth devices
+were, and a search box that finds the coffee shop you are sitting in is not a
+search box for settings — it also meant every write anywhere in this window
+waited on NetworkManager and bluetoothctl, which was 0.4 s of a 0.9 s state
+read. Neither is in the state document at all now: their pages poll, and
+nothing else asks. A page whose rows have no other source has to poll for
+itself — the Wi-Fi list quietly had no poll of its own, because the state
+document had always been refilling it.
+
 One thing follows from that:
 
 - **The index is only as fresh as the state.** A device that appears while the

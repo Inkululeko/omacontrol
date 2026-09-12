@@ -216,8 +216,6 @@ state() {
   par_run bindings bindings_state
   par_run workspaces workspaces_state
   par_run devices devices_state
-  par_run wifi wifi_state
-  par_run bluetooth bluetooth_state
   par_run power power_state
   par_run audio audio_state
   # The half of the search index that comes from the section sources. The
@@ -254,8 +252,6 @@ state() {
   bindings=$(par_get bindings '{}')
   workspaces=$(par_get workspaces '{}')
   devices=$(par_get devices '{}')
-  wifi=$(par_get wifi '{}')
-  bluetooth=$(par_get bluetooth '{}')
   power=$(par_get power '{}')
   audio=$(par_get audio '{}')
   local searchsources
@@ -263,10 +259,15 @@ state() {
   par_end
   # What a search can find. The section sources give the settings each page
   # declares; the rest of the state gives the things a page is a list of —
-  # this keyboard, that network, your bindings — which no source can know.
+  # this keyboard, your bindings, the plugins you have — which no source can
+  # know.
+  #
+  # Networks and Bluetooth devices are deliberately not among them. The search
+  # box is for finding a setting, not for finding the coffee shop you are
+  # sitting in — and putting them here meant every write anywhere in this
+  # window waited on NetworkManager and bluetoothctl to answer. Their pages
+  # poll for themselves and nothing else asks.
   searchindex=$(jq -c -s '.[0] * .[1]' <(printf '%s' "$searchsources") <(jq -cn \
-    --argjson bt "${bluetooth:-{\}}" \
-    --argjson wifi "${wifi:-{\}}" \
     --argjson audio "${audio:-{\}}" \
     --argjson bindings "${bindings:-{\}}" \
     --argjson workspaces "${workspaces:-{\}}" \
@@ -277,9 +278,7 @@ state() {
                     label: (.[labelKey] // "" | tostring),
                     description: (.[descKey] // "" | tostring) }
         | select(.label != "") ];
-    { bluetooth: entries($bt.devices; "Devices"; "name"; "address"),
-      network: entries($wifi.networks; "Networks"; "ssid"; "security"),
-      audio: (entries($audio.outputs; "Output"; "description"; "name")
+    { audio: (entries($audio.outputs; "Output"; "description"; "name")
               + entries($audio.inputs; "Input"; "description"; "name")),
       bindings: entries($bindings.items; "Keybindings"; "keys"; "description"),
       workspaces: (entries($workspaces.rules; "Applications"; "name"; "class")
@@ -313,8 +312,6 @@ state() {
     --argjson bindings "${bindings:-{\}}" \
     --argjson workspaces "${workspaces:-{\}}" \
     --argjson devices "${devices:-{\}}" \
-    --argjson wifi "${wifi:-{\}}" \
-    --argjson bluetooth "${bluetooth:-{\}}" \
     --argjson power "${power:-{\}}" \
     --argjson audio "${audio:-{\}}" \
     --arg textScale "${textscale:-1}" \
@@ -349,8 +346,6 @@ state() {
       bindings: $bindings,
       workspaces: $workspaces,
       devices: $devices,
-      wifi: $wifi,
-      bluetooth: $bluetooth,
       power: $power,
       audio: $audio,
       iconFonts: $iconFonts,

@@ -156,9 +156,10 @@ Item {
 
   // Like Wi-Fi: the Bluetooth page keeps its own list current while it is on
   // screen, without re-reading the whole state to do it.
+  // The page's poll is the only source: BlueZ is not read by the state
+  // document at all, so nothing outside the Bluetooth page asks about it.
   property var bluetoothLive: null
-  readonly property var bluetooth: bluetoothLive !== null ? bluetoothLive
-    : (state.bluetooth !== undefined ? state.bluetooth : ({}))
+  readonly property var bluetooth: bluetoothLive !== null ? bluetoothLive : ({})
 
   function pollBluetooth() {
     if (bluetoothPollProcess.running) return
@@ -415,9 +416,9 @@ Item {
   // While the Network page is open it polls Wi-Fi on its own, far more often
   // than the whole state is worth re-reading. That poll's answer stands in
   // for the Wi-Fi part of the state until the next full read replaces it.
+  // As with Bluetooth: the page's poll is the only source.
   property var wifiLive: null
-  readonly property var wifi: wifiLive !== null ? wifiLive
-    : (state.wifi !== undefined ? state.wifi : ({}))
+  readonly property var wifi: wifiLive !== null ? wifiLive : ({})
 
   function pollWifi() {
     if (wifiPollProcess.running) return
@@ -1391,12 +1392,8 @@ Item {
           for (var j in part) next[j] = part[j]
           root.state = next
           root.loaded = true
-          // A live page's poll stands in for its slice of the state, so a
-          // slice read asked for *after* a write would be thrown away by the
-          // poll's older answer — turning Wi-Fi off left the list up for a
-          // full poll interval. What just came back is the newer of the two.
-          if (part.wifi !== undefined) root.wifiLive = null
-          if (part.bluetooth !== undefined) root.bluetoothLive = null
+          // Wi-Fi and Bluetooth are not in the document any more, so nothing
+          // here can be newer than what their pages are already polling.
         } catch (e) {
           // The whole document is already on its way; it will say the same.
         }
@@ -1422,8 +1419,6 @@ Item {
           if (next && typeof next === "object") {
             root.state = next
             root.loaded = true
-            root.wifiLive = null
-            root.bluetoothLive = null
           }
         } catch (e) {
           // A partial read leaves the last good state on screen.

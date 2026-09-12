@@ -236,6 +236,19 @@ Ui.SectionBody {
     onTriggered: { app.pollWifiLink(); app.pollWifiWired() }
   }
 
+  // The networks themselves, which used to arrive with the state document and
+  // now have no other source: NetworkManager is asked by this page while it is
+  // on screen, and by nothing else. Slower than the link readings above,
+  // because a scan is rate-limited and the list moves by the minute rather
+  // than by the second.
+  Timer {
+    interval: 5000
+    running: app.shown
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: app.pollWifi()
+  }
+
   // ---- what you are on -----------------------------------------------------
   // The name, what the link is, and Disconnect all live *inside* the card with
   // the readings, rather than as a group heading above it: they describe the
