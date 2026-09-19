@@ -9,6 +9,16 @@ SettingRow {
   property string placeholder: ""
   signal committed(string next)
 
+  // What is in the box right now, committed or not.
+  //
+  // `committed` fires when the field loses focus or Enter is pressed, which is
+  // right for a setting — a half-typed layout name must not be applied one
+  // character at a time. It is not enough for a form: a button elsewhere on
+  // the page does not take the focus, so the last field anyone typed into has
+  // still reported nothing when Create is pressed, and the form submits
+  // without it.
+  readonly property alias currentText: field.text
+
   // A field that is an entry box rather than a setting: what is typed is added
   // somewhere and the box goes back to empty, and a button says so where an
   // Enter nobody presses would not.

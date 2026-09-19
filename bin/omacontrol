@@ -28,6 +28,7 @@
 #   packages.sh      what pacman has, and what it is waiting to do
 #   usage.sh         what the coding agent has been spending
 #   news.sh          headlines from omarchy.org — the one outbound request
+#   apps.sh          every application, and what this desktop does with it
 #   about.sh         what this machine is
 #   branding.sh      the ASCII the screensaver and About screen draw
 #   audio.sh         outputs, inputs, volume and mute
@@ -41,7 +42,7 @@ OMACONTROL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
 # itself: it is started from the window's own copy, which is not on any PATH.
 OMACONTROL_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages usage news about branding overview setters state; do
+for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages apps usage news about branding overview setters state; do
   # shellcheck source=/dev/null
   source "$OMACONTROL_LIB/$module.sh"
 done
@@ -75,6 +76,7 @@ case ${1:-state} in
   processes) shift; processes_cmd "$@" ;;
   overview) shift; overview_cmd "$@" ;;
   packages) shift; packages_cmd "$@" ;;
+  apps) shift; apps_cmd "$@" ;;
   usage) shift; usage_cmd "$@" ;;
   news) shift; news_cmd "$@" ;;
   about) shift; about_cmd "$@" ;;

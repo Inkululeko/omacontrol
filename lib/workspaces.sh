@@ -36,7 +36,10 @@ workspace_desktop_entries() {
   IFS=: read -ra dirs <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
   dirs=("${XDG_DATA_HOME:-$HOME/.local/share}" "${dirs[@]}")
 
-  stamp=$(for dir in "${dirs[@]}"; do [[ -d $dir/applications ]] && stat -c '%n %Y' "$dir/applications"; done | md5sum | cut -c1-32)
+  # The schema goes in the stamp: a cache written before a field existed is
+  # not stale by mtime and would answer without it for as long as nobody
+  # installed anything.
+  stamp=$({ echo "v3"; for dir in "${dirs[@]}"; do [[ -d $dir/applications ]] && stat -c '%n %Y' "$dir/applications"; done; } | md5sum | cut -c1-32)
   if [[ -f $APPS_CACHE ]]; then
     cached=$(jq -c --arg s "$stamp" 'select(.stamp == $s) | .entries' "$APPS_CACHE" 2>/dev/null)
     [[ -n $cached ]] && { printf '%s\n' "$cached"; return 0; }
@@ -48,10 +51,12 @@ workspace_desktop_entries() {
       [[ -d $dir/applications ]] || continue
       # Only the [Desktop Entry] group: actions below it carry their own Name.
       awk '
-        FNR == 1 { name = ""; class = ""; hidden = 0; type = ""; ingroup = 0 }
+        FNR == 1 { name = ""; class = ""; icon = ""; exec = ""; hidden = 0; type = ""; ingroup = 0 }
         /^\[/ { ingroup = ($0 == "[Desktop Entry]"); next }
         !ingroup { next }
         /^Name=/ && name == "" { name = substr($0, 6) }
+        /^Icon=/ && icon == "" { icon = substr($0, 6) }
+        /^Exec=/ && exec == "" { exec = substr($0, 6) }
         /^StartupWMClass=/ { class = substr($0, 16) }
         /^NoDisplay=true/ || /^Hidden=true/ { hidden = 1 }
         /^Type=/ { type = substr($0, 6) }
@@ -60,7 +65,13 @@ workspace_desktop_entries() {
             file = FILENAME
             sub(/.*\//, "", file); sub(/\.desktop$/, "", file)
             if (class == "") class = file
-            print name "\t" class "\t" file
+            # What made it: an Omarchy web app and an Omarchy TUI shortcut are
+            # both a desktop entry wrapping a launcher, and the wrapper is the
+            # only thing that says which.
+            kind = ""
+            if (exec ~ /omarchy-launch-webapp/) kind = "web"
+            else if (exec ~ /--app-id=TUI\./) kind = "tui"
+            print name "\t" class "\t" file "\t" icon "\t" kind
           }
         }' "$dir"/applications/*.desktop 2>/dev/null
     done
@@ -68,7 +79,7 @@ workspace_desktop_entries() {
     # An entry name wins the first time it appears: XDG_DATA_HOME comes first,
     # so a local override shadows the packaged file the way the launcher does.
     [ split("\n")[] | select(. != "") | split("\t")
-      | { name: .[0], class: .[1], file: .[2] } ]
+      | { name: .[0], class: .[1], file: .[2], icon: (.[3] // ""), kind: (.[4] // "") } ]
     | unique_by(.file)')
   mkdir -p "$(dirname "$APPS_CACHE")" 2>/dev/null
   jq -cn --arg s "$stamp" --argjson e "$entries" '{ stamp: $s, entries: $e }' >"$APPS_CACHE" 2>/dev/null
@@ -84,13 +95,14 @@ workspace_apps() {
     | (. as $entries
        | map(.class as $c
              | ($live | map(select(ascii_downcase == ($c | ascii_downcase))) | first) as $seen
-             | { name: .name, class: ($seen // $c), running: ($seen != null), desktop: (.file + ".desktop") })
+             | { name: .name, class: ($seen // $c), running: ($seen != null),
+                 desktop: (.file + ".desktop"), icon: (.icon // ""), kind: (.kind // "") })
        # A window with no desktop entry — a script, a flatpak with an odd id —
        # is still something you might want on a workspace. It cannot be
        # started at login from here, though: nothing says how to launch it.
        + [ $live[] as $c
            | select(($entries | map(.class | ascii_downcase) | index($c | ascii_downcase)) == null)
-           | { name: $c, class: $c, running: true, desktop: "" } ])
+           | { name: $c, class: $c, running: true, desktop: "", icon: "", kind: "" } ])
     | unique_by(.class)
     | sort_by(.name | ascii_downcase)'
 }

@@ -216,6 +216,31 @@ Item {
   }
   Poller { id: breakdownPoll; onParsed: function(value) { root.diskBreakdown = value } }
 
+  // Several hundred desktop entries, and what is in force for each. A list
+  // this long re-read after every write anywhere in the window would be paid
+  // for by every other page, so the page that wants it polls for it.
+  property var appsLive: null
+  readonly property var apps: appsLive !== null ? appsLive : []
+  function pollApps() { pollInto(appsPoll, ["apps", "poll"]) }
+  Poller { id: appsPoll; onParsed: function(value) { root.appsLive = value } }
+
+  // The same asking, for anything a page cannot take back by being clicked
+  // again. A page hands over the words and what to do, and the window owns
+  // the dialog: a page is unloaded the moment the reader navigates, and a
+  // question that leaves with its page is a question that answers itself.
+  //
+  // The callback is held in a plain var, never a property named `onSomething`
+  // — that name is the signal-handler syntax, and the assignment is quietly
+  // kept as null.
+  property var pendingConfirm: null
+  function askConfirm(message, confirmText, action) {
+    root.pendingConfirm = action
+    askDialog.message = message
+    askDialog.confirmText = confirmText
+    askDialog.selectedIndex = 0
+    askDialog.opened = true
+  }
+
   property var packagesLive: null
   readonly property var packages: packagesLive !== null ? packagesLive : ({})
   function pollPackages() { pollInto(packagesPoll, ["packages", "poll"]) }
@@ -1281,6 +1306,7 @@ Item {
       case "disk": pollDisk(); return
       case "processes": pollProcesses(); return
       case "packages": pollPackages(); return
+      case "apps": pollApps(); return
       case "usage": pollUsage(); return
       case "about": pollAbout(); return
       // The command has returned, so the wait is over either way.
@@ -1320,6 +1346,7 @@ Item {
       case "disk": return []
       case "processes": return []
       case "packages": return []
+      case "apps": return []
       case "usage": return []
       case "news": return []
       case "about": return []
@@ -1340,7 +1367,7 @@ Item {
     // hear back. Re-reading the whole document for a mount would be seconds
     // spent to learn nothing.
     return command === "overview" || command === "disk" || command === "processes"
-      || command === "packages" || command === "usage" || command === "news"
+      || command === "packages" || command === "apps" || command === "usage" || command === "news"
       || command === "about"
       // Brightness is the screen in front of you and nothing this window holds.
       || command === "display"
@@ -1471,6 +1498,22 @@ Item {
 
   // A page may say something truer about itself than its file path — what the
   // adapter is connected to, say. When it does, that is what the header shows.
+  // A page that is a list of things can be open on one of them, and then the
+  // page's own name is no longer where the reader is. The title is the page's
+  // to override for exactly that case, with the way back beside it: back
+  // belongs next to the name of the thing you are backing out of, not at the
+  // top of the body under it.
+  readonly property string pageHeaderTitle: bodyLoader.item
+    && bodyLoader.item.headerTitle !== undefined
+    && String(bodyLoader.item.headerTitle) !== ""
+    ? String(bodyLoader.item.headerTitle) : pageFor(pageId).title
+  readonly property bool pageHeaderBack: bodyLoader.item
+    && bodyLoader.item.headerBack !== undefined && bodyLoader.item.headerBack === true
+  function pageHeaderBackTriggered() {
+    if (bodyLoader.item && bodyLoader.item.headerBackTriggered !== undefined)
+      bodyLoader.item.headerBackTriggered()
+  }
+
   readonly property string pageHeaderNote: bodyLoader.item && bodyLoader.item.headerNote !== undefined
     ? String(bodyLoader.item.headerNote) : ""
 
@@ -1529,7 +1572,8 @@ Item {
       { id: "about", label: "About", icon: "\uf05a", pages: ["about"] }
     ] },
     { title: "Apps & Packages", items: [
-      { id: "defaults", label: "Default Apps", icon: "\uf009", pages: ["apps.defaults"] },
+      { id: "defaults", label: "Default Apps", icon: "\uf008", pages: ["apps.defaults"] },
+      { id: "apps", label: "Apps", icon: "\uf009", pages: ["apps.list"] },
       { id: "pkg", label: "Packages", icon: "\uf187", pages: ["packages"] },
       { id: "plugins", label: "Plugins", icon: "\uf1e6", pages: ["plugins"] },
       { id: "usage", label: "Usage", icon: "\uf201", pages: ["usage"] },
@@ -1590,6 +1634,7 @@ Item {
     "processes": "Processes",
     "datetime": "Date & Time",
     "about": "About",
+    "apps.list": "Apps",
     "apps.defaults": "Defaults",
     "packages": "Packages",
     "plugins": "Plugins",
@@ -1709,6 +1754,7 @@ Item {
     case "groups": return "sections/GroupsSection.qml"
     case "power": return "sections/PowerSection.qml"
     case "audio": return "sections/AudioSection.qml"
+    case "apps.list": return "sections/AppsSection.qml"
     case "apps.defaults": return "sections/DefaultsSection.qml"
     case "apps.tmux": return "sections/TmuxSection.qml"
     case "apps.nvim": return "sections/NvimSection.qml"
@@ -1802,6 +1848,23 @@ Item {
       onCanceled: opened = false
     }
 
+    ConfirmDialog {
+      id: askDialog
+      anchors.fill: parent
+      z: 100
+      cancelText: "Cancel"
+      background: root.background
+      foreground: root.foreground
+      fontFamily: root.fontFamily
+      onConfirmed: {
+        opened = false
+        var action = root.pendingConfirm
+        root.pendingConfirm = null
+        if (action) action()
+      }
+      onCanceled: { opened = false; root.pendingConfirm = null }
+    }
+
     FocusScope {
       id: keyScope
       anchors.fill: parent
@@ -1825,6 +1888,22 @@ Item {
         // an open dropdown is what Escape means while one is open.
         // The dialog has no keys of its own, so it borrows the window's while
         // it is up, and nothing else gets a look in.
+        if (askDialog.opened) {
+          if (event.key === Qt.Key_Escape) { askDialog.canceled(); event.accepted = true }
+          else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                   || event.text === "h" || event.text === "l"
+                   || event.key === Qt.Key_Tab) {
+            askDialog.selectedIndex = askDialog.selectedIndex === 1 ? 0 : 1
+            event.accepted = true
+          } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                     || event.key === Qt.Key_Space) {
+            if (askDialog.selectedIndex === 1) askDialog.confirmed()
+            else askDialog.canceled()
+            event.accepted = true
+          }
+          return
+        }
+
         if (resetAllDialog.opened) {
           if (event.key === Qt.Key_Escape) { resetAllDialog.opened = false; event.accepted = true }
           else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right
@@ -2338,9 +2417,29 @@ Item {
               Row {
                 spacing: Style.space(10)
 
+                // The arrow is the title's, sized with it and on its
+                // baseline: a chip here would be a control beside a heading
+                // rather than the heading saying where it came from.
+                Text {
+                  visible: root.pageHeaderBack
+                  anchors.baseline: pageTitleText.baseline
+                  text: "\u2039"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.display
+                  font.bold: true
+
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -Style.space(6)
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.pageHeaderBackTriggered()
+                  }
+                }
+
                 Text {
                   id: pageTitleText
-                  text: root.pageFor(root.pageId).title
+                  text: root.pageHeaderTitle
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.display
