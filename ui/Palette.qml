@@ -81,15 +81,23 @@ QtObject {
   // "this is a value you can change", and a square one means nothing.
   readonly property int pillRadius: Style.space(999)
 
-  // ---------------- cluster tints -------------------------------------------
-  // The sidebar gives every cluster a tinted icon square, which is what lets
-  // the eye find "the network one" without reading. The design picks eight
-  // colours; a themed window has one accent, so the clusters are spread along
-  // the distance between the accent and the foreground instead. That keeps
-  // them distinguishable from each other and in the theme at the same time.
-  function clusterTint(step, total) {
-    var span = Math.max(1, total - 1)
-    return Qt.tint(accent, Qt.rgba(foreground.r, foreground.g, foreground.b,
-                                   0.55 * (step / span)))
+  // ---------------- slice colours -------------------------------------------
+  // One bar cut into what is holding a disk, and the key under it.
+  //
+  // Four different colours, because that is what tells four things apart.
+  // Shades of one accent do not: on a theme where the accent and the
+  // foreground are the same — this machine's is — they collapse into one
+  // grey, and even when they do not, two steps of one ramp are two shades of
+  // the same thing.
+  //
+  // Still not a colour typed into a page. `statusHue` already builds the
+  // green and the amber of a charge level out of the theme's own red by
+  // keeping its saturation and lightness and moving the hue; these are the
+  // same trick with more hues, so a muted theme gets muted slices and a loud
+  // one gets loud ones.
+  readonly property var sliceHues: [0.58, 0.33, 0.11, 0.80, 0.50, 0.92]
+
+  function sliceColour(step) {
+    return statusHue(sliceHues[step % sliceHues.length])
   }
 }

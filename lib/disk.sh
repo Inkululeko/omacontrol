@@ -27,31 +27,49 @@ disk_mounts() {
   # field picks one of them arbitrarily, which is how the root filesystem came
   # to be listed as /var/log.
   mounted=$(capture lsblk --json --bytes \
-    -o PATH,NAME,MOUNTPOINTS,FSTYPE,SIZE,FSUSED,FSAVAIL,LABEL,MODEL,TYPE,RM)
+    -o PATH,NAME,MOUNTPOINTS,FSTYPE,SIZE,FSUSED,FSAVAIL,LABEL,MODEL,TYPE,RM,HOTPLUG)
   [[ -n $mounted ]] || { echo '[]'; return; }
 
   # A partition, an LVM volume or a whole disk that is itself a filesystem.
   # Loop devices are the snap and appimage machinery and belong to nobody.
   emit_json "$(jq -c '''
-    [ .blockdevices[]? | recurse(.children[]?)
+    [ .blockdevices[]?
+      # Tagged with the drive it sits on while the tree still says so: a row
+      # keyed only by its own name cannot be added up per drive afterwards,
+      # and `root` says nothing about which disk it is a volume of.
+      | . as $top
+      | ($top.name // "") as $disk
+      | ($top | recurse(.children[]?))
       | select(.type == "part" or .type == "lvm" or .type == "crypt"
                or (.type == "disk" and (.fstype // "") != ""))
       | select((.fstype // "") as $fs
                | $fs != "" and ($fs | startswith("linux_raid")) == false
                and $fs != "swap" and ($fs | startswith("crypto_")) == false)
-      # A row per place the filesystem is mounted, and one row with no mount
-      # for a filesystem that is not mounted at all — a stick you have
-      # plugged in and not opened yet is the reason anyone comes to this page.
+      # One row per *filesystem*, carrying every place it is mounted.
+      #
+      # Not a row per mount point, which was the first version: a btrfs
+      # subvolume layout mounts one filesystem in four places, and four rows
+      # each reporting the whole 1 TB pool read as four drives that were
+      # somehow all the same size and all 26 % full. They share one pool, so
+      # they are one row and the figure is printed once.
       | . as $dev
-      | (($dev.mountpoints // []) | map(select(. != null))) as $mounts
-      | (if ($mounts | length) > 0 then $mounts[] else "" end) as $mount
+      | (($dev.mountpoints // []) | map(select(. != null))
+         # Shortest first, so the row is named by the mount anyone would call
+         # it: `/` rather than whichever subvolume lsblk listed first.
+         | sort_by(length)) as $mounts
       | { device: ($dev.name // ""),
+          disk: $disk,
           path: ($dev.path // ""),
-          mount: $mount,
+          mount: ($mounts[0] // ""),
+          mounts: $mounts,
           label: ($dev.label // ""),
           model: ($dev.model // ""),
           fstype: ($dev.fstype // ""),
-          removable: (($dev.rm // false) == true),
+          # Whether the thing can be taken away, which is what decides
+          # whether unmounting it is an offer worth making. `rm` is the old
+          # removable bit — a card reader, an optical drive — and `hotplug`
+          # is what a USB disk actually reports.
+          removable: (($dev.rm // false) == true or ($dev.hotplug // false) == true),
           size: ($dev.size // 0),
           used: ($dev.fsused // null),
           free: ($dev.fsavail // null),
@@ -60,25 +78,6 @@ disk_mounts() {
                     else null end) } ]
     | sort_by(.mount == "", .mount)
   ''' <<<"$mounted" 2>/dev/null)" '[]'
-}
-
-# The drive the system is on, and how full it is. Cheap enough to poll: one
-# df, one lsblk, no directory walking.
-disk_summary() {
-  local root_line size used free pct device model disk
-  root_line=$(capture df -B1 --output=source,size,used,avail,pcent / | tail -n1)
-  read -r device size used free pct <<<"$root_line"
-  [[ -n ${size:-} ]] || { echo '{}'; return; }
-
-  disk=$(disk_backing_device "$device")
-  model=$(capture lsblk -dno MODEL "/dev/$disk" | head -n1)
-
-  jq -cn \
-    --argjson size "${size:-0}" --argjson used "${used:-0}" --argjson free "${free:-0}" \
-    --arg device "$disk" --arg model "${model#"${model%%[![:space:]]*}"}" '''
-    { size: $size, used: $used, free: $free,
-      percent: (if $size > 0 then (($used / $size) * 100 | round) else 0 end),
-      device: $device, model: ($model | sub("\\s+$"; "")) }'''
 }
 
 # What the used space divides into: the four questions anyone actually has —
@@ -129,11 +128,25 @@ disk_breakdown() {
       | map(select(.bytes != null))'''
 }
 
-# Bounded like every other read, and silent about a walk it could not finish.
+# Bounded like every other read, and silent about a walk it could not finish
+# — but against the walk budget rather than the read one. On this machine a
+# home directory of three million files takes 13 seconds warm and 47 cold.
 du_bytes() {
   local out
-  out=$(capture du -sbx "$1" | cut -f1 | tr -dc '0-9')
+  out=$(capture_for "$OMACONTROL_WALK_TIMEOUT" du -sbx "$1" | cut -f1 | tr -dc '0-9')
   [[ -n ${out:-} ]] && printf '%s' "$out" || printf 'null'
+}
+
+# The device the root filesystem is on.
+#
+# `findmnt` prints a btrfs subvolume as `/dev/mapper/root[/@]`, which is not a
+# path anything else here can be asked about — every Omarchy install with
+# snapshots is in that shape, so the suffix comes off before the answer is
+# used.
+disk_root_source() {
+  local source
+  source=$(findmnt -no SOURCE / 2>/dev/null)
+  printf '%s' "${source%%[*}"
 }
 
 # The physical disk under a mount source, however many layers of dm-crypt,
@@ -148,7 +161,8 @@ disk_backing_device() {
 # without it has no snapshots rather than an error.
 disk_snapshot_bytes() {
   local used
-  used=$(capture btrfs filesystem du -s --raw /.snapshots | awk 'NR==2 { print $2 }')
+  used=$(capture_for "$OMACONTROL_WALK_TIMEOUT" btrfs filesystem du -s --raw /.snapshots \
+    | awk 'NR==2 { print $2 }')
   printf '%s' "${used:-0}"
 }
 
@@ -172,7 +186,7 @@ disk_snapshots() {
 # panel that is always empty teaches the reader to stop looking at it.
 disk_health() {
   local device json
-  device=$(disk_backing_device "$(findmnt -no SOURCE / 2>/dev/null)")
+  device=$(disk_backing_device "$(disk_root_source)")
   [[ -n ${device:-} ]] || { echo '{}'; return; }
   command -v smartctl >/dev/null 2>&1 || { echo '{}'; return; }
 
@@ -196,27 +210,158 @@ disk_health() {
   ''' <<<"$json" 2>/dev/null)" '{}'
 }
 
+# Every drive in the machine, what it is and what it is doing.
+#
+# Per drive and not per machine: a laptop with an SSD for the system and a
+# second disk for everything else is two answers to "is the disk busy", and
+# summing them hides the one that is grinding behind the one that is idle.
+#
+# The figures come from `/proc/diskstats` and `lsblk`, so every machine
+# answers — unlike the SMART panel, which needs the drive to keep those
+# counters and `smartctl` to run without a password.
+disk_drives() {
+  local listing system first second t1 t2 rates encrypted tree
+  listing=$(capture lsblk -dn --json --bytes -o NAME,PATH,MODEL,SIZE,TRAN,ROTA,RM,TYPE)
+  [[ -n $listing ]] || { echo '[]'; return; }
+  system=$(disk_backing_device "$(disk_root_source)")
+
+  # One pair of samples for the whole machine rather than a pair per drive:
+  # /proc/diskstats has every device in it and two reads answer for all of
+  # them at once.
+  #
+  # Two reads and not one, for the same reason the CPU figure takes two: the
+  # counters are totals since boot, so a single read gives the average since
+  # the machine came up.
+  first=$(cat /proc/diskstats 2>/dev/null)
+  t1=$(date +%s%N)
+  sleep 0.2
+  second=$(cat /proc/diskstats 2>/dev/null)
+  t2=$(date +%s%N)
+
+  # The elapsed time is measured rather than assumed: `sleep 0.2` is a floor
+  # and not a promise, and a busy machine that slept for half a second would
+  # report every rate two and a half times too high.
+  rates=$(awk -v t1="$t1" -v t2="$t2" '
+    FNR == NR { r1[$3] = $6; w1[$3] = $10; b1[$3] = $13; next }
+    {
+      secs = (t2 - t1) / 1000000000
+      if (secs <= 0) next
+      if (!($3 in r1)) next
+      busy = ($13 - b1[$3]) / (secs * 1000) * 100
+      if (busy < 0) busy = 0
+      if (busy > 100) busy = 100
+      # /proc/diskstats counts in 512-byte units whatever the drive sector
+      # size is; the kernel normalises it.
+      printf "%s %.0f %.0f %.0f %.0f %.0f\n", $3,
+        ($6 - r1[$3]) * 512 / secs, ($10 - w1[$3]) * 512 / secs, busy,
+        $6 * 512, $10 * 512
+    }' <(printf '%s\n' "$first") <(printf '%s\n' "$second") \
+    | jq -Rc -s '
+      [ split("\n")[] | select(length > 0) | split(" ")
+        | { name: .[0], read: (.[1] | tonumber), write: (.[2] | tonumber),
+            busy: (.[3] | tonumber), readTotal: (.[4] | tonumber),
+            writeTotal: (.[5] | tonumber) } ]
+      | INDEX(.name)' 2>/dev/null)
+
+  # Encryption is a layer under the filesystem rather than a property of it,
+  # so the only general way to answer "is this drive encrypted" is to look for
+  # a `crypt` among the things sitting on it.
+  #
+  # One call for the whole tree rather than one per drive: this runs on the
+  # page's five-second poll, and a question asked per drive is a question
+  # asked again every time someone plugs one in.
+  tree=$(capture lsblk --json -o NAME,TYPE)
+  encrypted=$(emit_json "$(jq -c '
+    [ .blockdevices[]? | select(.type == "disk")
+      | { (.name): ([recurse(.children[]?) | .type] | any(. == "crypt")) } ]
+    | add // {}' <<<"$tree" 2>/dev/null)" '{}')
+
+  emit_json "$(jq -c \
+    --argjson rates "${rates:-{\}}" \
+    --argjson encrypted "$encrypted" \
+    --arg system "$system" '
+    [ .blockdevices[]?
+      | select(.type == "disk")
+      # zram is compressed memory and a loop device is the snap and appimage
+      # machinery; both are listed as disks and neither is one.
+      | select((.name | test("^(zram|loop|ram)")) == false)
+      | select((.size // 0) > 0)
+      | . as $d
+      | ($rates[$d.name] // {}) as $r
+      | { device: $d.name,
+          path: ($d.path // ""),
+          model: (($d.model // "") | sub("\\s+$"; "")),
+          size: ($d.size // 0),
+          transport: ($d.tran // ""),
+          rotational: ($d.rota == true),
+          removable: ($d.rm == true),
+          encrypted: ($encrypted[$d.name] == true),
+          system: ($d.name == $system),
+          read: ($r.read // null), write: ($r.write // null),
+          busy: ($r.busy // null),
+          readTotal: ($r.readTotal // null),
+          writeTotal: ($r.writeTotal // null) } ]
+    # The drive the system is on first: it is the one the page is about, and
+    # on most machines it is the only one.
+    | sort_by(.system == false, .device)' <<<"$listing" 2>/dev/null)" '[]'
+}
+
+# The root filesystem itself, which belongs to no one drive.
+disk_root() {
+  local options
+  # A root filesystem that has dropped to read-only is a drive in the middle
+  # of failing, and nothing else in this window would say so.
+  options=$(findmnt -no OPTIONS / 2>/dev/null)
+  jq -cn \
+    --arg fstype "$(findmnt -no FSTYPE / 2>/dev/null)" \
+    --argjson readonly "$(grep -qE '(^|,)ro(,|$)' <<<"${options:-}" && echo true || echo false)" \
+    '{ fstype: $fstype, readonly: $readonly }'
+}
+
+# Swap is disk space on most machines and compressed memory on a machine with
+# zram, and the page has to be able to say which: a 32 GB swap file is 32 GB
+# of the bar at the top of the page, and zram is not on the drive at all.
+disk_swap() {
+  emit_json "$(awk 'NR > 1 && NF >= 4 { printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4 }' /proc/swaps \
+    | jq -Rc -s '''
+      [ split("\n")[] | select(length > 0) | split("\t")
+        | { name: .[0],
+            kind: .[1],
+            # /proc/swaps counts in kibibytes; everything the window formats
+            # is bytes.
+            size: ((.[2] | tonumber) * 1024),
+            used: ((.[3] | tonumber) * 1024),
+            zram: (.[0] | test("zram")) } ]''' 2>/dev/null)" '[]'
+}
+
 disk_state() {
   par_begin || { echo '{}'; return; }
-  par_run summary disk_summary
   par_run mounts disk_mounts
   par_run snapshots disk_snapshots
   par_run health disk_health
+  par_run drives disk_drives
+  par_run root disk_root
+  par_run swap disk_swap
   par_wait
 
-  local summary mounts snapshots health
-  summary=$(par_get summary '{}')
+  local mounts snapshots health drives root swap
   mounts=$(par_get mounts '[]')
   snapshots=$(par_get snapshots '[]')
   health=$(par_get health '{}')
+  drives=$(par_get drives '[]')
+  root=$(par_get root '{}')
+  swap=$(par_get swap '[]')
   par_end
 
   jq -cn \
-    --argjson summary "${summary:-{\}}" \
     --argjson mounts "${mounts:-[]}" \
     --argjson snapshots "${snapshots:-[]}" \
     --argjson health "${health:-{\}}" \
-    '{ summary: $summary, mounts: $mounts, snapshots: $snapshots, health: $health }'
+    --argjson drives "${drives:-[]}" \
+    --argjson root "${root:-{\}}" \
+    --argjson swap "${swap:-[]}" \
+    '{ mounts: $mounts, snapshots: $snapshots, health: $health,
+       drives: $drives, root: $root, swap: $swap }'
 }
 
 disk_cmd() {

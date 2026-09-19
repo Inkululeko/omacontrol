@@ -27,6 +27,22 @@ capture() {
   timeout "$OMACONTROL_READ_TIMEOUT" "$@" 2>/dev/null | head -c "$OMACONTROL_READ_MAX"
 }
 
+# A directory walk is not a read, and five seconds is not its budget.
+#
+# Five seconds is right for anything on a poll — everything else on a live
+# page re-runs every few seconds — but a walk of a home directory is asked
+# once, nothing waits on it, and three million files take a minute of a cold
+# cache however fast the drive is. Held to the read timeout it never finished
+# on a real machine, so the answer was always "could not measure" and the
+# space went on being reported as something else.
+OMACONTROL_WALK_TIMEOUT=${OMACONTROL_WALK_TIMEOUT:-120}
+
+capture_for() {
+  local seconds=$1
+  shift
+  timeout "$seconds" "$@" 2>/dev/null | head -c "$OMACONTROL_READ_MAX"
+}
+
 # ---------------------------------------------------------- asked together
 #
 # A state read is two dozen independent questions put to the system — the
