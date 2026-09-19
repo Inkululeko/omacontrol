@@ -59,7 +59,7 @@ Ui.SectionBody {
   readonly property int listCap: 12
 
   readonly property string headerNote: app.packages.installed !== undefined
-    ? app.packages.installed + " installed · "
+    ? app.packages.installed + " packages · "
       + (pending.length === 0 ? "nothing waiting" : pending.length + " waiting")
     : ""
 
@@ -94,17 +94,22 @@ Ui.SectionBody {
 
       Ui.StatCard {
         Layout.fillWidth: true
+        // "Explicit" is pacman's word for these, and it means nothing to
+        // anyone who has not read pacman's manual. The pair is shown as two
+        // complementary figures rather than a total and a subset of it: a
+        // count sitting under the page header's own total reads as a
+        // correction to it.
         label: "Installed"
-        value: app.packages.installed !== undefined ? String(app.packages.installed) : "—"
+        value: app.packages.explicit !== undefined ? String(app.packages.explicit) : "—"
+        note: "Asked for by name"
       }
 
       Ui.StatCard {
         Layout.fillWidth: true
-        label: "Asked for"
-        value: app.packages.explicit !== undefined ? String(app.packages.explicit) : "—"
-        // "Explicit" is pacman's word for it, and it means nothing to anyone
-        // who has not read pacman's manual.
-        note: "The rest came in as dependencies"
+        label: "Dependencies"
+        value: (app.packages.installed !== undefined && app.packages.explicit !== undefined)
+          ? String(app.packages.installed - app.packages.explicit) : "—"
+        note: "Came in with something else"
       }
 
       Ui.StatCard {
@@ -134,7 +139,7 @@ Ui.SectionBody {
       Repeater {
         model: [
           { id: "all", title: "All" },
-          { id: "explicit", title: "Asked for" },
+          { id: "explicit", title: "Installed" },
           { id: "aur", title: "AUR" }
         ]
 
@@ -230,9 +235,9 @@ Ui.SectionBody {
     Ui.ActionRow {
       label: "Package cache"
       description: (app.packages.cacheBytes !== null && app.packages.cacheBytes !== undefined
-                    ? app.formatBytes(app.packages.cacheBytes) + " in " : "")
-        + "/var/cache/pacman/pkg — every version ever downloaded, kept for downgrades."
-      buttonText: "Keep last two"
+                    ? app.formatBytes(app.packages.cacheBytes) + " of " : "")
+        + "downloaded packages. Cleaning up keeps the two newest versions of each, so you can still downgrade."
+      buttonText: "Clean up"
       onTriggered: { app.run(["packages", "clean"]); app.hide() }
     }
 
