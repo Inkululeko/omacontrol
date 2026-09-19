@@ -1,0 +1,43 @@
+---
+paths:
+  - "lib/*.sh"
+  - "bin/*"
+---
+
+# Shell conventions
+
+> **Read this when:** you write or change anything in `lib/` or `bin/`.
+
+## Shell conventions
+
+Bash with `set -uo pipefail` (not `-e`; several reads exit non-zero normally).
+`jq` for all JSON.
+
+**`... | jq ... || echo '[]'` is a bug under `pipefail`.** The status of
+`producer | jq` is the *producer's* failure, even when jq went on to make
+perfectly good JSON out of the nothing it was given — so the fallback fires
+*as well*, and jq's answer with `[]` stapled to it is not JSON at all. It fails
+only when run through `bin/omacontrol`, which is the one place `pipefail` is
+set, so it passes every test run by hand. Use `emit_json "$(...)" '[]'` from
+`core.sh`: the value decides, not the exit status.
+
+Two `jq` habits worth remembering:
+
+- Inside `($list | index(.x))` the `.` is now `$list` — bind the value first
+  (`. as $row | ... index($row[1])`) or every row matches.
+- Building a whole file as one string in `awk` (`out = out c`) is quadratic;
+  scan per line. That cost 3 seconds of a 3.4-second window open once.
+
+## Two budgets, and which one a read gets
+
+Every read of the compositor or the system goes through `capture`, bounded by
+`OMACONTROL_READ_TIMEOUT` (5 s) and `OMACONTROL_READ_MAX` — the window is a
+long-lived process that retains and parses whatever a reader prints, so a
+producer that hangs or never stops is its problem too.
+
+**A directory walk is not a read.** `capture_for` and `OMACONTROL_WALK_TIMEOUT`
+(120 s) are its budget. Held to the read timeout, the Disk breakdown never
+finished on a real machine and reported `null` — which the page then showed as
+a slice going missing rather than as a measurement that failed. Nothing waits
+on a walk, so the longer ceiling costs only a note on screen while it runs.
+The full story is in `.claude/rules/reporting-pages.md`.
