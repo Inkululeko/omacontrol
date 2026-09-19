@@ -182,10 +182,102 @@ says it.
 
 **The Disk breakdown is not on the poll.** The only way to answer "what is
 holding the space" is to walk directories, so it is its own subcommand, asked
-once when the page opens. A walk that does not finish inside the read timeout
-reports `null` rather than what it had got to — a partial `du` is not a small
-number, it is a wrong one — and the page says so instead of quietly showing a
-slice that is missing.
+once when the page opens. A walk that does not finish reports `null` rather
+than what it had got to — a partial `du` is not a small number, it is a wrong
+one — and the page says so instead of quietly showing a slice that is missing.
+
+**A walk is not a read, and `OMACONTROL_READ_TIMEOUT` is not its budget.**
+Five seconds is right for anything on a poll; a home directory of three
+million files takes 13 seconds warm and 47 cold, so held to the read timeout
+it *never* finished. The failure was silent in the worst way: Home reported
+`null`, its 153 GB fell into the System slice by design, and the page showed
+System at 246 GB on a machine whose system is 94 GB — with a "could not
+measure" note that could never stop being true. `capture_for` and
+`OMACONTROL_WALK_TIMEOUT` (120 s) are the walk's own budget. Nothing waits on
+this read, so the only cost of the longer ceiling is that the page says
+"Working out what is using the space" while it runs — which it has to, because
+a headline figure with a gap under it for half a minute reads as a page that
+has finished.
+
+**The drive page answers what every machine can answer.** SMART needs the
+drive to keep those figures and `smartctl` to run without a password, so the
+Health panel is absent on most laptops — a card per drive, and Swap, are there
+instead, and both come from `/proc` and `lsblk`. Busy is the figure that
+actually answers "is the disk why this feels slow": a drive can sit at 100 %
+busy while moving almost nothing, which is what thousands of small files look
+like. Rates are divided by the *measured* elapsed time, because `sleep 0.2` is
+a floor and not a promise.
+
+**A card is titled by the thing, not described by it.** The drive card opens
+the way the battery card does: the thing pictured, its name beside it, a badge
+saying which one it is. Capacity, connection and solid-state-or-spinning are
+facts that never move, so they sit in the grid under a label the reader can
+find rather than in a line of clauses under the title. "260 GB used of 981 GB"
+is the *bar's* caption, small and directly over it — a display-sized figure
+there competed with the drive's own name for the top of the card. Free is in
+the key as well as the bar, since the bar's last stretch was otherwise the one
+unlabelled thing on the card and read as a gap rather than as space.
+
+**The space belongs inside the drive's card.** "720 GB free" standing on its
+own above the cards was a figure with no subject — on a machine with a second
+drive nothing said which one it was about — and the page header repeated the
+drive's name under it. The card carries all of it now and the header carries
+nothing. Free is summed from the *filesystems* on the drive rather than taken
+as capacity minus used: btrfs keeps metadata in reserve, so a 1.0 TB drive
+with 259 GB used has 720 GB free and not 741, and the figure has to be the one
+`df` gives because that is the one every other tool gives. The breakdown is
+only drawn on the drive the system is on, since that is what it measures; any
+other drive gets its used share in one piece.
+
+**A card per drive, not a figure per machine.** A laptop with an SSD for the
+system and a second disk for everything else is two answers to "is the disk
+busy", and one figure covering both hides the drive that is grinding behind
+the one that is idle. Each drive is a card in the shape the battery and the
+connected network use — the thing's own name across the top, a badge saying
+which drive it is, and the readings under a rule — because a heading outside
+a box reads as a label for a separate block that happened to follow. The
+sampling is still one pair of reads for the whole machine: `/proc/diskstats`
+has every device in it. `zram` and loop devices are listed there and by
+`lsblk` as disks, and are neither.
+
+**There is no cache cleaner here, and there was very nearly one.** A "Safe to
+delete" section was built and reverted: it found the caches on the machine,
+measured them, and offered a Delete button behind a confirm. The mechanics
+held up under review — the delete could not be raced into following a swapped
+symlink, an id chose the paths so a caller could never name one, an unreadable
+directory deleted nothing. What failed was the *judgement about what counts as
+a cache*, twice in the same file that declared the rule: `~/.m2/repository`
+looks exactly like a download cache and is also where `mvn install` puts a
+developer's own jars, and an AUR helper's cache directory looks exactly like
+build scrap and holds hand-edited PKGBUILDs.
+
+That risk does not shrink with more careful review, which is the whole reason
+this is written down. The catalogue is a standing bet that it stays right for
+every tool every Omarchy user has, on every machine, as those tools change,
+and one wrong entry deletes work that exists nowhere else — silently, at the
+press of a button that promised the opposite. A settings window does not get
+to take that bet on someone else's behalf. Reporting what is *using* space is
+this page's job; deciding what may be destroyed is not.
+
+The two things that survive it: the package cache and orphaned packages are
+cleared from the Packages page, through Omarchy's own commands in a terminal
+where the password prompt can happen; and a walk gets the walk budget, not the
+read timeout.
+
+**Mounts are one row per filesystem, not per mount point.****Mounts are one row per filesystem, not per mount point.** A btrfs subvolume
+layout mounts one filesystem at four paths, and a row each made one drive read
+as four that were somehow all the same size and all 26 % full. The filesystem
+carries the figures; its other mount points are stepped in underneath with
+their cells left empty, which is how a table says "part of that" and "already
+counted" without a word. Unmount is not offered on one — unmounting a
+subvolume pulls a directory out from under whatever is using it while the
+drive stays mounted, which is not what the word means to a reader.
+
+**`findmnt -no SOURCE /` is not a device.** On btrfs it prints
+`/dev/mapper/root[/@]`, and every Omarchy install with snapshots is in that
+shape — so `lsblk` was asked about `@]` and the SMART panel had quietly never
+appeared on a machine that had smartctl. `disk_root_source` takes the suffix
+off, once, for everything that asks.
 
 **Two samples, not one.** `/proc/stat` holds totals since boot, so a single
 read gives the average since the machine came up: on a six-day uptime, a number
@@ -830,6 +922,11 @@ promises an update the button then refuses to make.
 
 ## Testing
 
+**Restart the shell after every change.** Nothing here — a QML edit, a string in
+a section, a shell function — is picked up by the running process, so a change
+that has not been through `omarchy restart shell` has not been seen working and
+must not be reported as done.
+
 There is no hot reload worth trusting for structural changes. The loop is:
 
 ```bash
@@ -927,6 +1024,10 @@ first.
   `onSearchTermChanged` reading `sidebarRows` got the list for the term before,
   and switched to a page that no longer matched. Recompute from the source, not
   from the binding you are invalidating.
+- **A property whose name begins with "on" collides with the signal-handler
+  syntax.** `property var onYes` on the confirm dialog took its assignment and
+  kept null: the dialog opened, Enter closed it, and the thing it was asking
+  about never happened — which looks exactly like a confirm that worked.
 - **A property named `<x>Changed` collides with `<x>`'s change signal.**
   `hyprChanged` beside `hypr` is a duplicated name; Qt 6's qmllint catches it,
   Qt 5's does not.
