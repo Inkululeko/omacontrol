@@ -362,6 +362,16 @@ monitor_apply_live() {
   local name=$1 settings
   settings=$(monitor_settings "$name")
   [[ $settings == "{}" ]] && return 0
+  # A rule that says nothing about `disabled` still turns a display that is off
+  # back on the moment it is evalled — and the display may be off because
+  # Omarchy's toggle says so, which nothing but a reload puts back. Changing a
+  # scale is not a reason to light a screen up. So the rule is left to the
+  # generated file and the reload that follows it, unless turning the display
+  # on is what was asked for.
+  if ! jq -e 'has("disabled")' <<<"$settings" >/dev/null \
+     && [[ $(monitor_value_now "$name" disabled) == true ]]; then
+    return 0
+  fi
   hyprctl eval "hl.monitor($(monitor_lua_table "$name" "$settings"))" >/dev/null 2>&1
 }
 
@@ -408,6 +418,9 @@ monitor_set() {
       # have nowhere to be, and nothing on screen could turn it back on.
       [[ $field == disabled && $value == true ]] && monitor_last_one_on "$name" \
         && die "this is the only display that is on"
+      # Turning the laptop panel off is Omarchy's, not ours.
+      [[ $field == disabled ]] && monitor_is_internal "$name" && monitor_toggles_loaded \
+        && { monitor_internal_power "$name" "$value"; return; }
       json=$value ;;
     mirror)
       if [[ -n $value ]]; then
@@ -441,11 +454,17 @@ monitor_set() {
   # Hyprland takes a scale it cannot do exactly, snaps to the nearest one that
   # gives whole pixels, and says so only in its own log. Recording what it
   # asked for would leave the page showing a number the screen is not using.
-  local applied
-  applied=$(monitor_value_now "$name" "$field")
-  if [[ $field == scale && -n $applied && $applied != "$value" ]]; then
-    edit_store '.monitors = ((.monitors // {}) | .[$n] = (.[$n] + { scale: $s }))' \
-      --arg n "$name" --argjson s "$applied"
+  #
+  # A display that is off has taken nothing, and answers with the scale it had
+  # when it was last on — so a scale chosen for a screen to come back to is
+  # kept as it was chosen rather than read back from a screen that is dark.
+  if [[ $field == scale ]]; then
+    local applied
+    applied=$(monitor_find "$name" \
+      | jq -r 'if (. == null or .disabled) then empty else (.scale | tostring) end')
+    [[ -n $applied && $applied != "$value" ]] \
+      && edit_store '.monitors = ((.monitors // {}) | .[$n] = (.[$n] + { scale: $s }))' \
+           --arg n "$name" --argjson s "$applied"
   fi
 
   [[ $field == scale ]] && monitor_is_internal "$name" \
@@ -545,6 +564,44 @@ monitor_is_internal() {
   # written down before it knew about descriptions.
   [[ -z $output ]] && output=$1
   [[ $output == "$internal" ]]
+}
+
+# Turning it off is theirs as well, and for a better reason than the scale.
+#
+# Omarchy writes the rule that disables the panel into its own toggles
+# directory, and it is the writing-down that matters: the clamshell watcher
+# and `omarchy-hw-recover-internal-monitor` clear that file again the moment
+# the external display goes away, so a lid closed on a dock is never left with
+# no screen at all. A `disabled = true` of ours has no such way back — the
+# panel would stay dark through the undock and the next boot, with nothing on
+# screen to turn it on with.
+#
+# So their toggle does it, and whatever we wrote about the panel being off goes
+# with it: ours is read before the toggles and would put the panel straight
+# back on.
+monitor_internal_power() {
+  local key=$1 off=$2 action=on
+  [[ $off == true ]] && action=off
+
+  if jq -e --arg n "$key" '(((.monitors // {})[$n]) // {}) | has("disabled")' \
+       <<<"$(read_store)" >/dev/null; then
+    edit_store '.monitors = ((.monitors // {})
+      | .[$n] |= del(.disabled)
+      | with_entries(select(.value != {})))' --arg n "$key"
+  fi
+
+  omarchy-hyprland-monitor-internal "$action" >/dev/null 2>&1 \
+    || die "the laptop display could not be turned $action"
+}
+
+# Their toggles are Lua files loaded by a require in `hyprland.lua`. Where that
+# require is not there — a setup still on `.conf`, or a config that dropped it
+# — the toggle would write a file nothing reads, which is a switch that does
+# nothing and says nothing about why. Our own rule goes in instead.
+monitor_toggles_loaded() {
+  command -v omarchy-hyprland-monitor-internal >/dev/null 2>&1 || return 1
+  [[ -f $HYPR_DIR/hyprland.lua ]] || return 1
+  read_file "$HYPR_DIR/hyprland.lua" | grep -qE "$HYPR_TOGGLES_RE"
 }
 
 MONITOR_LUA_MARKER="-- omacontrol"

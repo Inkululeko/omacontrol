@@ -305,18 +305,88 @@ render_managed_conf() {
   } | write_file "$MANAGED_CONF" managed
 }
 
-# Append the load line to the user's top-level config exactly once.
+# Where Omarchy loads its own toggles from: the laptop display, a disabled
+# touchpad, the saved workspace layouts.
+HYPR_TOGGLES_RE="^[^-]*require *\\( *[\"']default\\.hypr\\.toggles"
+
+# The load line goes into the user's top-level config exactly once — and above
+# their toggles where those are loaded.
+#
+# Omarchy turns the laptop panel off by writing a monitor rule into its toggles
+# directory. A monitor rule of ours replaces that one whole rather than merging
+# with it, so loading last meant the panel came straight back on for anyone who
+# had ever set its scale from here: Omarchy's own toggle, and the lid switch
+# behind it, silently did nothing. Everything else in their config still loads
+# before us.
+#
+# A line an earlier version appended at the end is moved rather than left
+# where it is — that install is exactly the one with the broken toggle.
 ensure_loaded() {
-  local file=$1 line=$2
+  local file=$1 line=$2 content ours anchor comment="--" next
   [[ -f $file ]] || return 0
-  read_file "$file" | grep -qF "$line" && return 0
+  [[ $file == *.conf ]] && comment="#"
+
+  content=$(read_file "$file")
+  # Everything below rewrites the file whole, so a config that could not be
+  # read whole is one to leave alone.
+  [[ -n $content || ! -s $file ]] || die "could not read $file"
+
+  ours=$(grep -nF "$line" <<<"$content" | head -n1 | cut -d: -f1)
+  anchor=$(grep -nE "$HYPR_TOGGLES_RE" <<<"$content" | head -n1 | cut -d: -f1)
+  [[ -n $ours && ( -z $anchor || $ours -lt $anchor ) ]] && return 0
+
   ensure_regular_file "$file" || die "$file is not a file this can write"
-  backup_once "$file" || die "could not back up $file"
-  {
-    echo ""
-    echo "-- Load settings written by OmaControl ($MANAGED_MARKER)."
-    echo "$line"
-  } >>"$file"
+
+  # The pattern arrives through the environment: awk runs escape sequences
+  # through a `-v` assignment, so a regexp handed over that way loses every
+  # backslash in it and stops being a regexp at all.
+  next=$(OMACONTROL_ANCHOR=$HYPR_TOGGLES_RE \
+         awk -v line="$line" -v marker="$MANAGED_MARKER" -v comment="$comment" '
+    BEGIN { anchor = ENVIRON["OMACONTROL_ANCHOR"] }
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    function flush(  i) { for (i = 1; i <= held; i++) print hold[i]; held = 0 }
+    function block(why) {
+      print comment " Load settings written by OmaControl (" marker ")."
+      if (why) {
+        print comment " It belongs above the toggles below: those turn the laptop"
+        print comment " display off with a monitor rule, and a rule of ours read"
+        print comment " afterwards would replace it and put the display back on."
+      }
+      print line
+    }
+    # Blank and comment lines wait: they belong either to the require below
+    # them or to the block being moved away from here.
+    /^[ \t]*$/ || /^[ \t]*--/ || /^[ \t]*#/ { hold[++held] = $0; next }
+    trim($0) == line {
+      # The comment above it goes with it, back as far as the marked first
+      # line. Anything else up there is the user or nothing, and stays.
+      run = held
+      while (run > 0 && hold[run] ~ /^[ \t]*(--|#)/ && !index(hold[run], marker)) run--
+      if (run > 0 && index(hold[run], marker)) {
+        held = run - 1
+        if (held > 0 && hold[held] ~ /^[ \t]*$/) held--
+      }
+      next
+    }
+    $0 ~ anchor && !done { print ""; block(1); flush(); print; done = 1; next }
+    { flush(); print }
+    END {
+      flush()
+      # A config that loads no toggles has nothing to sit above.
+      if (!done) { print ""; block(0) }
+    }' <<<"$content")
+
+  [[ -n $next ]] || die "could not work out where to load OmaControl from in $file"
+  [[ $next == "$content" ]] && return 0
+  write_file "$file" <<<"$next" || die "could not write $file"
+
+  # Their config, checked in their own terms and put back if the edit broke it:
+  # an hyprland.lua that will not compile is a session that does not come up.
+  if [[ $file == *.lua ]] && command -v luac >/dev/null 2>&1 \
+     && ! luac -p "$file" >/dev/null 2>&1; then
+    write_file "$file" <<<"$content"
+    die "the edit to $file would not compile; nothing was changed"
+  fi
 }
 
 # Applying a setting without waiting for a config reload.

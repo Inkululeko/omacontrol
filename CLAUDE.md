@@ -97,7 +97,7 @@ setting:
 | Keybindings | a marked block in `~/.config/hypr/bindings.lua` |
 | Compose Keys | `~/.XCompose` |
 | Herdr, Tmux, Neovim | their own configs, edited in place |
-| Displays | `~/.config/hypr/omacontrol.lua`, applied with `hyprctl eval` — plus `monitors.lua` for the laptop panel's scale |
+| Displays | `~/.config/hypr/omacontrol.lua`, applied with `hyprctl eval` — plus `monitors.lua` for the laptop panel's scale, and Omarchy's own toggle for turning that panel off |
 | Audio, Network, Bluetooth, Power | nowhere — live system state, owned by PipeWire, NetworkManager, BlueZ and power-profiles-daemon |
 | Overview | nowhere — every switch is Omarchy's own command, asked and relayed |
 | Disk, Processes | nowhere — readings, plus the two or three things there are to *do* |

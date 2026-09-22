@@ -97,6 +97,19 @@ appended if there is none. Then the watcher enforces what this page chose. Every
 line added carries the `-- omacontrol` marker, comments included, so removing
 the setting takes the whole block. An external display needs none of this.
 
+**And turning it off is not ours either.** `omarchy-hyprland-monitor-internal
+on|off` writes the rule that disables the panel into Omarchy's own toggles
+directory, and the writing-down is the point: the clamshell watcher and
+`omarchy-hw-recover-internal-monitor` clear that file again the moment the
+external display goes away, so a lid closed on a dock is never left with no
+screen at all. A `disabled = true` of ours had no way back — the panel stayed
+dark through the undock and the next boot, with nothing on screen to turn it on
+with. So the switch calls their command, our own `disabled` is dropped from the
+store rather than left to fight it, and the `require` in `hyprland.lua` sits
+above `require("default.hypr.toggles")` so their rule is the one read last.
+Where that require is not there — a setup still on `.conf` — the toggle would
+write a file nothing reads, so our own rule goes in instead.
+
 **Most of what the store holds is not a setting**, only what is needed to say
 what changed and put it back: `hypr` and `hyprOriginal` (Hyprland keys we
 override and what they were), `written` (pre-change values for settings living

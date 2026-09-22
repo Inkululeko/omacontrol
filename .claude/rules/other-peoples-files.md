@@ -21,8 +21,12 @@ eats someone's setup. Every file falls into one of three patterns:
    `hypr_apply_live` falls back to `keyword` only when there is no
    `hyprland.lua`. They are recorded in the generated file, which is loaded last
    so the user's own files still say what they wrote. It is created on the first write, not at
-   install, and the `require` line is appended to `hyprland.lua` at the same
-   moment.
+   install, and the `require` line goes into `hyprland.lua` at the same moment —
+   **above `require("default.hypr.toggles")`** where their config loads those,
+   and moved up there if an older version left it at the end. Omarchy turns the
+   laptop panel off by writing a monitor rule into its toggles directory, and a
+   monitor rule of ours read afterwards replaces that one whole: the panel came
+   straight back on, so their own toggle silently did nothing.
 2. **A marked block inside their file** — keybindings, appended to
    `bindings.lua` between `-- >>> omacontrol bindings` markers. Everything
    outside the markers is copied through untouched, and removing the last
