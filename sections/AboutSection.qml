@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Layouts
 import qs.Commons
 import qs.Ui
 import "../ui" as Ui
@@ -16,131 +15,211 @@ import "../ui" as Ui
 // least want to go looking. Hence "Copy as text": the whole page as one block,
 // in the shape a bug report wants.
 Ui.SectionBody {
+  id: root
   property var app: null
 
   readonly property var about: app.about
   readonly property var gpus: about.gpus !== undefined ? about.gpus : []
+  readonly property var waiting: about.waiting !== undefined ? about.waiting : ({})
+  readonly property bool hasUptime: about.uptimeSeconds !== null && about.uptimeSeconds !== undefined
 
-  readonly property string headerNote: about.version !== undefined && about.version !== ""
-    ? "Omarchy " + about.version
-      + (about.channel !== "" ? " · " + about.channel + " channel" : "") : ""
-
-  property Component headerControl: Component {
-    Ui.Chip {
-      text: "Copy as text"
-      onClicked: app.run(["about", "copy"])
-    }
-  }
+  function known(v) { return v !== null && v !== undefined && v !== "" }
 
   // Read once when the page opens. None of it changes while you look at it
   // except the uptime, and a page that re-read a hardware inventory every five
   // seconds to move one number would be absurd.
   Component.onCompleted: app.pollAbout()
 
-  Ui.SettingGroup {
-    title: "Hardware"
-
-    Ui.ReadingRow {
-      label: "Model"
-      value: (about.model !== undefined ? about.model : "")
-        + (about.sku !== undefined && about.sku !== "" ? " (" + about.sku + ")" : "")
+  // The machine, named once. The SKU is what tells two of the same model
+  // apart, and the version and uptime are the two facts anyone helping with a
+  // problem asks for first.
+  Ui.HeroCard {
+    glyph: about.chassis === "laptop" ? "" : ""
+    title: known(about.model) ? about.model : "This computer"
+    subtitle: {
+      var parts = []
+      if (known(about.sku)) parts.push(about.sku)
+      if (known(about.version)) parts.push("Omarchy " + about.version)
+      if (hasUptime) parts.push("up " + app.formatDuration(about.uptimeSeconds))
+      return parts.join(" · ")
     }
 
-    Ui.ReadingRow {
-      label: "CPU"
-      description: about.cpuCores !== null && about.cpuCores !== undefined
-        ? about.cpuCores + " cores · " + about.cpuThreads + " threads"
-          + (about.cpuFrequency ? " · up to " + (Number(about.cpuFrequency) / 1000).toFixed(2) + " GHz" : "")
-        : ""
-      value: about.cpu !== undefined ? about.cpu : ""
-    }
-
-    // Plural on purpose: a laptop with switchable graphics has two, and
-    // calling one of them "the" GPU is how a bug report ends up describing the
-    // wrong one.
-    Ui.ReadingRow {
-      visible: !searchHidden && gpus.length > 0
-      label: gpus.length > 1 ? "GPUs" : "GPU"
-      value: gpus.join(" · ")
-    }
-
-    Ui.ReadingRow {
-      visible: !searchHidden && about.memoryBytes !== null && about.memoryBytes !== undefined
-      label: "Memory"
-      value: app.formatBytes(about.memoryBytes)
-    }
-
-    Ui.ReadingRow {
-      visible: !searchHidden && about.disk !== undefined && about.disk.size !== null
-      label: "Disk"
-      value: about.disk !== undefined
-        ? about.disk.model + (about.disk.size ? " · " + app.formatBytes(about.disk.size) : "")
-        : ""
+    Ui.Chip {
+      text: "Copy as text"
+      onClicked: app.run(["about", "copy"])
     }
   }
 
-  Ui.SettingGroup {
-    title: "Software"
+  // Side by side while there is room for both: the two lists are read
+  // together, and stacked they put the kernel a screen away from the CPU it
+  // runs on.
+  Grid {
+    id: specs
+    width: parent.width
+    columns: width >= Style.space(620) ? 2 : 1
+    columnSpacing: Style.space(16)
+    rowSpacing: Style.space(18)
+    readonly property real cell: columns === 2 ? (width - columnSpacing) / 2 : width
 
-    Ui.ReadingRow {
-      label: "Omarchy"
-      description: about.channel === "stable"
-        ? "" : "The " + about.channel + " channel takes updates before they reach stable."
-      value: about.version !== undefined ? about.version : ""
+    Ui.SettingGroup {
+      width: specs.cell
+      title: "Hardware"
+      framed: true
+      rowSpacing: Style.space(10)
+
+      Ui.SpecRow {
+        label: "Model"
+        value: (known(about.model) ? about.model : "")
+          + (known(about.sku) ? " (" + about.sku + ")" : "")
+      }
+
+      Ui.Divider {}
+
+      Ui.SpecRow {
+        label: "CPU"
+        value: (known(about.cpu) ? about.cpu : "")
+          + (known(about.cpuCores)
+             ? " (" + about.cpuCores + " cores, " + about.cpuThreads + " threads)" : "")
+          + (about.cpuFrequency ? " @ " + (Number(about.cpuFrequency) / 1000).toFixed(2) + " GHz" : "")
+      }
+
+      // One line each: a laptop with switchable graphics has two, and calling
+      // one of them "the" GPU is how a bug report ends up describing the
+      // wrong one.
+      Ui.Divider { visible: !searchHidden && gpus.length > 0 }
+
+      Ui.SpecRow {
+        visible: !searchHidden && gpus.length > 0
+        label: "GPU"
+        value: gpus.join("\n")
+      }
+
+      Ui.Divider { visible: !searchHidden && known(about.memoryBytes) }
+
+      Ui.SpecRow {
+        visible: !searchHidden && known(about.memoryBytes)
+        label: "Memory"
+        value: app.formatBytes(about.memoryBytes)
+      }
+
+      Ui.Divider { visible: !searchHidden && about.disk !== undefined && known(about.disk.model) }
+
+      Ui.SpecRow {
+        visible: !searchHidden && about.disk !== undefined && known(about.disk.model)
+        label: "Disk"
+        value: about.disk !== undefined
+          ? about.disk.model + (about.disk.size ? " · " + app.formatBytes(about.disk.size) : "")
+          : ""
+      }
     }
 
-    Ui.ReadingRow {
-      label: "Kernel"
-      value: about.kernel !== undefined ? about.kernel : ""
-    }
+    Ui.SettingGroup {
+      width: specs.cell
+      title: "Software"
+      framed: true
+      rowSpacing: Style.space(10)
 
-    Ui.ReadingRow {
-      label: "Compositor"
-      value: about.compositor !== undefined ? about.compositor : ""
-    }
+      // The channel rides with the version only when it is not stable: on
+      // stable it says nothing a version number does not, on every machine.
+      Ui.SpecRow {
+        label: "OS"
+        value: known(about.version) ? "Omarchy " + about.version : ""
+        tag: known(about.channel) && about.channel !== "stable" ? about.channel + " channel" : ""
+      }
 
-    Ui.ReadingRow {
-      visible: !searchHidden && about.packages !== null && about.packages !== undefined
-      label: "Packages"
-      value: about.packages + " (pacman)"
-    }
+      Ui.Divider {}
 
-    Ui.ReadingRow {
-      visible: !searchHidden && about.uptimeSeconds !== null && about.uptimeSeconds !== undefined
-      label: "Uptime"
-      value: app.formatDuration(about.uptimeSeconds)
-    }
+      Ui.SpecRow {
+        label: "Kernel"
+        value: known(about.kernel) ? about.kernel : ""
+      }
 
-    // Read off the first line pacman ever wrote, which is the closest thing an
-    // Arch install has to a birthday.
-    Ui.ReadingRow {
-      visible: !searchHidden && about.osAgeDays !== null && about.osAgeDays !== undefined
-      label: "Installed"
-      description: "Dated from the first line in pacman's log."
-      value: about.osAgeDays + " days ago"
+      Ui.Divider {}
+
+      Ui.SpecRow {
+        label: "Compositor"
+        value: known(about.compositor) ? about.compositor : ""
+      }
+
+      Ui.Divider { visible: !searchHidden && known(about.packages) }
+
+      Ui.SpecRow {
+        visible: !searchHidden && known(about.packages)
+        label: "Packages"
+        value: about.packages + " (pacman)"
+      }
+
+      Ui.Divider { visible: !searchHidden && hasUptime }
+
+      Ui.SpecRow {
+        visible: !searchHidden && hasUptime
+        label: "Uptime"
+        value: app.formatDuration(about.uptimeSeconds)
+      }
+
+      // Dated from the first line pacman ever wrote, which is the closest
+      // thing an Arch install has to a birthday.
+      Ui.Divider { visible: !searchHidden && known(about.osAgeDays) }
+
+      Ui.SpecRow {
+        visible: !searchHidden && known(about.osAgeDays)
+        label: "OS age"
+        value: about.osAgeDays + " days"
+      }
     }
   }
 
   Ui.SettingGroup {
     title: "Updates"
+    framed: true
+    rowSpacing: Style.space(10)
 
     Ui.ReadingRow {
-      visible: !searchHidden && about.lastUpdate !== undefined && about.lastUpdate !== ""
+      visible: !searchHidden && known(about.lastUpdate)
       label: "Last updated"
-      value: about.lastUpdate !== undefined ? about.lastUpdate : ""
+      description: known(about.lastUpdate) ? about.lastUpdate : ""
+      value: known(about.lastUpdateAt) ? app.formatWhen(about.lastUpdateAt) : ""
     }
 
-    // Three short names, so all three are on screen. A button that cycled
-    // through them would make the reader press it twice to find out what the
-    // options were, and land them on `dev` on the way past.
-    Ui.ChoiceRow {
+    // From the Packages page's own last check, so the two pages give one
+    // answer. Absent until something has checked: a count of zero from a
+    // check that never happened would read as "up to date".
+    Ui.Divider { visible: !searchHidden && known(about.lastUpdate) && Number(waiting.checkedAt || 0) > 0 }
+
+    Ui.SettingRow {
+      visible: !searchHidden && Number(waiting.checkedAt || 0) > 0
+      label: "Waiting now"
+      navKeys: Number(waiting.count || 0) > 0 ? [{ key: "↵", label: "Open Packages" }] : []
+      onNavActivate: if (Number(waiting.count || 0) > 0) app.pageId = "packages"
+
+      Ui.Chip {
+        anchors.right: parent.right
+        visible: Number(waiting.count || 0) > 0
+        text: waiting.count + (Number(waiting.count) === 1 ? " package waiting" : " packages waiting")
+        onClicked: app.pageId = "packages"
+      }
+
+      Text {
+        anchors.right: parent.right
+        visible: Number(waiting.count || 0) === 0
+        text: "Up to date"
+        color: Ui.Palette.muted
+        font.family: Ui.Palette.fontFamily
+        font.pixelSize: Style.font.body
+      }
+    }
+
+    Ui.Divider { visible: !searchHidden && (known(about.lastUpdate) || Number(waiting.checkedAt || 0) > 0) }
+
+    // Changing it changes what every future update pulls, so it goes to
+    // Omarchy's own command and its confirmation rather than being applied
+    // from here.
+    Ui.PickerRow {
       label: "Release channel"
-      description: "Which stream this machine takes updates from. Later channels get changes sooner, and get them less tested."
+      description: known(about.channel) && about.channel !== "stable"
+        ? about.channel + " takes updates before they reach stable" : ""
       options: ["stable", "rc", "dev"]
       value: about.channel !== undefined ? about.channel : ""
-      // Changing it changes what every future update pulls, so it goes to
-      // Omarchy's own command and its confirmation rather than being applied
-      // from here.
       onPicked: function(next) {
         if (next === about.channel) return
         app.run(["about", "channel", next])

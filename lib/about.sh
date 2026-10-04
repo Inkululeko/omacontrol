@@ -22,21 +22,26 @@ about_state() {
   par_run channel omarchy_channel
   par_run updated omarchy_last_update
   par_run compositor about_compositor
-  par_run disk disk_summary
+  par_run disk about_disk
+  par_run chassis about_chassis
+  par_run waiting about_waiting
   par_run age about_os_age
   par_run branding about_branding
   par_wait
 
-  local fetch version channel updated compositor disk age branding
+  local fetch version channel updated compositor disk age branding chassis waiting updatedAt
   fetch=$(par_get fetch '[]')
   version=$(par_get version '')
   channel=$(par_get channel '')
   updated=$(par_get updated '')
   compositor=$(par_get compositor '')
-  disk=$(par_get disk '{}')
+  disk=$(emit_json "$(par_get disk '{}')" '{}')
+  chassis=$(par_get chassis '')
+  waiting=$(emit_json "$(par_get waiting '{}')" '{}')
   age=$(par_get age null)
   branding=$(par_get branding '')
   par_end
+  updatedAt=$(about_epoch "$updated")
 
   jq -cn \
     --argjson fetch "${fetch:-[]}" \
@@ -46,7 +51,10 @@ about_state() {
     --arg compositor "$compositor" \
     --argjson disk "${disk:-{\}}" \
     --argjson age "${age:-null}" \
-    --arg branding "$branding" '''
+    --arg branding "$branding" \
+    --arg chassis "$chassis" \
+    --argjson waiting "$waiting" \
+    --argjson updatedAt "${updatedAt:-null}" '''
     # fastfetch answers as a list of modules; keyed by type it reads like a
     # record, which is what every line below wants.
     ( reduce $fetch[] as $m ({}; .[$m.type] = $m.result) ) as $f
@@ -70,10 +78,49 @@ about_state() {
         version: $version,
         channel: $channel,
         lastUpdate: $updated,
+        lastUpdateAt: $updatedAt,
+        chassis: $chassis,
+        waiting: $waiting,
         compositor: $compositor,
         osAgeDays: $age,
         branding: $branding
       }'''
+}
+
+# The drive the system is on, by the name its maker gave it. The Storage page
+# measures every drive; this is the one line a bug report wants.
+about_disk() {
+  local device
+  device=$(disk_backing_device "$(disk_root_source)")
+  [[ -n $device ]] || { echo '{}'; return; }
+  capture lsblk -dn --json --bytes -o MODEL,SIZE "/dev/$device" \
+    | jq -c '.blockdevices[0] // {} | { model: ((.model // "") | gsub("^\\s+|\\s+$"; "")), size: (.size // null) }'
+}
+
+# The SMBIOS chassis type, which the kernel leaves readable to everyone: a
+# laptop is pictured as one. The types are the ones the spec calls portable.
+about_chassis() {
+  local type
+  type=$(cat /sys/class/dmi/id/chassis_type 2>/dev/null)
+  case $type in
+    8 | 9 | 10 | 11 | 14 | 30 | 31 | 32) printf laptop ;;
+    "") ;;
+    *) printf desktop ;;
+  esac
+}
+
+# The same cached count the Packages page shows, so the two pages can never
+# give two answers. Never a check of its own: that is a sync over the network.
+about_waiting() {
+  packages_pending_cached | jq -c '{ count: ((.items // []) | length), checkedAt: (.checkedAt // 0) }'
+}
+
+# `omarchy-version-pkgs` words the date for people — "Saturday, September 26
+# 2026 at 09:26" — and the page also wants how long ago that was.
+about_epoch() {
+  local words=${1#*, }
+  [[ -n $1 ]] || { printf null; return; }
+  date -d "${words/ at / }" +%s 2>/dev/null || printf null
 }
 
 omarchy_version() { capture omarchy-version; }
