@@ -16,16 +16,9 @@ Rectangle {
   radius: Local.Palette.chipRadius
   color: Local.Palette.shade(0.11)
 
-  // The one line of relief: a cap lit from above reads as a key without a
-  // border, and a border here would double the count of lines in the bar.
-  Rectangle {
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    height: Style.spacing.hairline
-    radius: parent.radius
-    color: Local.Palette.shade(0.14)
-  }
+  // Flat, with no edge drawn under it. There was a hairline "lit from above"
+  // along the bottom, and a line one pixel tall cannot follow the cap's
+  // rounded corners: it ran straight out past them and read as an underline.
 
   Text {
     id: label
