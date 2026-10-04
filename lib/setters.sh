@@ -180,8 +180,22 @@ plugin_cmd() {
   # that takes no id.
   [[ $action == updates ]] && { plugin_updates; return; }
   [[ $action == updates-cached ]] && { plugin_updates_cache; return; }
+  # Everything the page reads, and the two halves of the marketplace lookup:
+  # `directory` is the cache, `directory-fetch` asks only if a check is owed,
+  # and `directory-refresh` is the button that always asks.
+  [[ $action == poll ]] && { plugins_report; return; }
+  [[ $action == directory ]] && { plugin_directory_cached; return; }
+  [[ $action == directory-fetch ]] && { plugin_directory_fetch; return; }
+  [[ $action == directory-refresh ]] && { plugin_directory_refresh; return; }
   [[ $action == self ]] && { self_update_state; return; }
   [[ $action == self-check ]] && { self_check; return; }
+  # Adding is the one action whose argument is a git URL rather than an id:
+  # there is no id until the clone has been read and validated. `add-run` is
+  # the detached half, re-entering after the shell's rescan has torn the
+  # caller down. See plugin_add_start.
+  [[ $action == add ]] && { plugin_add_start "${2:-}" "${3:-}"; return; }
+  [[ $action == add-run ]] && { plugin_add_run "${2:-}" "${3:-}" "${4:-0}"; return; }
+  [[ $action == add-clear ]] && { plugin_add_clear; return; }
   [[ -n $id ]] || die "no plugin id given"
   case $action in
     enable) omarchy plugin enable "$id" ;;
@@ -196,6 +210,7 @@ plugin_cmd() {
     # detach, because upstream's last act reloads every plugin's QML and would
     # otherwise kill the update it started. See plugin_update_start.
     update) plugin_update_start "$id" ;;
+    site) plugin_site "$id" ;;
     # Not for the window to call: this is the detached half, re-entering to do
     # the work after rescanPlugins has torn the caller down.
     update-run) plugin_update_run "$id" "${3:-0}" ;;

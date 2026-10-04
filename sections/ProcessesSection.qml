@@ -8,21 +8,114 @@ import "../ui" as Ui
 // row reads, and the calls every control makes.
 //
 // What the machine is busy with. It exists for one question — what is making
-// this slow — so it leads with the three figures that answer it and then names
-// the processes, sorted by whichever of them the reader is asking about.
+// this slow — so it leads with the three figures that answer it, then the ten
+// heaviest by CPU and by memory, then every process in the tree that started
+// it, the way btop draws it.
 Ui.SectionBody {
   property var app: null
 
   readonly property var cores: app.processes.cores !== undefined ? app.processes.cores : []
   readonly property var memory: app.processes.memory !== undefined ? app.processes.memory : ({})
   readonly property var load: app.processes.load !== undefined ? app.processes.load : ({})
-  readonly property var items: app.processes.processes !== undefined ? app.processes.processes : []
+  readonly property var busiest: app.processes.busiest !== undefined ? app.processes.busiest : []
+  readonly property var heaviest: app.processes.heaviest !== undefined ? app.processes.heaviest : []
+  readonly property var tree: app.processes.tree !== undefined ? app.processes.tree : []
 
-  property int selectedProcess: -1
+  // By PID rather than by row: the tree is re-read every two seconds and
+  // processes come and go above the one picked, so a row number would move
+  // the selection onto whatever slid into its place.
+  property int selectedPid: -1
 
-  readonly property string headerNote: {
-    if (load.processes === undefined) return ""
-    return load.processes + " processes · load " + load.one
+  // Folded branches, by PID, as the reader left them. The kernel's own
+  // threads start folded — three hundred rows of zeros under one parent is
+  // what btop scrolls past too, and the one row standing for them is enough.
+  property var folds: ({})
+  function folded(pid) {
+    var key = String(pid)
+    return folds[key] !== undefined ? folds[key] : pid === 2
+  }
+
+  // Folding is the page's and not the table's, because a folded row is drawn
+  // standing for its whole branch and only the page knows what that means.
+  readonly property var shown: {
+    var out = []
+    var hideBelow = -1
+    for (var i = 0; i < tree.length; i++) {
+      var p = tree[i]
+      if (hideBelow >= 0) {
+        if (p.depth > hideBelow) continue
+        hideBelow = -1
+      }
+      out.push(p)
+      if (p.parent === true && folded(p.pid)) hideBelow = p.depth
+    }
+    return out
+  }
+
+  readonly property int selectedRow: {
+    for (var i = 0; i < shown.length; i++)
+      if (shown[i].pid === selectedPid) return i
+    return -1
+  }
+  readonly property var selected: selectedRow >= 0 ? shown[selectedRow] : null
+
+  // A row in the top lists is a program, not a process — every process of
+  // one name in one container — so it is picked by that pair, and ending it
+  // ends all of them. The PIDs come from the latest poll rather than the one
+  // the row was picked on, since a browser starts and drops helpers all the
+  // time. One selection on the page at a time: picking here lets go of the
+  // tree's, and the other way round, so it is never a question which one End
+  // is about.
+  property string selectedProgram: ""
+  function programKey(p) { return p.name + "\n" + p.container }
+  function programRow(list, key) {
+    if (key === "") return -1
+    for (var i = 0; i < list.length; i++)
+      if (programKey(list[i]) === key) return i
+    return -1
+  }
+  readonly property var program: {
+    var i = programRow(busiest, selectedProgram)
+    if (i >= 0) return busiest[i]
+    i = programRow(heaviest, selectedProgram)
+    return i >= 0 ? heaviest[i] : null
+  }
+  function topList(which) { return which === "memory" ? heaviest : busiest }
+  function pickProgram(table, which, index) {
+    var list = topList(which)
+    if (index < 0 || index >= list.length) return
+    selectedProgram = programKey(list[index])
+    selectedPid = -1
+    // As on the tree: the click wrote a row number over the binding. By name
+    // of the list and not the list itself, which is a new array every poll.
+    table.currentRow = Qt.binding(function() { return programRow(topList(which), selectedProgram) })
+  }
+
+  // Every bar is a share of the whole machine — all of its CPU, all of its
+  // memory — so a bar means the same in the lists as in the tree and as on
+  // the cards above. Scaled to the heaviest row instead, the top bar was
+  // always full, and a process using 1 % of the machine looked like it was
+  // using all of it.
+  function cpuShare(value) { return Math.max(0, Math.min(1, Number(value) / 100)) }
+  function memoryShare(value) {
+    var total = Number(memory.total)
+    return total > 0 ? Math.max(0, Math.min(1, Number(value) / total)) : 0
+  }
+
+  // Docker's whale on a container's badge: the name alone is a grey word
+  // that could be anything, and the whale says what kind of thing it is
+  // before the word is read.
+  readonly property string dockerGlyph: "\uf308"
+  function containerCell(name, container) {
+    return { text: name, strong: true, tag: container,
+             tagIcon: container !== "" ? dockerGlyph : "", tagIconColor: Ui.Palette.docker }
+  }
+
+  function percent(value) {
+    var n = Number(value)
+    // A tenth of a percent of sixteen cores is still a process doing
+    // something, and rounding it to 0 % would say it was not.
+    return (n > 0 && n < 0.1 ? "< 0.1" : n.toFixed(1)) + " %"
   }
 
   // Faster than the other pages poll, because this is the one page whose whole
@@ -43,6 +136,8 @@ Ui.SectionBody {
 
       Ui.StatCard {
         Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.preferredWidth: 1
         label: "CPU"
         value: app.processes.cpu !== undefined && app.processes.cpu !== null
           ? app.processes.cpu + " %" : "—"
@@ -90,6 +185,8 @@ Ui.SectionBody {
 
       Ui.StatCard {
         Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.preferredWidth: 1
         label: "Memory"
         value: memory.used !== undefined ? app.formatBytes(memory.used) : "—"
         note: {
@@ -106,14 +203,29 @@ Ui.SectionBody {
         }
       }
 
+      // All three figures at once, as `uptime` and every monitor print them:
+      // the five- and fifteen-minute ones are what say whether the first is a
+      // spike or the way things have been.
       Ui.StatCard {
         Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.preferredWidth: 1
         label: "Load"
-        value: load.one !== undefined ? String(load.one) : "—"
-        // Five and fifteen minutes are what say whether the one-minute figure
-        // is a spike or the way things have been.
-        note: load.five !== undefined
-          ? load.five + " over 5 min · " + load.fifteen + " over 15 min" : ""
+        value: load.one !== undefined
+          ? [load.one, load.five, load.fifteen].map(function(v) { return Number(v).toFixed(2) }).join("  ")
+          : "—"
+        // Three bare decimals mean nothing to someone who has not met a load
+        // average. The note says what they count — tasks — so that the core
+        // count, said in the same unit, is a yardstick they can be held
+        // against: up to one per core, nothing is kept waiting.
+        note: {
+          if (load.one === undefined) return ""
+          var note = "Tasks waiting for the processor over 1, 5 and 15 min."
+          var cores = Number(load.cores)
+          return cores > 0
+            ? note + " With " + cores + " cores, under " + cores + " is fine."
+            : note
+        }
       }
     }
   }
@@ -121,106 +233,173 @@ Ui.SectionBody {
   Ui.SettingGroup {
     title: "Top processes"
 
-    // The sort is the question the reader is asking, so it is a row of
-    // choices rather than a dropdown: three options, all worth seeing at once,
-    // and the answer changes which rows are even on the page.
-    Row {
-      spacing: Style.space(8)
+    // Counted by name, so a browser's twenty processes are one browser — the
+    // question is which program, not which of its helpers.
+    RowLayout {
+      width: parent.width
+      spacing: Style.space(12)
 
-      Repeater {
-        model: [
-          { id: "cpu", title: "CPU" },
-          { id: "memory", title: "Memory" },
-          { id: "name", title: "Name" }
+      Ui.DataTable {
+        id: busiestTable
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
+        columns: [
+          { title: "Process", weight: 1.5 },
+          { title: "CPU", weight: 1.2 }
         ]
-
-        Ui.Chip {
-          required property var modelData
-          text: modelData.title
-          on: app.processSort === modelData.id
-          onClicked: {
-            app.processSort = modelData.id
-            // The sort happens where the rows are read, so the page asks
-            // again rather than reordering the list it already has.
-            app.pollProcesses()
-            selectedProcess = -1
+        currentRow: programRow(busiest, selectedProgram)
+        onActivated: function(index) { pickProgram(busiestTable, "cpu", index) }
+        emptyNote: "Nothing to report."
+        rows: {
+          var out = []
+          for (var i = 0; i < busiest.length; i++) {
+            var p = busiest[i]
+            out.push({ cells: [
+              containerCell(p.name, p.container),
+              { text: percent(p.value), meter: cpuShare(p.value) }
+            ] })
           }
+          return out
+        }
+      }
+
+      Ui.DataTable {
+        id: heaviestTable
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
+        columns: [
+          { title: "Process", weight: 1.5 },
+          { title: "Memory", weight: 1.2 }
+        ]
+        currentRow: programRow(heaviest, selectedProgram)
+        onActivated: function(index) { pickProgram(heaviestTable, "memory", index) }
+        emptyNote: "Nothing to report."
+        rows: {
+          var out = []
+          for (var i = 0; i < heaviest.length; i++) {
+            var p = heaviest[i]
+            out.push({ cells: [
+              containerCell(p.name, p.container),
+              { text: app.formatBytes(p.value), meter: memoryShare(p.value) }
+            ] })
+          }
+          return out
         }
       }
     }
 
-    Ui.DataTable {
-      columns: [
-        { title: "PID", weight: 0.8, align: "right" },
-        { title: "Command", weight: 2.6 },
-        { title: "CPU", weight: 1.2 },
-        { title: "Memory", weight: 1.2 },
-        { title: "Time", weight: 1.1, align: "right" }
-      ]
-      currentRow: selectedProcess
-      emptyNote: "Nothing to report."
-      rows: {
-        var out = []
-        // Both bars are scaled to the heaviest row rather than to an absolute
-        // ceiling. A column of bars is read by comparing it down — which of
-        // these is the heavy one — and against a ceiling of sixteen cores
-        // every bar on an idle machine is a pixel, while the number beside it
-        // says 10 %. The figures are absolute; the bars rank them.
-        var busiest = 0
-        var heaviest = 0
-        for (var h = 0; h < items.length; h++) {
-          busiest = Math.max(busiest, Number(items[h].cpu))
-          heaviest = Math.max(heaviest, Number(items[h].memory))
-        }
-        for (var i = 0; i < items.length; i++) {
-          var p = items[i]
-          out.push({ cells: [
-            { text: p.pid, align: "right" },
-            { text: p.command, strong: true },
-            { text: Number(p.cpu).toFixed(0) + " %",
-              meter: busiest > 0 ? Number(p.cpu) / busiest : 0 },
-            { text: app.formatBytes(p.memory),
-              meter: heaviest > 0 ? Number(p.memory) / heaviest : 0 },
-            { text: p.time, align: "right" }
-          ] })
-        }
-        return out
-      }
-      onActivated: function(index) { selectedProcess = index }
-    }
-
+    // Under the lists, and only once a program is picked. Unlike the tree's,
+    // these can come and go: what they push down is the tree below, not the
+    // row that was just clicked.
+    //
+    // The count is in the label because the row's name does not say it: End
+    // on "brave" is twenty processes, and on a name this window shares with
+    // something else it can be more than the reader meant.
     Row {
+      visible: program !== null
       spacing: Style.space(8)
 
-      readonly property var row: selectedProcess >= 0 && selectedProcess < items.length
-        ? items[selectedProcess] : null
+      Ui.Chip {
+        text: {
+          if (program === null) return ""
+          var n = program.pids !== undefined ? program.pids.length : 0
+          return "End " + program.name + (n > 1 ? " (" + n + " processes)" : "")
+        }
+        onClicked: if (program !== null) app.run(["processes", "end"].concat(program.pids.map(String)))
+      }
+
+      Ui.Chip {
+        text: "Force quit"
+        onClicked: if (program !== null) app.run(["processes", "kill"].concat(program.pids.map(String)))
+      }
+    }
+  }
+
+  Ui.SettingGroup {
+    title: "All processes"
+
+    // Above the tree rather than under it, where the actions on a table
+    // usually go. Under a list this long they are a scroll away from the row
+    // just picked; here they are in sight of it from anywhere in the first
+    // screenful, and the tree only grows downwards.
+    //
+    // Always there, and dimmed until a process is picked. Hidden instead,
+    // picking one brought them in and pushed the whole tree down under the
+    // pointer that had just clicked it.
+    Row {
+      spacing: Style.space(8)
 
       // TERM and not KILL. A process asked to stop can save what it was
       // doing, and a settings window is not the place that decides it may not
       // — so the harder one is a second, separate press rather than the first.
       Ui.Chip {
-        visible: parent.row !== null
-        text: parent.row !== null ? "End " + parent.row.command : "End process"
-        onClicked: {
-          if (parent.row === null) return
-          app.run(["processes", "end", parent.row.pid])
-        }
+        enabled: selected !== null
+        opacity: enabled ? 1 : 0.4
+        text: selected !== null ? "End " + selected.name : "End process"
+        onClicked: if (selected !== null) app.run(["processes", "end", String(selected.pid)])
       }
 
       Ui.Chip {
-        visible: parent.row !== null
+        enabled: selected !== null
+        opacity: enabled ? 1 : 0.4
         text: "Force quit"
-        onClicked: {
-          if (parent.row === null) return
-          app.run(["processes", "kill", parent.row.pid])
-        }
+        onClicked: if (selected !== null) app.run(["processes", "kill", String(selected.pid)])
       }
+    }
 
-      // Everything past "what is heavy" belongs to a tool built for it, and
-      // Omarchy already ships one.
-      Ui.Chip {
-        text: "Open in btop"
-        onClicked: { app.run(["processes", "btop"]); app.hide() }
+    Ui.DataTable {
+      columns: [
+        { title: "PID", weight: 0.7, align: "right" },
+        { title: "Process", weight: 3.2 },
+        { title: "CPU", weight: 1.2 },
+        { title: "Memory", weight: 1.2 }
+      ]
+      id: processTree
+      currentRow: selectedRow
+      emptyNote: "Nothing to report."
+      rows: {
+        // A folded row stands for its whole branch, so it carries the
+        // branch's totals — otherwise folding a terminal would make
+        // everything running in it vanish from the figures as well as from
+        // the list.
+        function cpuOf(p) { return p.parent === true && folded(p.pid) ? p.treeCpu : p.cpu }
+        function memoryOf(p) { return p.parent === true && folded(p.pid) ? p.treeMemory : p.memory }
+
+        var out = []
+        for (var i = 0; i < shown.length; i++) {
+          var p = shown[i]
+          var cpu = Number(cpuOf(p))
+          var mem = Number(memoryOf(p))
+          out.push({ cells: [
+            { text: String(p.pid) },
+            { text: p.name, strong: true, tag: p.container,
+              tagIcon: p.container !== "" ? dockerGlyph : "", tagIconColor: Ui.Palette.docker,
+              tree: { depth: p.depth, lines: p.lines, last: p.last,
+                      folded: p.parent === true ? folded(p.pid) : undefined } },
+            { text: percent(cpu), meter: cpuShare(cpu) },
+            { text: app.formatBytes(mem), meter: memoryShare(mem) }
+          ] })
+        }
+        return out
+      }
+      onActivated: function(index) {
+        if (index >= 0 && index < shown.length) selectedPid = shown[index].pid
+        selectedProgram = ""
+        // The table writes the row it was clicked on into `currentRow`,
+        // which replaces the binding — and a row number goes on pointing at
+        // whatever slides into it, while End and Force quit still act on the
+        // PID. Bound again, the highlight follows the process.
+        processTree.currentRow = Qt.binding(function() { return selectedRow })
+      }
+      onFoldRequested: function(index) {
+        if (index < 0 || index >= shown.length) return
+        var pid = shown[index].pid
+        var next = {}
+        for (var key in folds) next[key] = folds[key]
+        next[String(pid)] = !folded(pid)
+        folds = next
       }
     }
   }

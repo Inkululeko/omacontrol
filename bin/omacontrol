@@ -91,6 +91,9 @@ usage:
   omacontrol compose list | add "<Multi_key> <a> <b>" "text" | remove "<Multi_key> <a> <b>"
   omacontrol agents list | run <agent-id>
   omacontrol plugin self | plugin self-check     (is this window itself behind?)
+  omacontrol plugin poll | plugin site <id>      (what the page reads; the plugin's own repository)
+  omacontrol plugin directory | directory-fetch | directory-refresh
+                                         (what plugins.omarchy.org says: verified, author, hearts)
   omacontrol search                      (every setting the pages declare, for the search box)
   omacontrol bar move <widget-id> left|center|right | bar shift <widget-id> up|down
                  | bar enable|disable <widget-id>   (in or out of the bar, settings and place kept)
@@ -112,9 +115,10 @@ usage:
   omacontrol wifi list | rescan | poll | link | publicip | speedtest | connect <ssid> [password] | disconnect | forget <ssid>
                  | radio on|off | band auto|2.4|5|6
   omacontrol disk poll | breakdown | mount|unmount <device> | trim | snapshot | open <path>
-  omacontrol processes poll [cpu|memory|name] | end|kill <pid> | renice <pid> <nice> | btop
+  omacontrol processes poll | end|kill <pid>... | renice <pid> <nice>
   omacontrol overview poll | toggle nightlight|dnd|awake|dictation | dismiss <id>
-  omacontrol packages poll | refresh | update | snapshot-update | mirrors | clean | orphans | pacnew | log
+  omacontrol packages poll | refresh | fetch | stale | info <name> | update | clean | orphans | pacnew
+                 | remove <name> | pick | site <name> | log
   omacontrol usage poll | refresh [provider]
   omacontrol news poll | fetch | stale | open <url>
   omacontrol about poll | channel <stable|rc|dev> | copy

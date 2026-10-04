@@ -460,8 +460,7 @@ Ui.SectionBody {
         { title: "Version", weight: 1 },
         { title: "Opens on", weight: 1.2 },
         { title: "At login", weight: 1 },
-        { title: "Default for", weight: 1.4 },
-        { title: "", weight: 1 }
+        { title: "Default for", weight: 1.4 }
       ]
       navigable: true
       rowActionLabel: "Open"
@@ -499,8 +498,7 @@ Ui.SectionBody {
             { text: a.version !== undefined && a.version !== null ? a.version : "" },
             { text: a.workspace !== "" ? "Workspace " + a.workspace : "" },
             { text: a.autostart === true ? "Starts" : "" },
-            { text: (a.roles !== undefined ? a.roles : []).join(", ") },
-            { text: a.running === true ? "Running" : "" }
+            { text: (a.roles !== undefined ? a.roles : []).join(", ") }
           ] })
         }
         return out

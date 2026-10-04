@@ -22,9 +22,10 @@ NavRow {
   signal dismissed()
 
   // The action is what Enter does here; dismissing is deliberate, so it is
-  // not on a key that could be leaned on.
-  navKeys: [{ key: "↵", label: notice.actionText }]
-  onNavActivate: notice.triggered()
+  // not on a key that could be leaned on. A notice with nothing to do about it
+  // offers no key at all, rather than a keycap with an empty label on it.
+  navKeys: notice.actionText !== "" ? [{ key: "↵", label: notice.actionText }] : []
+  onNavActivate: if (notice.actionText !== "") notice.triggered()
 
   implicitHeight: Math.max(labels.implicitHeight, controls.height) + Style.space(12)
 

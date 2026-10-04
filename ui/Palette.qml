@@ -32,6 +32,9 @@ QtObject {
   readonly property color bad: urgent
   readonly property color caution: statusHue(0.11)
   readonly property color good: statusHue(0.33)
+  // Docker's blue, the same way: a brand's colour is how its mark is
+  // recognised, and struck from the theme's red it still sits in the theme.
+  readonly property color docker: statusHue(0.57)
   readonly property color muted: shade(0.6)
   readonly property color hairline: shade(0.16)
   readonly property color hover: shade(0.08)
@@ -40,6 +43,12 @@ QtObject {
 
   function shade(alpha) { return Qt.rgba(foreground.r, foreground.g, foreground.b, alpha) }
   function tint(alpha) { return Qt.rgba(accent.r, accent.g, accent.b, alpha) }
+
+  // A surface coloured by what it *says* rather than by what is under it — the
+  // amber box over a kernel arriving. Still the theme's own colour: the ambers
+  // and greens here are its red with the hue moved, and this only decides how
+  // much of one there is.
+  function washOf(colour, alpha) { return Qt.rgba(colour.r, colour.g, colour.b, alpha) }
 
   // ---------------- surfaces ------------------------------------------------
   // Three steps, no more: the window, the rail beside it, and the cards on it.

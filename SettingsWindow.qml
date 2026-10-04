@@ -272,6 +272,83 @@ Item {
     packagesSync.running = true
   }
 
+  // Every installed package — what it costs, why it is here, what version is
+  // on the disk and which repository put it there — asked once when the page
+  // opens rather than on its poll. It is 1339 rows and a read of the sync
+  // databases, and none of it changes between two ticks of a ten-second timer.
+  // The counts and the pending list stay on the poll, where they are cheap.
+  property var packageList: []
+  function pollPackageList() { pollInto(packageListPoll, ["packages", "list"]) }
+  Poller { id: packageListPoll; onParsed: function(value) { root.packageList = value } }
+
+  // One package, read when the reader opens it rather than on the poll. The
+  // list already carries the name, the size and why it is there; the rest —
+  // what it is, where it came from, what would break without it — is only
+  // ever wanted for the one on screen, and asking for all 1339 of them every
+  // ten seconds to have it ready would be the whole local database.
+  property var packageInfo: ({})
+  function pollPackageInfo(name) {
+    if (String(name) === "") { packageInfo = ({}); return }
+    pollInto(packageInfoPoll, ["packages", "info", String(name)])
+  }
+  Poller { id: packageInfoPoll; onParsed: function(value) { root.packageInfo = value } }
+
+  // The Plugins page reports as much as it configures: what each plugin
+  // declares, what it occupies, and what plugins.omarchy.org says about it.
+  // None of that belongs in the state document — a state read happens after
+  // every write anywhere in the window — so the page polls for it, like Disk,
+  // Packages and Apps. `plugins` stays in the document for the Bar page's
+  // widget ids, which is all the Bar page needs.
+  property var pluginsReportLive: null
+  readonly property var pluginsReport: pluginsReportLive !== null ? pluginsReportLive : ({})
+  function pollPlugins() { pollInto(pluginsPoll, ["plugin", "poll"]) }
+  Poller { id: pluginsPoll; onParsed: function(value) { root.pluginsReportLive = value } }
+
+  // What the update cache says: which plugins have a job in flight, how the
+  // last one went, and the verdicts the sweep left behind. Read here rather
+  // than in the page, because a page calls `app` and does not shell out — the
+  // Plugins page was the only one in the window that did.
+  //
+  // Two readers and not one. `pollInto` remembers a single owed command, so a
+  // start sharing a reader with the one-second watch could be overwritten by
+  // the next tick before it ran — the click would spin a spinner and begin
+  // nothing. They share the property they write into, which is the same race
+  // the two processes had and settles on the next tick.
+  property var pluginUpdateCache: ({})
+  function pollPluginUpdates() { pollInto(pluginUpdatesPoll, ["plugin", "updates-cached"]) }
+  function startPluginUpdate(id) {
+    pollInto(pluginUpdateStart, ["plugin", "update", String(id)])
+  }
+  // Both halves of adding one answer with the same document the update does,
+  // so the page takes them in the same way and there is one thing to absorb.
+  function startPluginAdd(url, enable) {
+    pollInto(pluginUpdateStart,
+             ["plugin", "add", String(url), enable ? "enable" : "leave"])
+  }
+  function clearPluginAdd() { pollInto(pluginUpdateStart, ["plugin", "add-clear"]) }
+  Poller { id: pluginUpdatesPoll; onParsed: function(value) { root.pluginUpdateCache = value } }
+  Poller { id: pluginUpdateStart; onParsed: function(value) { root.pluginUpdateCache = value } }
+
+  // The marketplace is the network, so it is asked for and never assumed.
+  // `directory-fetch` compares the cache's age itself and does nothing if the
+  // last answer is under a day old, so the page may ask on open without that
+  // being a request; the Check button is `directory-refresh`, which always
+  // asks. Both go through the same process, so the page shows "Checking…" for
+  // an automatic check exactly as it does for one the reader asked for.
+  property bool pluginDirectorySyncing: false
+  function refreshPluginDirectory() { pluginDirectory("directory-refresh") }
+  function fetchPluginDirectory() { pluginDirectory("directory-fetch") }
+  function pluginDirectory(action) {
+    if (pluginDirectorySync.running) return
+    pluginDirectorySyncing = true
+    pluginDirectorySync.command = ["bash", root.helperPath, "plugin", action]
+    pluginDirectorySync.running = true
+  }
+  Process {
+    id: pluginDirectorySync
+    onRunningChanged: if (!running) { root.pluginDirectorySyncing = false; root.pollPlugins() }
+  }
+
   // Brightness is a reading, not a setting: the media keys and Omarchy's own
   // OSD move it, and on a desktop monitor asking costs a DDC round trip over
   // the video cable. So it is not in the state document — the Displays page
@@ -309,10 +386,7 @@ Item {
 
   property var processesLive: null
   readonly property var processes: processesLive !== null ? processesLive : ({})
-  // Which column the reader is sorting on. The sort happens where the rows
-  // are, so it survives the next poll rather than being reapplied to it.
-  property string processSort: "cpu"
-  function pollProcesses() { pollInto(processPoll, ["processes", "poll", processSort]) }
+  function pollProcesses() { pollInto(processPoll, ["processes", "poll"]) }
   Poller { id: processPoll; onParsed: function(value) { root.processesLive = value } }
 
   // A poll asked for while one is in flight is *owed*, not dropped. Dropped
@@ -323,7 +397,7 @@ Item {
   // had already read the old value — finished.
   //
   // The command is remembered rather than reissued, so a page whose reader
-  // takes an argument (the process sort) re-runs with the argument it asked
+  // takes an argument (the package being looked at) re-runs with the argument it asked
   // for and not the one before it.
   function pollInto(process, argv) {
     var command = ["bash", root.helperPath]
@@ -1306,6 +1380,9 @@ Item {
       case "disk": pollDisk(); return
       case "processes": pollProcesses(); return
       case "packages": pollPackages(); return
+      // Switching one on or off changes the document as well, so this is the
+      // page's own reading and not a substitute for the slices beside it.
+      case "plugin": pollPlugins(); return
       case "apps": pollApps(); return
       case "usage": pollUsage(); return
       case "about": pollAbout(); return
