@@ -106,6 +106,68 @@ and that only works if the figures line up. Actions go *under* the table and
 act on the selected row: five rows each carrying four buttons is twenty
 buttons, nineteen of which are about a row nobody is looking at.
 
+One case earns a button on the row, and a cell can be one
+(`{ action:, id:, actionEnabled: }`, reported through `rowAction`): where
+there is a single thing to do to a row that the row's own columns do not
+already cover. Plugins is the whole of it — Update, in an unheaded last
+column, on the rows with commits waiting. Unheaded because "Update" over a
+column of Update buttons is the same word twice; blank on every other row,
+which is the whole answer for a plugin with nothing to take, since the
+Available column beside it is what says whether that is even known.
+
+**The list and the updates are one table.** There was a "Ready to update"
+section above the list, with its own table of the same plugins and its own
+Update button on each. It read well and it named every waiting plugin twice
+on one page, which is the mistake the Bar page's own rule is written against:
+the reader is left deciding which list to believe, and the section could
+never go away, because a row stayed in it to report what an update had said.
+One table, a chip that narrows it to what is waiting, and the button on the
+row itself. Two consequences worth knowing:
+
+- **What an update said is bounded by the next check.** In a section of its
+  own, "Updated" was the reason the row was there. In the permanent list it
+  is a word about something taken last week, so it stands only until a check
+  goes and asks again — `fresh()` is that bound, and the failure notices
+  under the table use it too.
+- **The hover icons and a cell control want the same corner.** `rowActions`
+  draws over the right end of the row, which is where a button in the last
+  column sits: a table wants one or the other.
+- **A column can belong to one of the lists and not the other.** Five of
+  them are dropped on the built-in list — author, installed, available and
+  the marketplace's two figures. The author is Omarchy thirty-seven times,
+  no built-in manifest declares a version, and while the catalogue does
+  carry figures for Omarchy's own widgets, the stars are the one
+  repository's on every row and the hearts count something nobody chose to
+  install. Headings and cells drop together, or every figure after the gap
+  lines up under the wrong word — and `columnWidth` returns 0 for a column
+  that is not there, since the two bindings do not change on the same frame.
+- **The switch is last, hard against the edge, and the button before it.**
+  Of the things on a row, the switch is the only one that acts on the spot;
+  Update hands off to a job that closes the window, and everything else is
+  a reading. So the end of the row, where a hand reaches, belongs to it.
+- **Adding one is a header chip, not a row under the list.** "Add a plugin"
+  sits beside "Check for updates", the pair reading the way Apps offers
+  "New web app" and "New TUI": making a new thing is about the page, not
+  about any row in it, and it was the last row of a list you had to scroll
+  to the bottom of to find.
+
+**A switch in the cell, not a word and an icon.** State was the word "On"
+and, on hover, a power icon somewhere else on the row — the same fact and
+the same action, in two places, neither of them the other. It is one
+`{ toggle: true, on:, id: }` cell now, under the heading that was already
+about it, at the size the switch is everywhere else in the window. The gear
+beside it went too: the whole row already opens the plugin, so the icon was
+an affordance for something the row does anyway. What survives in words is
+the row that cannot be switched — "Always on" is why nothing moves, which is
+the one thing a dead switch cannot say for itself.
+
+⏎ on such a row still *opens* it rather than pressing the button — the row's
+key is also the mouse's click on it, and a stray click that reloads the
+shell's plugins is not a mistake a page gets to make for the reader. What the
+button cannot say is left underneath: a failed update is upstream's own
+sentence, four hundred characters of it, and a column wide enough for that is
+a column of blanks the rest of the time.
+
 **The Overview toggles are tiles, and a filled tile is on.** Four across, each
 with a round icon badge and its switch on one line and the name and state
 under them. Not rows: the question these answer is *which of these are on right
@@ -187,6 +249,39 @@ comments and the README.
 connected right now" tells the reader nothing the heading and the rows did not.
 A note earns its place by adding a fact you cannot see: that an uninstalled app
 gets set up when you pick it, that a bar widget still needs a slot in the bar.
+
+**A note is not a legend, and a column heading is not a thing to be
+explained.** The Plugins table grew a hearts column and a stars column, and
+under the heading went:
+
+> ♥ is its readers' hearts and ★ its GitHub stars — neither is anything this
+> machine did. Last asked 15 min ago.
+
+A heart with 221 under it is already a number of hearts. Three lines went on
+telling the reader what they had just finished reading, and the one fact the
+table genuinely could not show — that every figure in it came off a cache
+fetched fifteen minutes ago — was tacked on the end where it read as an
+afterthought. What survived is the tick, which is ambiguous (verified? enabled?
+up to date?), and the timestamp. Two facts, one line.
+
+The test is the same one a row has to pass: **what does this say that is not
+already on screen?** If the answer is "what that column means", either the
+heading is wrong or the note should not exist. If it is "when this was true",
+"where it came from", or "what pressing this will do", write *that* and stop.
+
+That note is now gone altogether, and with it the one fact it was kept for:
+the page no longer says when the marketplace was last asked. The tick needs
+no legend — it turns up beside a name in the table and beside the name in
+the plugin's own page header, which is what a badge is for — but if the
+staleness of those figures is worth saying, it wants somewhere of its own
+rather than a sentence under a heading.
+
+**Never write a disclaimer nobody asked for.** "— neither is anything this
+machine did" defends against a misreading no reader was going to make, and a
+sentence that exists to forestall a misunderstanding creates one: the reader
+stops to wonder why it needed saying. The same goes for anything that opens by
+telling the reader what a thing is *not*, and for "note that", "keep in mind"
+and "this is not a substitute for". Say what is true and let it stand.
 
 **Don't repeat state that is visible below.** The header says whether Bluetooth
 is on, not which devices are connected, and the Wi-Fi switch does not name the

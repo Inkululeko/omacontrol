@@ -6,7 +6,7 @@ allowed-tools: Bash(cd:*), Bash(.claude/skills/omacontrol-testing/scripts/shot.s
 
 Capture the window:
 
-!`cd "$CLAUDE_PROJECT_DIR" && .claude/skills/omacontrol-testing/scripts/shot.sh "$ARGUMENTS"`
+!`cd "${CLAUDE_PROJECT_DIR:-$PWD}" && .claude/skills/omacontrol-testing/scripts/shot.sh "$ARGUMENTS" || true`
 
 If it says the window is not open, open it with `omarchy-shell omacontrol show`
 and try again. Then read the image and describe what is on it.

@@ -4,7 +4,7 @@ argument-hint: "capture | compare"
 allowed-tools: Bash(cd:*), Bash(.claude/skills/omacontrol-testing/scripts/state-diff.sh:*), Read
 ---
 
-!`cd "$CLAUDE_PROJECT_DIR" && .claude/skills/omacontrol-testing/scripts/state-diff.sh "$ARGUMENTS"`
+!`cd "${CLAUDE_PROJECT_DIR:-$PWD}" && .claude/skills/omacontrol-testing/scripts/state-diff.sh "$ARGUMENTS" || true`
 
 Before refactoring anything in `lib/`, run `/state-diff capture`. Afterwards run
 `/state-diff compare`: the document should be identical once the volatile

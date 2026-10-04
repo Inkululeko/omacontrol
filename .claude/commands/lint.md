@@ -5,11 +5,11 @@ allowed-tools: Bash(cd:*), Bash(omarchy plugin validate:*), Bash(bash -n:*), Bas
 
 Manifest and shell syntax:
 
-!`cd "$CLAUDE_PROJECT_DIR" && (command -v omarchy >/dev/null && omarchy plugin validate . || echo "omarchy not on PATH"); for f in bin/omacontrol bin/omacontrol-migrate lib/*.sh; do bash -n "$f" || echo "FAILED: $f"; done; echo "bash -n: $(ls lib/*.sh | wc -l) modules + 2 scripts checked"`
+!`cd "${CLAUDE_PROJECT_DIR:-$PWD}" && (command -v omarchy >/dev/null && omarchy plugin validate . || echo "omarchy not on PATH"); for f in bin/omacontrol bin/omacontrol-migrate lib/*.sh; do bash -n "$f" || echo "FAILED: $f"; done; echo "bash -n: $(ls lib/*.sh | wc -l) modules + 2 scripts checked"`
 
 Qt 6 qmllint:
 
-!`cd "$CLAUDE_PROJECT_DIR" && .claude/skills/omacontrol-testing/scripts/lint-qml.sh 2>&1 | tail -25`
+!`cd "${CLAUDE_PROJECT_DIR:-$PWD}" && .claude/skills/omacontrol-testing/scripts/lint-qml.sh 2>&1 | tail -25 || true`
 
 Summarise what is wrong, if anything. The four expected classes of qmllint
 finding are counted rather than listed — a change in those counts is worth a

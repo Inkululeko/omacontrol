@@ -27,6 +27,12 @@ three — `overview`, `disk`, `processes`, `packages`, `apps`, `usage`, `news`
 and `about`, plus `workspaces` and `display`, which are not reporting pages but
 have the same property: what they change is not in the document.
 
+`plugin` is the one that polls *and* keeps its slices. Switching a plugin on
+changes `plugins` in the document, so it is not in `slicesSuffice`; what the
+page reads about each plugin — its manifest, its size, what the marketplace
+says — is a poll of its own. `pollFor` runs beside the slices rather than
+instead of them. See `.claude/rules/bar-and-plugins.md`.
+
 **Overview keeps no state of its own.** Every switch on it is Omarchy's —
 night light, do not disturb, stay awake, dictation — asked on the poll and
 relayed on the flip, side effects and all. Reading and flipping are not always
@@ -173,10 +179,49 @@ between two reads a fifth of a second apart. For the process list it is `top -b
 and would rank the browser that pinned a core an hour ago above the one doing
 it now.
 
-**A per-process CPU figure is a share of one core.** `top` calls a thread using
-a whole core 100 %, which on sixteen cores is 6 % of the machine. The bars in
-the table are scaled by the core count so they mean the same thing as the CPU
-card above them.
+**A per-process CPU figure is a share of the machine.** `top` calls a thread
+using a whole core 100 %, which on sixteen cores is 6 % of the machine, so
+`processes_cpu_by_pid` divides by the core count — the way btop shows it, and
+the way the CPU card above means it, so the two are on the same scale. The
+bars are on that scale too — CPU against the whole machine, memory against all
+of it — and not against the heaviest row, which kept the top bar full whatever
+it was using. They do
+not add up to it: the card is a different fifth of a second, counts kernel
+time, and includes the poll's own `top`, which the list leaves out.
+
+**The top ten are counted by name and container, the tree by process.** Twenty
+browser helpers are one browser in "Top processes", because the question there
+is which program. The name is resolved the way the Omatop bar widget does it —
+`MainThread` and a Nix `.foo-wrapped` are named by their first real argument — and grouping by the
+container as well keeps the Node inside a container apart from the Node
+outside it. Containers are found by cgroup scope, and `docker ps` is only
+asked when a scope exists, so a machine with nothing running never wakes the
+daemon. `ps` is read in fixed-width columns because a command name can hold a
+space.
+
+**Always ten rows, even on an idle machine.** Over a fifth of a second only
+three or four processes register any CPU, and a list that was three rows one
+poll and seven the next moved the whole tree under it every two seconds. The
+rest of the ten are ranked by lifetime CPU time — `ps`'s figure, wrong for
+"now" and right for breaking a tie at zero.
+
+**The tree is in PID order, and the kernel's threads start folded.** It is
+re-read every two seconds, and a row that jumps whenever its CPU does cannot
+be clicked — the two lists above it are what rank. A folded row carries its
+branch's totals — summed RSS, so shared pages count once per process, as in
+btop — or folding a terminal would take everything running in it out
+of the figures as well as out of the list. The selection is held by PID, not
+by row, because processes come and go above the one picked. `kthreadd`'s three
+hundred rows of zeros fold into one by default, as btop scrolls past them.
+
+**The table's rows are slots that outlive a poll.** `DataTable` once handed the
+row array straight to its Repeater, which rebuilt every row on every change —
+and every row's `NavCursor` re-registered with the window, which copies and
+re-sorts its row list per registration. A six-hundred-row tree re-read every
+two seconds would have paid all of that on every poll. Rows are now a `ListModel` of slots that
+only grow or shrink at the end, cells are keyed by column, the cursor is only
+loaded into a navigable table, and the switch and button only into a cell that
+holds one.
 
 ## A poll asked for during a poll is owed
 
@@ -187,7 +232,7 @@ headline read and the store is written at once, while the star stays put for
 another five seconds because the poll that would have noticed was refused, and
 the timer's own poll had already read the old value. The *command* is
 remembered rather than merely a flag, so a reader that takes an argument (the
-process sort) re-runs with the argument it was asked for.
+package being looked at) re-runs with the argument it was asked for.
 
 This is the same shape as `refreshOwed` and `sliceOwed` on the state read, and
 for the same reason.
@@ -198,15 +243,56 @@ for the same reason.
 `packages`, `usage` and `about` follow the Disk and Processes pattern — poll,
 never in the state document — with one addition each:
 
-**Packages separates cheap from networked.** Counting what is installed is four
-`pacman -Qq` calls and costs nothing, so it polls. Knowing what is *available*
-is a database sync, so it is a button, cached, and the page says when it last
-ran. `checkupdates` covers repositories only; an AUR-heavy machine would be
-told it was up to date while a dozen packages waited, so `yay -Qua` is asked
-too, behind the same `omarchy-pkg-aur-accessible` gate Omarchy's own updater
-uses. Sizes come from `expac -S '%n\t%k'` — the name has to come back with the size
-or there is nothing to key it by — 184 packages in a sixth of a second,
-which is why there is no excuse for showing a count without its weight.
+**Packages separates cheap from networked.** What is installed, how much room
+it takes and why each package is there is *one* read — `expac -Q '%m\t%w\t%n'`,
+all 1339 in twenty milliseconds — so the counts, the total on disk and the
+list of the biggest all come off it and it polls. That replaced four
+`pacman -Qq | wc -l` calls that answered less. Knowing what is *available* is a
+database sync, so it is a button, cached, and the page says when it last ran.
+`checkupdates` covers repositories only; an AUR-heavy machine would be told it
+was up to date while a dozen packages waited, so `yay -Qua` is asked too,
+behind the same `omarchy-pkg-aur-accessible` gate Omarchy's own updater uses.
+Download sizes come from `expac -S '%n\t%k'` — the name has to come back with
+the size or there is nothing to key it by — 184 packages in a sixth of a
+second, which is why there is no excuse for showing a count without its weight.
+
+**Without expac there are no sizes, and the page says nothing rather than
+zero.** The fallback knows the names and not the bytes, and a list of forty
+packages each reading "0 B" answers "what is taking the room" wrongly instead
+of declining to answer. `largest` comes back empty, and the section goes.
+
+**The one package the reader opened is its own read.** `packages info <name>`
+is asked when a row is opened, never on the poll: the list already carries the
+name, the size and the reason, and the rest — what it is, what needs it — is
+only ever wanted for the one on screen. The drill-in is the Apps page's shape,
+carried by `headerTitle` / `headerBack` / `headerBackTriggered`, so it needs no
+route of its own.
+
+**A header note is not the place for someone else's prose.** The window draws
+it as a bare `Text` on the page title's baseline — no width, no elide, and
+nothing clipping between it and the panel edge. That is right for the short
+qualifiers the pages author themselves ("running now"), and wrong for a
+package description: ninety-two of the 1339 here run past eighty characters
+and would paint out through the side of the window. It goes in the group's
+`note`, which has a width and wraps.
+
+**`omarchy-update` must have a terminal, and it is the one command here that
+hangs rather than fails without one.** It re-execs under `script` and then
+asks `gum confirm`; detached, that prompt is drawn into a pty nobody is
+attached to and waits for a keypress that can never come — so the update sits
+for ever holding the Omarchy update lock and every later update is told one is
+already running. `omarchy-launch-floating-terminal-with-presentation`, exactly
+as the bar's own update widget and the Omarchy menu do it. There is no
+snapshot button beside it either: `omarchy-update` takes one itself, after
+pruning the cache, because the cache is on the snapshotted subvolume and
+pruning afterwards frees nothing until that snapshot ages out.
+
+**The removal picker offers what you chose, not everything.**
+`omarchy-pkg-remove` builds its finder from `yay -Qqe` — 238 packages here,
+not 1339 — so the row that opens it says "the ones you chose". The table above
+it lists dependencies too, on purpose, since a 928 MB dependency is still the
+answer to where the room went; promising the picker would find one is the kind
+of copy that sends a reader looking for something that was never there.
 
 **Agent usage computes nothing.** `omarchy-agent-usage-<provider>` already
 collects the whole picture — local transcripts, the provider's authoritative

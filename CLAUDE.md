@@ -93,7 +93,7 @@ setting:
 | --- | --- |
 | Windows, Layout, Effects, Groups, Keyboard, Mouse & touchpad, Workspaces | `~/.config/hypr/omacontrol.lua`, loaded last (`omacontrol.conf` on a `.conf` setup) |
 | Appearance | Omarchy's own config, via `omarchy-theme-set`, `omarchy font set`, `omarchy display text size` |
-| Bar, Idle & Lock, Plugins | `~/.config/omarchy/shell.json` |
+| Bar, Idle & Lock, Plugins | `~/.config/omarchy/shell.json` (Plugins also *reads* plugins.omarchy.org, cached) |
 | Keybindings | a marked block in `~/.config/hypr/bindings.lua` |
 | Compose Keys | `~/.XCompose` |
 | Herdr, Tmux, Neovim | their own configs, edited in place |
@@ -140,8 +140,26 @@ without performing one, read `render_managed_lua`.
 | `qml.md` `navigation.md` `design.md` `search.md` | anything the reader sees or types at |
 | `migration.md` | `bin/omacontrol-migrate` |
 
-A path-scoped rule fires when Claude **reads** a matching file. If you are
-editing through shell tools instead, open the rule yourself first.
+A path-scoped rule fires when Claude **reads** a matching file with the Read
+tool. **`sed`, `cat`, `python3` and a heredoc do not count**, and that is not a
+detail: in bypass-permissions mode the harness asks for shell tools by
+preference, so every rule in that table silently stops being delivered exactly
+when the most code is being written fastest.
+
+It has already cost something. `design.md` has said "a note earns its place by
+adding a fact you cannot see" since before the Plugins page was rewritten; the
+rewrite went in through `python3` heredocs, the rule never loaded, and the
+table shipped with three lines of legend explaining a heart icon to the reader.
+
+So: **before the first edit to a path in that table, `cat` the rules it names**
+— not after, and not only when something feels uncertain. The rules exist
+because these mistakes are not the kind that feel uncertain while you are
+making them. Two in particular do not announce themselves:
+
+- `design.md` for anything with a word of user-facing copy in it. Notes,
+  descriptions, headings, chip labels, empty states.
+- `shell.md` for anything in `lib/`, for the `pipefail` and `index(.)` traps
+  that pass every test run by hand.
 
 `.claude/skills/` — `omacontrol-testing` (verify a change in the running
 shell), `omacontrol-new-page` (add a page end to end), `omacontrol-setting`

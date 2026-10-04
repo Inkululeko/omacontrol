@@ -92,13 +92,27 @@ believe.
 
 ## The Plugins page
 
-Add and remove hand off to the Omarchy flows in a terminal, because both ask
-questions and print what they did. **Update does not.** `omarchy-plugin-update
-<id> --yes` is entirely non-interactive — the diff and the confirm are the half
-`--yes` skips — and a terminal opening over this window was the whole of what
-that bought. So the row does the asking instead: how many commits are coming,
-and what the first three of them say, read off the same `FETCH_HEAD` the count
-came from, at no extra network cost.
+Removing hands off to the Omarchy flow in a terminal, because it asks what
+else goes and prints what it deleted. **Update and add do not.**
+`omarchy-plugin-update <id> --yes` is entirely non-interactive — the diff and
+the confirm are the half `--yes` skips — and a terminal opening over this
+window was the whole of what that bought. So the row does the asking instead:
+how many commits are coming, and what the first three of them say, read off
+the same `FETCH_HEAD` the count came from, at no extra network cost.
+
+`omarchy-plugin-add <url> --yes [--enable]` is the same: it prompts only for
+what it was not given, so a form can give it everything and get nothing back.
+What that flow asked for was a git URL, whether to enable it, and a
+confirmation of the warning — and the warning is the one part that was not
+ceremony, so the form carries it in the window's own words, above the button
+it is about, and the page defaults the switch on the way `gum confirm` did.
+Two things are the window's to say rather than upstream's: on success,
+because upstream signs off with "Enable it later with: omarchy plugin enable
+x", which is a command to type at someone who has just pressed a button; and
+on failure, where every one of Omarchy's scripts leads with its own name and
+the notice already has a heading. The id for the sentence is taken off the
+"Added <id> into <path>" line, and falls back to "it" if upstream ever
+rewords that.
 
 **A plugin cannot update another plugin and stay on screen.** The shell watches
 `~/.config/omarchy/plugins` with `inotifywait -m -r` and calls
@@ -113,7 +127,14 @@ things follow, and they are the design rather than a workaround:
 - **The update is detached** (`setsid`, re-entering as `plugin update-run`).
   A child of the window would be killed part-way through its own merge.
 - **It reports into the cache, not up its own stdout.** `running` says a
-  spinner is owed, `last` says how it went. The page polls while something is
+  spinner is owed, `last` says how it went — and `adding`/`lastAdd` are the
+  same pair for an add, singular because there is no id to key one by until
+  the clone has been read. An add is subject to all of this too: the clone
+  lands *inside* the watched directory, as `.add.tmp.$$` before it is even a
+  plugin, so the window goes before git has finished. The exception is a URL
+  refused before anything is written — `omarchy-git-url-check` answers in
+  milliseconds and nothing reloads — which is why the page keeps watching
+  the cache rather than assuming it is about to be torn down. The page polls while something is
   in flight and picks up an update already running when it is built again, so
   the answer waits for the window to come back rather than dying with it. The
   page says up front that it will close, because it will.
@@ -137,5 +158,76 @@ The window is a plugin too, and says so in its own corner when it is behind:
 the cached verdict draws it at once and a single background fetch corrects it
 a moment after opening. The comparison is `omarchy-plugin-update`'s own — fetch
 `origin HEAD`, count `HEAD..FETCH_HEAD` — on purpose, so the count never
-promises an update the button then refuses to make.
+promises an update the button then refuses to make. The same `FETCH_HEAD`
+gives the **version upstream is calling itself** (`git show
+FETCH_HEAD:manifest.json`), at no second round trip, which is what the
+Available column shows. Not the marketplace's listed version: the listing is
+what was submitted, and this is what the Update button would install.
+
+**A directory is not a plugin.** The sweep walks
+`~/.config/omarchy/plugins`, and `omarchy plugin remove` leaves what it
+removed beside the others as `.<id>.bak.<stamp>` — a git checkout with a live
+remote. So every sweep spent a fetch on it, and the count of plugins with an
+update included one no row on the page offered. Both the sweep and the local
+read skip hidden directories, and the page counts updates over the *plugins*
+rather than over the sweep's answers.
+
+## What the page reads, and where from
+
+The page has three sources and they are deliberately separate:
+
+- **`plugins` in the state document** — id, name, kinds, `enabled`,
+  `canDisable`, `firstParty`. The Bar page needs the widget ids, so this stays
+  where it is, and it stays small.
+- **`plugin poll`** — what each plugin's own manifest declares (version,
+  author, licence, description) and what it occupies on disk. A local read, on
+  the page's own timer, never in the state document: a state read happens after
+  every write anywhere in the window. Sizes are `du -sbL`, held to the *read*
+  timeout rather than the walk budget — a plugin is a few hundred kilobytes,
+  and a du that cannot answer in five seconds should leave the column empty
+  rather than hold the poll open.
+- **`plugin directory-fetch` / `directory-refresh`** — what
+  plugins.omarchy.org says.
+
+## The marketplace lookup
+
+Who wrote a plugin and whether anyone has reviewed it cannot be answered on
+the machine. Two sources answer it, and both are the network:
+
+| Source | Holds |
+| --- | --- |
+| `https://plugins.omarchy.org/catalog.json` | author, version, category, licence, `verificationStatus`, GitHub stars, repo URL, and `status` — the catalogue's own word for whether the plugin still installs |
+| `https://api.omarchyplugins.com/v1/stats` | hearts, views, copies |
+
+Both are overridable (`OMACONTROL_PLUGIN_CATALOG_URL`,
+`OMACONTROL_PLUGIN_STATS_URL`), and the reduced answer is cached at
+`OMACONTROL_PLUGIN_DIRECTORY`.
+
+- **The catalogue is nine megabytes describing three and a half thousand
+  plugins**, of which a machine has twenty. It is asked for compressed,
+  streamed through `jq`, and reduced to those twenty before any of it is kept
+  — thirteen kilobytes on disk. The byte ceiling is there to stop a redirect to
+  something enormous, not to police the catalogue's growth: past it the read
+  truncates, jq refuses the fragment, and the last good answer stands. Every
+  failure here is the same shape — a request that did not arrive leaves the
+  previous answer rather than reporting every plugin unlisted.
+- **The match is the plugin's id and nothing else.** The id is the manifest's,
+  the directory is named after it, and the catalogue read that same manifest,
+  so the join is exact by construction. Matching a fork on its *remote* was
+  considered and rejected: a fork that changed its id is genuinely not the
+  listed plugin, and handing it someone else's verification is the one mistake
+  a badge like this must not make.
+- **`ids` records who the last check asked about.** Without it there is no
+  telling a plugin the catalogue does not have from one installed since the
+  check — and the page would call the second unlisted for a day, which is
+  exactly when someone wants to know whether what they just installed is
+  verified. So `directory-fetch` refreshes on age *or* on a plugin it has never
+  looked up.
+- **Nothing is ever sent.** The stats API takes a POST and the website's heart
+  button uses it; this page reads the counts and does not offer one. A number
+  read from a public endpoint is one thing; an event sent from someone's
+  desktop to a third party on a click is another, and the browser is where that
+  belongs.
+- **Null is not zero.** A plugin nobody has hearted and one nobody has looked
+  up are different answers; the second is a dash.
 
