@@ -120,7 +120,7 @@ usage:
                  | radio on|off | band auto|2.4|5|6
   omacontrol disk poll | breakdown | mount|unmount <device> | trim | snapshot | open <path>
   omacontrol processes poll | end|kill <pid>... | renice <pid> <nice>
-  omacontrol overview poll | toggle nightlight|dnd|awake|dictation | dismiss <id>
+  omacontrol overview poll | switches | watch | toggle nightlight|dnd|awake|dictation | dismiss <id>
   omacontrol packages poll | refresh | fetch | stale | info <name> | update | clean | orphans | pacnew
                  | remove <name> | pick | site <name> | log
   omacontrol security poll              (the firewall's open ports, what is behind them, and how you sign in)

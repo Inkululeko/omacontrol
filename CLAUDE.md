@@ -12,7 +12,7 @@ the window on first use.
 
 ```
 manifest.json          Plugin manifest — id, kinds, entry point
-Panel.qml              The bar gear; forwards show/hide/toggle to the service
+Panel.qml              The bar button; forwards show/hide/toggle to the service
 Service.qml            Owns the window (loaded on first use), the `omacontrol`
                        IPC target, and the launcher entry
 SettingsWindow.qml     Window chrome, sidebar, page routing, and the state

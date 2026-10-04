@@ -118,8 +118,12 @@ overview_attention() {
 # cannot find out any other way — a Bluetooth peripheral does not warn you, it
 # just stops. upower knows, because BlueZ tells it.
 #
-# 20 % is the threshold: low enough not to nag, high enough that there is time
-# to do something before the device drops off mid-sentence.
+# 10 % is the threshold, here and on the badge on the bar's gear, which reads
+# this same list: one answer everywhere. Low enough that it never nags about a
+# device with days left in it, and still minutes before it drops off
+# mid-sentence.
+OVERVIEW_PERIPHERAL_LOW=10
+
 overview_low_peripherals() {
   local devices
   devices=$(capture upower -e | grep -E '/(mouse|keyboard|headset|headphones|pen|touchpad)_')
@@ -131,12 +135,13 @@ overview_low_peripherals() {
     info=$(capture upower -i "$device")
     percent=$(awk '/percentage:/ { gsub(/%/, "", $2); print $2; exit }' <<<"$info")
     [[ -n ${percent:-} ]] || continue
-    [[ ${percent%%.*} -lt 20 ]] 2>/dev/null || continue
+    [[ ${percent%%.*} -lt $OVERVIEW_PERIPHERAL_LOW ]] 2>/dev/null || continue
     model=$(awk -F': +' '/model:/ { print $2; exit }' <<<"$info")
     [[ -n ${model:-} ]] || model="A Bluetooth device"
     out+=("$(jq -cn --arg model "$model" --argjson percent "${percent%%.*}" \
       '{ kind: "peripheral",
          id: ("peripheral:" + $model),
+         device: $model, percent: $percent,
          title: ($model + " is at " + ($percent | tostring) + " %"),
          note: "Charge it before it drops off Bluetooth.",
          action: "bluetooth", actionLabel: "Open Bluetooth" }')")
@@ -230,9 +235,103 @@ overview_state() {
        uptime: $uptime, updates: $updates, news: $news }'
 }
 
+# The three switches the bar's gear counts, from the same readers the page
+# uses, so the badge and the page cannot disagree. Dictation is not one: it is
+# on only while someone is speaking, and the bar has its own recording mark.
+overview_switches() {
+  local nightlight dnd awake
+  nightlight=$(overview_nightlight)
+  dnd=$(overview_dnd)
+  awake=$(overview_stay_awake)
+  jq -cn --argjson n "$(emit_json "$nightlight" '{}')" --argjson d "$(emit_json "$dnd" '{}')" \
+    --argjson a "$(emit_json "$awake" '{}')" \
+    '{ nightlight: ($n.on == true), dnd: ($d.on == true), awake: ($a.on == true) }'
+}
+
+# Whether this machine is on a network at all. NetworkManager's own state
+# rather than the Wi-Fi radio's: a docked laptop on a cable has no Wi-Fi and is
+# online, and saying otherwise would be a false alarm every day it is docked.
+# Null when NetworkManager is not there to ask, which is not the same as
+# offline.
+overview_online() {
+  command -v nmcli >/dev/null 2>&1 || { printf null; return; }
+  local state
+  state=$(capture nmcli -t -g STATE general)
+  [[ -n $state ]] || { printf null; return; }
+  [[ $state == connected* ]] && printf true || printf false
+}
+
+overview_live() {
+  local switches online low
+  switches=$(overview_switches)
+  online=$(overview_online)
+  low=$(overview_low_peripherals)
+  jq -cn --argjson s "$(emit_json "$switches" '{}')" --argjson online "${online:-null}" \
+    --argjson low "$(emit_json "$low" '[]')" \
+    '$s + { online: $online, lowDevices: [ $low[] | { name: .device, percent } ] }'
+}
+
+# The switches and the connection as they change, one line each time, for as
+# long as the bar is up. Plugins other than a whole bar are not given
+# Omarchy's services, so the gear cannot bind to them the way the bar's own
+# indicators do.
+#
+# Stay awake and do not disturb are files under Omarchy's state directory,
+# NetworkManager reports its own changes, and UPower signals a Bluetooth
+# device's battery moving, so any of those wakes this at once. UPower also
+# signals the laptop's own battery, about once a minute on battery power; a
+# read is twenty milliseconds, so that is not worth filtering.
+# Night light is a temperature held by hyprsunset with no file behind it, so
+# it is asked again every fifteen seconds — one hyprctl call, and only a
+# change is ever printed.
+OVERVIEW_SWITCHES_RECHECK=15
+
+overview_watch() {
+  local state="$HOME_DIR/.local/state/omarchy" last next line rc checked=$SECONDS
+  mkdir -p "$state/indicators" 2>/dev/null
+  last=$(overview_live)
+  printf '%s\n' "$last"
+
+  local reader=$$
+  {
+    local pids=()
+    trap 'kill "${pids[@]}" 2>/dev/null' EXIT
+    # Files arrive tagged, so anything untagged is NetworkManager or UPower.
+    inotifywait -q -m -e create,delete,close_write,moved_to --format 'file:%f' \
+      "$state/indicators" "$state" 2>/dev/null & pids+=($!)
+    # nmcli holds its output in a block buffer when it is writing to a pipe,
+    # exactly as head did.
+    command -v nmcli >/dev/null 2>&1 \
+      && { stdbuf -oL nmcli monitor 2>/dev/null & pids+=($!); }
+    command -v gdbus >/dev/null 2>&1 \
+      && { gdbus monitor --system --dest org.freedesktop.UPower 2>/dev/null & pids+=($!); }
+    # Nothing here notices the bar going away until the next event, which may
+    # be hours off, so the reader is watched instead.
+    while kill -0 "$reader" 2>/dev/null; do sleep 2; done
+  } | while :; do
+        read -r -t "$OVERVIEW_SWITCHES_RECHECK" line; rc=$?
+        # End of input is the watcher gone; anything over 128 is the timeout.
+        (( rc != 0 && rc <= 128 )) && break
+        # The state directory is shared with the clipboard history and a dozen
+        # others, so only these two names are worth a read — unless night
+        # light is due anyway.
+        if (( rc == 0 )) && [[ $line == file:* && $line != file:stay-awake \
+              && $line != file:notifications.json ]] \
+           && (( SECONDS - checked < OVERVIEW_SWITCHES_RECHECK )); then
+          continue
+        fi
+        while read -r -t 0.2 _; do :; done
+        checked=$SECONDS
+        next=$(overview_live)
+        [[ $next != "$last" ]] && { printf '%s\n' "$next"; last=$next; }
+      done
+}
+
 overview_cmd() {
   case ${1:-state} in
     state|poll) overview_state ;;
+    switches) overview_switches ;;
+    watch) overview_watch ;;
     # The command that owns a switch is the one that flips it, side effects
     # and all: starting hyprsunset, telling the bar to redraw its indicator.
     toggle) shift
@@ -248,7 +347,7 @@ overview_cmd() {
     # wants it gone now rather than never mentioned again.
     dismiss) shift; [[ -n ${1:-} ]] || die "usage: omacontrol overview dismiss <id>"
       overview_dismiss "$1" ;;
-    *) die "usage: omacontrol overview state|poll|toggle <switch>|dismiss <id>" ;;
+    *) die "usage: omacontrol overview state|poll|switches|watch|toggle <switch>|dismiss <id>" ;;
   esac
 }
 

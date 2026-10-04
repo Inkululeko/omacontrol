@@ -22,7 +22,7 @@ launcher entry was deleted, and a hotkey bound to it stopped working.
 
 So `Service.qml` holds the window, its `Loader` and the `IpcHandler`; the
 shell keeps a service alive for as long as the plugin is enabled, however it
-was enabled. `Panel.qml` is only the gear: it looks the service up through
+was enabled. `Panel.qml` is only the button: it looks the service up through
 `bar.shell.serviceFor()` and forwards to it, keeping `open`/`close`/`opened`
 so `Bar.findPanelWidget` still routes `shell summon` through it. One window
 also means one window on a two-monitor setup, where each bar instance used to
@@ -30,6 +30,38 @@ carry its own.
 
 The shell tears services down on `reloadPlugins()` as well as widgets, so the
 Plugins page's summon-back dance below is still needed.
+
+## The count on the gear
+
+The gear carries a badge counting which of the Overview page's switches are
+on — night light, do not disturb, stay awake — and its tooltip names them.
+With no network at all the badge shows Wi-Fi-off instead, and a click opens
+the window on the Network page. "No network" is NetworkManager's overall
+state, not the Wi-Fi radio's: a docked laptop on a cable has no Wi-Fi and is
+online, and a mark there would be a false alarm every day it is docked.
+Below that, the laptop's own battery, by Omarchy's rule for its "Time to
+recharge!" warning — present, on battery, discharging, at 10 % or under — shows
+a battery-alert mark and the click opens the Power page. That one is read from
+Quickshell's UPower module in `Panel.qml`, as Omarchy's battery service reads
+it: the module is live and not gated, so it needs no watcher. Below that, a
+Bluetooth device under 10 % shows the Bluetooth variant of the mark and the
+click opens the Bluetooth page. The list is the Overview page's own
+"nearly flat" notices, so the page and the badge share one threshold;
+UPower signals each level change, so it costs an idle `gdbus monitor` and no
+polling. AirPods are not on it: their battery comes from Apple's own
+broadcast, which OmaPods reads and UPower never sees.
+
+It cannot read them the way the bar's own indicators do. Omarchy hands its
+idle, night-light and notification services only to a plugin that replaces
+the whole bar or declares itself a clone of `omarchy.indicators`;
+`firstPartyServiceFor` returns `null` to anyone else, quietly. Declaring the
+clone would be untrue, so `Service.qml` runs `overview watch`
+instead: one watcher however many bars there are, running only while a gear
+has said it is there. Stay awake and do not disturb are files under
+`~/.local/state/omarchy`, `nmcli monitor` reports the connection and UPower
+the batteries, so those wake it at once; night light has no file behind it and is asked again every
+fifteen seconds. Dictation is not counted: it is
+on only while someone is speaking, and the bar shows its own mark then.
 
 ## The launcher entry
 

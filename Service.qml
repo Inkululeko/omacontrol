@@ -60,6 +60,48 @@ Scope {
     else show()
   }
 
+  // ---------------- the gear's badge -----------------------------------------
+  //
+  // Which of the Overview page's switches are on, and whether the machine is
+  // on a network at all, for the badge on the gear.
+  // One watcher however many bars there are, and only while one of them is
+  // showing the gear: a plugin enabled with no bar entry has nothing to badge.
+  readonly property string helperPath: String(Qt.resolvedUrl("bin/omacontrol")).replace(/^file:\/\//, "")
+  property var switches: ({})
+  property int switchWatchers: 0
+  function watchSwitches(on) { switchWatchers = Math.max(0, switchWatchers + (on ? 1 : -1)) }
+
+  Process {
+    id: switchesWatch
+    command: ["bash", root.helperPath, "overview", "watch"]
+    running: root.switchWatchers > 0
+    stdout: SplitParser {
+      splitMarker: "\n"
+      onRead: function(line) {
+        try {
+          var next = JSON.parse(line)
+          if (next && typeof next === "object") root.switches = next
+        } catch (e) {
+          // A half-written line is not worth acting on; the next change
+          // brings the whole state again.
+        }
+      }
+    }
+    // A watcher that dies while it is still wanted comes back, though not
+    // faster than one try in five seconds if it keeps dying.
+    onRunningChanged: {
+      if (running) return
+      root.switches = ({})
+      if (root.switchWatchers > 0) switchesRestart.start()
+    }
+  }
+
+  Timer {
+    id: switchesRestart
+    interval: 5000
+    onTriggered: if (root.switchWatchers > 0) switchesWatch.running = true
+  }
+
   IpcHandler {
     target: "omacontrol"
     function show(): void { root.show() }
