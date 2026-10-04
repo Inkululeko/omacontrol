@@ -245,6 +245,8 @@ search_index() {
       # A group heading gives a row context a search can match on: "blur" finds
       # the settings under Blur even when the word is not in their own labels.
       /^[ \t]*title: "/ {
+        # The row before this heading belongs to the group it was written in.
+        if (label != "") { print page "\t" group "\t" label "\t" desc; label = "" }
         line = $0
         sub(/^[ \t]*title: "/, "", line)
         sub(/".*$/, "", line)
