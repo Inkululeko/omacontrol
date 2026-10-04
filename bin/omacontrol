@@ -26,6 +26,7 @@
 #   processes.sh     what the machine is busy with
 #   overview.sh      the switches and notices on the Overview page
 #   packages.sh      what pacman has, and what it is waiting to do
+#   security.sh      what can reach this machine, and how you sign in to it
 #   usage.sh         what the coding agent has been spending
 #   news.sh          headlines from omarchy.org — the one outbound request
 #   apps.sh          every application, and what this desktop does with it
@@ -42,7 +43,7 @@ OMACONTROL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
 # itself: it is started from the window's own copy, which is not on any PATH.
 OMACONTROL_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages apps usage news about branding overview setters state; do
+for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages security apps usage news about branding overview setters state; do
   # shellcheck source=/dev/null
   source "$OMACONTROL_LIB/$module.sh"
 done
@@ -76,6 +77,7 @@ case ${1:-state} in
   processes) shift; processes_cmd "$@" ;;
   overview) shift; overview_cmd "$@" ;;
   packages) shift; packages_cmd "$@" ;;
+  security) shift; security_cmd "$@" ;;
   apps) shift; apps_cmd "$@" ;;
   usage) shift; usage_cmd "$@" ;;
   news) shift; news_cmd "$@" ;;
@@ -119,6 +121,7 @@ usage:
   omacontrol overview poll | toggle nightlight|dnd|awake|dictation | dismiss <id>
   omacontrol packages poll | refresh | fetch | stale | info <name> | update | clean | orphans | pacnew
                  | remove <name> | pick | site <name> | log
+  omacontrol security poll              (the firewall's open ports, what is behind them, and how you sign in)
   omacontrol usage poll | refresh [provider]
   omacontrol news poll | fetch | stale | open <url>
   omacontrol about poll | channel <stable|rc|dev> | copy

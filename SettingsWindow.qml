@@ -367,6 +367,11 @@ Item {
   function pollAbout() { pollInto(aboutPoll, ["about", "poll"]) }
   Poller { id: aboutPoll; onParsed: function(value) { root.aboutLive = value } }
 
+  property var securityLive: null
+  readonly property var security: securityLive !== null ? securityLive : ({})
+  function pollSecurity() { pollInto(securityPoll, ["security", "poll"]) }
+  Poller { id: securityPoll; onParsed: function(value) { root.securityLive = value } }
+
   // The one outbound request this window makes. Asking is free: `news fetch`
   // checks the cache's age itself and does nothing if it is still warm, so the
   // page can ask on every open and on a timer without either being a request.
@@ -1643,6 +1648,7 @@ Item {
       // down, and a battery promised a page a desktop does not get.
       { id: "pwr", label: "Power", icon: "\uf0e7", pages: ["power"] },
       { id: "idle", label: "Idle & Lock", icon: "\uf023", pages: ["idle"] },
+      { id: "security", label: "Security", icon: "\uf132", pages: ["security"] },
       { id: "disk", label: "Storage", icon: "\uf0a0", pages: ["disk"] },
       { id: "proc", label: "Processes", icon: "\uf080", pages: ["processes"] },
       { id: "time", label: "Date & Time", icon: "\uf017", pages: ["datetime"] },
@@ -1707,6 +1713,7 @@ Item {
     "pointer": "Mouse & Touchpad",
     "power": "Power",
     "idle": "Idle & Lock",
+    "security": "Security",
     "disk": "Disk",
     "processes": "Processes",
     "datetime": "Date & Time",
@@ -1813,6 +1820,7 @@ Item {
     case "about": return "sections/AboutSection.qml"
     case "disk": return "sections/DiskSection.qml"
     case "processes": return "sections/ProcessesSection.qml"
+    case "security": return "sections/SecuritySection.qml"
     case "bar": return "sections/BarSection.qml"
     case "workspaces": return "sections/WorkspacesSection.qml"
     case "windows": return "sections/WindowsSection.qml"
