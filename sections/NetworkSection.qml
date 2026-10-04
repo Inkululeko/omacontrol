@@ -222,10 +222,10 @@ Ui.SectionBody {
   // Asked when the page is built, and again when the window comes back with
   // this page already on it — that second case is the common one, and without
   // it the address would be however old the last visit left it.
-  Component.onCompleted: app.readPublicIp()
+  Component.onCompleted: { app.readPublicIp(); app.pollHosts() }
   Connections {
     target: app
-    function onShownChanged() { if (app.shown) app.readPublicIp() }
+    function onShownChanged() { if (app.shown) { app.readPublicIp(); app.pollHosts() } }
   }
 
   Timer {
@@ -458,6 +458,44 @@ Ui.SectionBody {
         label: String(modelData.device)
         description: modelData.speedMbit ? "Link at " + modelData.speedMbit + " Mbit/s" : "Cable connected"
         value: modelData.connection ? String(modelData.connection) : String(modelData.state)
+      }
+    }
+  }
+
+  // ---- hosts file ----------------------------------------------------------
+  // Read here and edited in the reader's own editor. It is root's and
+  // hand-written, so this window never writes it.
+  readonly property var hostEntries: app.hosts.entries !== undefined ? app.hosts.entries : []
+  readonly property int hostTotal: app.hosts.total !== undefined ? app.hosts.total : 0
+
+  Ui.SettingGroup {
+    title: "Hosts file"
+    note: page.hostTotal > page.hostEntries.length
+      ? "Showing the first " + page.hostEntries.length + " of " + page.hostTotal + "." : ""
+
+    Ui.ActionRow {
+      label: "Local names"
+      description: "Resolved locally, before DNS. An entry here overrides what any DNS server returns."
+      buttonText: "Edit hosts file…"
+      onTriggered: { app.run(["hosts", "edit"]); app.hide() }
+    }
+
+    Ui.DataTable {
+      visible: page.hostEntries.length > 0
+      columns: [
+        { title: "Name", weight: 3 },
+        { title: "Address", weight: 1 }
+      ]
+      rows: {
+        var out = []
+        for (var i = 0; i < page.hostEntries.length; i++) {
+          var h = page.hostEntries[i]
+          out.push({ cells: [
+            { text: String(h.name), strong: true },
+            { text: String(h.address) }
+          ] })
+        }
+        return out
       }
     }
   }

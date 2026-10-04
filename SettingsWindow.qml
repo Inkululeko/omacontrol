@@ -372,6 +372,14 @@ Item {
   function pollSecurity() { pollInto(securityPoll, ["security", "poll"]) }
   Poller { id: securityPoll; onParsed: function(value) { root.securityLive = value } }
 
+  // Read when the Network page opens and when the window comes back to it:
+  // the file is only ever changed in an editor this window hands off to, and
+  // the window is hidden for as long as that takes.
+  property var hostsLive: null
+  readonly property var hosts: hostsLive !== null ? hostsLive : ({})
+  function pollHosts() { pollInto(hostsPoll, ["hosts", "list"]) }
+  Poller { id: hostsPoll; onParsed: function(value) { root.hostsLive = value } }
+
   // The one outbound request this window makes. Asking is free: `news fetch`
   // checks the cache's age itself and does nothing if it is still warm, so the
   // page can ask on every open and on a timer without either being a request.
@@ -1451,6 +1459,8 @@ Item {
     return command === "overview" || command === "disk" || command === "processes"
       || command === "packages" || command === "apps" || command === "usage" || command === "news"
       || command === "about"
+      // Opening an editor changes nothing until the editor is closed.
+      || command === "hosts"
       // Brightness is the screen in front of you and nothing this window holds.
       || command === "display"
   }
