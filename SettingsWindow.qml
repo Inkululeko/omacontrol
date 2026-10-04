@@ -2579,20 +2579,27 @@ Item {
             color: root.hairline
           }
 
+          // The clip runs a gutter outside the page, and the page sits back
+          // in by the same gutter, so nothing moves on screen. A row's cursor
+          // band reaches into the margin to give its text room, and clipped at
+          // the page edge it was cut back to flush with the words.
           Flickable {
             id: bodyScroll
+            readonly property real gutter: Math.min(Style.space(10), Style.spacing.panelPadding)
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: Style.spacing.panelPadding
+            Layout.margins: Style.spacing.panelPadding - gutter
             clip: true
             contentWidth: width
-            contentHeight: bodyLoader.implicitHeight
+            contentHeight: bodyLoader.implicitHeight + gutter * 2
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
 
             Loader {
               id: bodyLoader
-              width: bodyScroll.width
+              x: bodyScroll.gutter
+              y: bodyScroll.gutter
+              width: bodyScroll.width - bodyScroll.gutter * 2
               // setSource passes `app` in as an initial property, so a page's
               // bindings never evaluate against a null window.
               Component.onCompleted: setSource(root.sectionSource(root.pageId), { app: root })

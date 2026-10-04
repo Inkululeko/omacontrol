@@ -99,10 +99,15 @@ Item {
   // reads as a band across the card instead of a box drawn around the text —
   // and it has to stop exactly at the edge, since overshooting a card is
   // visible in a way that overshooting a bare page never was.
+  //
+  // Outside a card there is no edge to run to, and a group's padding there is
+  // zero — which drew the band flush with the row, so the name sat against its
+  // left end and a switch or a button against its right. It reaches out into
+  // the page margin instead, as far as a list row's cursor does.
   property real bandInset: {
     var node = navRow.parent
     while (node) {
-      if (node.pad !== undefined) return node.pad
+      if (node.pad !== undefined) return node.pad > 0 ? node.pad : Style.space(10)
       node = node.parent
     }
     return Style.space(10)
