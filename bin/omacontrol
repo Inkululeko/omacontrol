@@ -127,4 +127,8 @@ USAGE
 esac
 }
 
-main "$@" | head -c "$OMACONTROL_READ_MAX"
+# Unbuffered, or the watchers say nothing until they exit: GNU head holds what
+# it reads in stdio's block buffer, so a line a watcher prints at once — the
+# volume moving, a switch flipping — reached the window only when the buffer
+# filled or the watcher died. The cap is what head is for; the delay was not.
+main "$@" | stdbuf -o0 head -c "$OMACONTROL_READ_MAX"

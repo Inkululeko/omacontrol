@@ -28,6 +28,14 @@ Two `jq` habits worth remembering:
 - Building a whole file as one string in `awk` (`out = out c`) is quadratic;
   scan per line. That cost 3 seconds of a 3.4-second window open once.
 
+**Every command's output goes through `stdbuf -o0 head -c`, and the `stdbuf`
+is load-bearing.** GNU `head` holds what it reads in stdio's block buffer, so
+for as long as `bin/omacontrol` ended in a bare `head -c`, the watchers
+(`audio watch`, `power watch`, `overview watch`) printed each change
+at once and the window received none of it until the buffer filled or the
+watcher died. Every test that runs a watcher to completion passes either way;
+only reading its first line while it is still running shows the difference.
+
 ## Two budgets, and which one a read gets
 
 Every read of the compositor or the system goes through `capture`, bounded by
