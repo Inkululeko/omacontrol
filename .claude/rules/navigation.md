@@ -13,7 +13,7 @@ paths:
 `PanelKeyCatcher` in `qs.Ui` defines the vocabulary Omarchy panels answer to,
 and this window follows it rather than inventing one: Up/Down and j/k move,
 Left/Right and h/l change a value, Enter and Space act, Tab changes section,
-Escape closes. Alt+Up/Down for the open item's pages, Home/End, and Backspace **or Delete**
+Escape closes. Alt+Up/Down for the next and previous page, Home/End, and Backspace **or Delete**
 for the (reset) beside a changed setting are the additions a window with pages
 needs.
 

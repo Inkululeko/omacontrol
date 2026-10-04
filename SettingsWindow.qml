@@ -1287,10 +1287,7 @@ Item {
     if (navBlocked) return keys
 
     keys.push({ keys: ["\u2191", "\u2193"], label: "Move" })
-    if (openItemPages.length > 1) keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Page" })
-    // One cap, not three. "1" "–" "0" as separate caps reads as a chord with
-    // a dash key in it.
-    keys.push({ keys: ["1\u20130"], label: "Section" })
+    if (orderedPages.length > 1) keys.push({ keys: ["alt", "\u2191", "\u2193"], label: "Change page" })
     keys.push({ keys: ["/"], label: "Search" })
     keys.push({ keys: ["esc"], label: "Close" })
     return keys
@@ -1302,21 +1299,21 @@ Item {
     if (row) row.navStep(delta)
   }
 
-  // What Alt walks: the pages shown under the open item. The number keys
-  // reach the items themselves, so nothing has to walk the sidebar one item
-  // at a time.
-  function listPages() { return openItemPages }
+  // What Alt walks: every page in sidebar order, an item's own pages included
+  // on the way through. The number keys reach only the first ten items, and
+  // walking just the open item's pages left everything from Power down —
+  // twelve pages — unreachable from the keyboard except by searching for it.
+  function listPages() { return orderedPages }
 
   function navSidebar(delta) {
     var pages = listPages()
-    // An item that is a single page has nothing to walk, so Alt does nothing
-    // rather than moving a cursor through a list that is not on screen.
     if (pages.length === 0) return
-    if (!navInSidebar) {
-      navInSidebar = true
-      for (var i = 0; i < pages.length; i++)
-        if (pages[i] === pageId) { sidebarIndex = i; break }
-    }
+    // From the page on screen, every time, and not from where the last walk
+    // ended: a click, a number key or the IPC can change the page in between,
+    // and the walk then jumped from wherever it had stopped before.
+    navInSidebar = true
+    for (var i = 0; i < pages.length; i++)
+      if (pages[i] === pageId) { sidebarIndex = i; break }
     sidebarIndex = Math.max(0, Math.min(pages.length - 1, sidebarIndex + delta))
     navSync()
     pageId = pages[sidebarIndex]
@@ -1794,17 +1791,6 @@ Item {
     }
   }
 
-  // The number keys reach the first ten items, in the order they are drawn.
-  // Ten keys against nineteen destinations is not a shortcut for everything —
-  // it is the top of the sidebar, where the things reached mid-task live.
-  function itemWithKey(key) {
-    var index = key === "0" ? 9 : Number(key) - 1
-    var flat = []
-    for (var b = 0; b < sidebarBlocks.length; b++)
-      for (var i = 0; i < sidebarBlocks[b].items.length; i++) flat.push(sidebarBlocks[b].items[i])
-    return index >= 0 && index < flat.length ? flat[index] : null
-  }
-
   function pageFor(id) {
     // The crumb is the item's label, and only where the item is a grouping
     // rather than a page: "Overview / Overview" says nothing twice.
@@ -2026,15 +2012,6 @@ Item {
         }
         if (event.key === Qt.Key_Escape) { root.close(); event.accepted = true; return }
 
-
-        // A number is a rail. Ten destinations on ten keys is the whole point
-        // of a rail being ten things: it makes every page in the window at
-        // most two keystrokes away, where the flat list it replaced was a
-        // count of how far down you had to walk.
-        if (event.text.length === 1 && event.text >= "0" && event.text <= "9") {
-          var item = root.itemWithKey(event.text)
-          if (item) { root.pickItem(item.id); event.accepted = true; return }
-        }
 
         // The two things every search box answers to.
         if (event.text === "/" || (ctrl && event.key === Qt.Key_F)) {

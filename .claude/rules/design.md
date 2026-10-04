@@ -60,15 +60,17 @@ accent-filled rounded rectangle with its glyph and label struck from
 tick bar at its left edge: a second fill one level in reads as a second
 selection.
 
-**The first ten items are on the number keys; the rest are not.** `itemWithKey`
-flattens the blocks and takes `1`–`9` and `0`, which at rest reaches Overview
-through Mouse & touchpad. Ten caps is what the legend can carry — fourteen
-more would be keys nobody learns. Note that the flat list is the *filtered*
-one, so the mapping shifts while a search is narrowing the sidebar.
+**Alt+Up/Down walks every page, in sidebar order, and is the only way
+between pages from the keyboard.** An item's own pages are walked on the way
+through, so Appearance is Theme, Font, Wallpaper, Branding and then Effects.
 
-**Alt+Up/Down walks the open item's pages, not the sidebar.** The sidebar is
-already all on screen; the pages under an item are the only thing that is not.
-The legend offers the pair only when the open item has more than one page.
+It replaced two schemes. Alt once walked only the open item's pages, on the
+argument that the sidebar is already on screen — but on screen is not
+reachable. And `1`–`0` jumped to the first ten items, under a legend cap that
+said "1–0 Section": nothing on screen said which number was which item, the
+numbers shifted while a search narrowed the sidebar, and they stopped at the
+tenth item, so everything from Power down could only be reached by searching
+for it. One way that reaches every page beats two that each reach some.
 
 **A search empties the sidebar rather than dimming it.** An item whose pages
 all fail the filter is dropped, and a block that loses all its items goes with
