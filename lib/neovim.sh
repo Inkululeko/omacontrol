@@ -36,7 +36,6 @@ nvim_read() {
       sub(/^[^=]*=[ \t]*/, "", value)
       sub(/[ \t]*--.*$/, "", value)
       value = trim(value)
-      gsub(/^"|"$/, "", value)
       printf "%s\t%s\n", trim(key), value
     }
   ' <(read_file "$NVIM_OPTIONS")
@@ -44,8 +43,16 @@ nvim_read() {
 
 nvim_state() {
   local present installed
-  present=$(nvim_read | jq -R -s -c 'split("\n")
-    | map(select(length > 0) | split("\t") | { key: .[0], value: (.[1] // "") })
+  # A double-quoted string is decoded, or a quote written from here comes back
+  # as \" and is written back doubled by the next edit, or by a reset. Lua
+  # escapes JSON has no word for fall back to the text between quotes.
+  present=$(nvim_read | jq -R -s -c '
+    def unquote: ([39] | implode) as $sq
+      | if test("^\".*\"$") then (fromjson? // .[1:-1])
+        elif length >= 2 and startswith($sq) and endswith($sq) then .[1:-1]
+        else . end;
+    split("\n")
+    | map(select(length > 0) | split("\t") | { key: .[0], value: (.[1] // "" | unquote) })
     | from_entries')
   installed=$(command -v nvim >/dev/null 2>&1 && echo true || echo false)
 
@@ -83,7 +90,10 @@ nvim_write() {
   local previous
   previous=$(read_file "$NVIM_OPTIONS")
 
-  awk -v key="$key" -v line="vim.opt.$key = $formatted" '
+  # The line arrives through the environment: `awk -v` runs escape sequences,
+  # so the \" jq just wrote came back out as a bare quote and broke the Lua.
+  OMACONTROL_LINE="vim.opt.$key = $formatted" awk -v key="$key" '
+    BEGIN { line = ENVIRON["OMACONTROL_LINE"] }
     {
       lines[NR] = $0
       if ($0 !~ /^[ \t]*--/ && $0 ~ "^[ \t]*vim\\.(opt|o)\\." key "[ \t]*=") last = NR
@@ -117,7 +127,9 @@ app_cmd() {
     tmux/state) tmux_state ;;
     tmux/set)
       local spec type scope
-      spec=$(tmux_schema | awk -F'\t' -v k="$key" '$1 == k { print $2 "\t" $4 }')
+      # Matched as typed, not through `awk -v`, whose escapes would let a
+      # backslashed key pass for one it is not.
+      spec=$(tmux_schema | OMACONTROL_KEY=$key awk -F'\t' '$1 == ENVIRON["OMACONTROL_KEY"] { print $2 "\t" $4 }')
       [[ -n $spec ]] || die "unknown tmux setting '$key'"
       type=${spec%%$'\t'*}
       scope=${spec##*$'\t'}
@@ -131,7 +143,7 @@ app_cmd() {
     nvim/state) nvim_state ;;
     nvim/set)
       local type
-      type=$(nvim_schema | awk -F'\t' -v k="$key" '$1 == k { print $2 }')
+      type=$(nvim_schema | OMACONTROL_KEY=$key awk -F'\t' '$1 == ENVIRON["OMACONTROL_KEY"] { print $2 }')
       [[ -n $type ]] || die "unknown neovim setting '$key'"
       local before_nvim
       before_nvim=$(setting_value_now "nvim:$key")

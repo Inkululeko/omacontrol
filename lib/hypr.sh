@@ -252,7 +252,7 @@ render_managed_lua() {
       def lua(v):
         if v == true or v == false then (v | tostring)
         elif (v | type) == "number" then (v | tostring)
-        else "\"" + (v | tostring) + "\"" end;
+        else (v | tostring | @json) end;
       def render(obj; indent):
         [obj | to_entries[]
           | if (.value | type) == "object"
@@ -271,10 +271,10 @@ render_managed_lua() {
 
     # Per-device overrides, one hl.device call each.
     jq -r '(.devices // {}) | to_entries[]
-      | "hl.device({\n  name = \"" + .key + "\","
+      | "hl.device({\n  name = " + (.key | @json) + ","
         + ([.value | to_entries[]
             | "\n  " + .key + " = "
-              + (if (.value | type) == "string" then "\"" + .value + "\"" else (.value | tostring) end) + ","]
+              + (.value | if type == "string" then @json else tostring end) + ","]
            | join(""))
         + "\n})\n"' <<<"$store"
 
@@ -419,10 +419,12 @@ hypr_apply_live() {
 # "input:touchpad:natural_scroll" + true -> { input = { touchpad = { natural_scroll = true } } }
 hypr_lua_table() {
   local keyword=$1 value=$2
-  awk -v keyword="$keyword" -v value="$value" '
+  # The value arrives through the environment: `awk -v` runs escape sequences,
+  # which undid the quoting the caller had just applied.
+  OMACONTROL_VALUE=$value awk -v keyword="$keyword" '
     BEGIN {
       n = split(keyword, parts, ":")
-      out = value
+      out = ENVIRON["OMACONTROL_VALUE"]
       for (i = n; i >= 1; i--) out = "{ " parts[i] " = " out " }"
       print out
     }

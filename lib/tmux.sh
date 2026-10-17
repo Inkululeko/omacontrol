@@ -39,6 +39,20 @@ tmux_read() {
     [[ -f $TMUX_CONFIG ]] || return 0
     awk '
       function trim(v) { gsub(/^[ \t]+|[ \t]+$/, "", v); return v }
+      # Quoted the way tmux_quote writes it, or by hand: single quotes keep
+      # everything, double quotes let a backslash keep the next character.
+      function unquote(v,   out, i, c) {
+        if (length(v) >= 2 && v ~ /^\047.*\047$/) return substr(v, 2, length(v) - 2)
+        if (length(v) < 2 || v !~ /^".*"$/) return v
+        v = substr(v, 2, length(v) - 2)
+        out = ""
+        for (i = 1; i <= length(v); i++) {
+          c = substr(v, i, 1)
+          if (c == "\\" && i < length(v)) c = substr(v, ++i, 1)
+          out = out c
+        }
+        return out
+      }
       /^[ \t]*#/ { next }
       /^[ \t]*(set|setw|set-option|set-window-option)[ \t]/ {
         # Skip the flags (-g, -sg, -as, ...) to reach the option name.
@@ -48,8 +62,7 @@ tmux_read() {
         key = $i
         value = ""
         for (j = i + 1; j <= NF; j++) value = value (value == "" ? "" : " ") $j
-        gsub(/^"|"$/, "", value)
-        printf "%s\t%s\n", key, trim(value)
+        printf "%s\t%s\n", key, unquote(trim(value))
       }
     ' <(read_file "$TMUX_CONFIG")
   fi
@@ -82,6 +95,25 @@ tmux_state() {
         | from_entries) }'
 }
 
+# A value as tmux.conf has to spell it. Bare when it can be, so a plain value
+# is written as it always was; quoted otherwise, because the config is parsed
+# like a shell line: a prefix of C-\ written bare ends in a line continuation
+# and swallows the line below it, and the running server, set through argv,
+# never shows the difference until tmux next starts.
+tmux_quote() {
+  local v=$1
+  if [[ $v =~ ^[A-Za-z0-9_.,:+@%/=-][A-Za-z0-9_.,:+@%/=#-]*$ ]]; then
+    printf '%s' "$v"
+  elif [[ $v != *"'"* ]]; then
+    printf "'%s'" "$v"
+  else
+    v=${v//\\/\\\\}
+    v=${v//\"/\\\"}
+    v=${v//\$/\\\$}
+    printf '"%s"' "$v"
+  fi
+}
+
 tmux_write() {
   local key=$1 raw=$2 type=$3 scope=$4 formatted
 
@@ -103,8 +135,10 @@ tmux_write() {
   local setter="set -g"
   [[ $scope == window ]] && setter="setw -g"
 
-  awk -v key="$key" -v line="$setter $key $formatted" '
-    BEGIN { replaced = 0 }
+  # The line arrives through the environment: `awk -v` runs escape sequences,
+  # and a value is not the place for them.
+  OMACONTROL_LINE="$setter $key $(tmux_quote "$formatted")" awk -v key="$key" '
+    BEGIN { replaced = 0; line = ENVIRON["OMACONTROL_LINE"] }
     {
       lines[NR] = $0
       if ($0 ~ /^[ \t]*(set|setw|set-option|set-window-option)[ \t]/ && $0 !~ /^[ \t]*#/) {

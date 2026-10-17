@@ -58,12 +58,19 @@ herdr_read() {
       sub(/[ \t]+#.*$/, "", value)
       if (key == "" || value ~ /^[\[{]/) next
       full = (section == "" ? key : section "." key)
-      # Strings arrive quoted; the window wants the text, not the quoting.
-      if (value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
       printf "%s\t%s\n", full, value
     }
-  ' <(read_file "$HERDR_CONFIG") | jq -R -s -c 'split("\n")
-    | map(select(length > 0) | split("\t") | { key: .[0], value: .[1] })
+  ' <(read_file "$HERDR_CONFIG") | jq -R -s -c '
+    # Strings arrive quoted; the window wants the text, not the quoting. A
+    # basic string is decoded, or the quote in a title written from here comes
+    # back as \" — and is written back doubled by the next edit, or by a reset.
+    # TOML escapes JSON has no word for fall back to the text between quotes.
+    def unquote: ([39] | implode) as $sq
+      | if test("^\".*\"$") then (fromjson? // .[1:-1])
+        elif length >= 2 and startswith($sq) and endswith($sq) then .[1:-1]
+        else . end;
+    split("\n")
+    | map(select(length > 0) | split("\t") | { key: .[0], value: (.[1] // "" | unquote) })
     | from_entries'
 }
 
@@ -79,7 +86,7 @@ herdr_state() {
     def cast(v; t):
       if t == "bool" then (v == "true")
       elif t == "int" then (v | tonumber? // 0)
-      else (v | sub("^\"";"") | sub("\"$";"")) end;
+      else v end;
     { installed: $installed,
       path: $path,
       values: (split("\n")
@@ -113,9 +120,11 @@ herdr_write() {
   local previous
   previous=$(read_file "$HERDR_CONFIG")
 
-  awk -v table="$table" -v name="$name" -v line="$name = $formatted" '
+  # The line arrives through the environment: `awk -v` runs escape sequences,
+  # so the \" jq just wrote came back out as a bare quote and broke the TOML.
+  OMACONTROL_LINE="$name = $formatted" awk -v table="$table" -v name="$name" '
     function trim(v) { gsub(/^[ \t]+|[ \t]+$/, "", v); return v }
-    BEGIN { section = ""; done = 0; lastInTable = 0 }
+    BEGIN { section = ""; done = 0; lastInTable = 0; line = ENVIRON["OMACONTROL_LINE"] }
     {
       lines[NR] = $0
       current = $0
@@ -172,7 +181,9 @@ herdr_cmd() {
     state) herdr_state ;;
     set)
       local type
-      type=$(herdr_schema | awk -F'\t' -v k="$key" '$1 == k { print $2 }')
+      # Matched as typed, not through `awk -v`, whose escapes would let a
+      # backslashed key pass for one it is not.
+      type=$(herdr_schema | OMACONTROL_KEY=$key awk -F'\t' '$1 == ENVIRON["OMACONTROL_KEY"] { print $2 }')
       [[ -n $type ]] || die "unknown herdr setting '$key'"
       local before_herdr
       before_herdr=$(setting_value_now "herdr:$key")

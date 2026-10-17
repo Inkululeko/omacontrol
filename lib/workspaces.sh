@@ -472,7 +472,11 @@ workspace_remove() {
     previous=$(read_file "$file")
     backup_once "$file"
 
-    awk -v class="$class" -v desktop="$desktop" '
+    # Both arrive through the environment, so awk looks for the same text grep
+    # just found: `awk -v` runs escape sequences, and a class written as a
+    # regex — `^foo\\.bar$` — matched there and then never here.
+    OMACONTROL_CLASS=$class OMACONTROL_DESKTOP=$desktop awk '
+      BEGIN { class = ENVIRON["OMACONTROL_CLASS"]; desktop = ENVIRON["OMACONTROL_DESKTOP"] }
       (index($0, "o.window(\"" class "\",") && $0 ~ /^[ \t]*o\.window\(/) \
       || (desktop != "" && index($0, "o.launch_on_start(\"" desktop "\")") && $0 ~ /^[ \t]*o\.launch_on_start\(/) {
         print "-- " $0

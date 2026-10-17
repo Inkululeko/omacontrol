@@ -149,7 +149,9 @@ device_set() {
   local name=$1 key=$2 raw=$3 kind=$4 type formatted
 
   [[ -n $name ]] || die "no device given"
-  type=$(device_schema "$kind" | awk -F'\t' -v k="$key" '$1 == k { print $2 }')
+  # Matched as typed, not through `awk -v`, whose escapes would let a
+  # backslashed key pass for one it is not.
+  type=$(device_schema "$kind" | OMACONTROL_KEY=$key awk -F'\t' '$1 == ENVIRON["OMACONTROL_KEY"] { print $2 }')
   [[ -n $type ]] || die "a $kind cannot set '$key'"
 
   # One device with a keymap that will not compile is the same problem as all
@@ -209,7 +211,11 @@ device_remove() {
     previous=$(read_file "$file")
     backup_once "$file"
 
-    awk -v name="$name" '
+    # The name arrives through the environment, so awk looks for the same text
+    # grep just found: `awk -v` runs escape sequences, and a name with a
+    # backslash in it matched there and then never here.
+    OMACONTROL_NAME=$name awk '
+      BEGIN { name = ENVIRON["OMACONTROL_NAME"] }
       function flush(disable,   i) {
         for (i = 1; i <= count; i++)
           print (disable ? "-- " block[i] : block[i])
