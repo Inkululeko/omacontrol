@@ -25,6 +25,7 @@
 #   disk.sh          what the disks hold, and their health
 #   processes.sh     what the machine is busy with
 #   overview.sh      the switches and notices on the Overview page
+#   migrate.sh       bringing an OmaSettings install across
 #   packages.sh      what pacman has, and what it is waiting to do
 #   security.sh      what can reach this machine, and how you sign in to it
 #   hosts.sh         /etc/hosts, read; edited only in the reader's own editor
@@ -44,7 +45,7 @@ OMACONTROL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
 # itself: it is started from the window's own copy, which is not on any PATH.
 OMACONTROL_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages security hosts apps usage news about branding overview setters state; do
+for module in core store hypr devices monitors workspaces shell_config compose plugins menu herdr tmux neovim bindings themes wifi bluetooth power audio disk processes packages security hosts apps usage news about branding overview migrate setters state; do
   # shellcheck source=/dev/null
   source "$OMACONTROL_LIB/$module.sh"
 done
@@ -77,6 +78,7 @@ case ${1:-state} in
   disk) shift; disk_cmd "$@" ;;
   processes) shift; processes_cmd "$@" ;;
   overview) shift; overview_cmd "$@" ;;
+  migrate) shift; migrate_cmd "$@" ;;
   packages) shift; packages_cmd "$@" ;;
   security) shift; security_cmd "$@" ;;
   hosts) shift; hosts_cmd "$@" ;;

@@ -230,14 +230,14 @@ self_check() {
 # into that lands on the panel that is going away, so this waits for the shell
 # to answer at all, lets the teardown settle, and then keeps asking.
 reopen_window() {
-  local i
+  local page=${1:-plugins} i
   for i in $(seq 1 60); do
     [[ -n $(omarchy-shell shell ping 2>/dev/null) ]] && break
     sleep 0.5
   done
   sleep 0.6
   for i in $(seq 1 20); do
-    omarchy-shell omacontrol showPage plugins >/dev/null 2>&1
+    omarchy-shell omacontrol showPage "$page" >/dev/null 2>&1
     window_open && return 0
     sleep 0.5
   done

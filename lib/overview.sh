@@ -104,14 +104,17 @@ overview_attention() {
   par_begin || { echo '[]'; return; }
   par_run boot overview_boot_space
   par_run peripherals overview_low_peripherals
+  par_run migrate migrate_pending
   par_wait
-  local boot peripherals
+  local boot peripherals migrate
   boot=$(par_get boot 'null')
   peripherals=$(par_get peripherals '[]')
+  migrate=$(par_get migrate 'null')
   par_end
 
   jq -cn --argjson boot "${boot:-null}" --argjson peripherals "${peripherals:-[]}" \
-    '[ $boot ] + $peripherals | map(select(. != null))'
+    --argjson migrate "${migrate:-null}" \
+    '[ $migrate, $boot ] + $peripherals | map(select(. != null))'
 }
 
 # A keyboard or mouse about to die is the one thing on this list the reader

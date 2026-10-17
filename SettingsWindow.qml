@@ -1460,6 +1460,9 @@ Item {
       || command === "about"
       // Opening an editor changes nothing until the editor is closed.
       || command === "hosts"
+      // Starting the migration only detaches it; the Overview poll is what
+      // hears how it went.
+      || command === "migrate"
       // Brightness is the screen in front of you and nothing this window holds.
       || command === "display"
   }
