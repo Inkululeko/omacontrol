@@ -1,1 +1,49 @@
+# Every type is listed, not only the singleton: a directory with a qmldir takes
+# its types from this file alone on Qt 6.12, and a sibling missing here is
+# "not a type" to every page that uses it — the window draws an empty body.
 singleton Palette Palette.qml
+ActionRow ActionRow.qml
+AppRules AppRules.qml
+AsciiPreview AsciiPreview.qml
+BatteryGauge BatteryGauge.qml
+BindingRow BindingRow.qml
+BrandingRow BrandingRow.qml
+CalloutCard CalloutCard.qml
+Chip Chip.qml
+ChoiceRow ChoiceRow.qml
+DataTable DataTable.qml
+DeviceRow DeviceRow.qml
+DisplayCanvas DisplayCanvas.qml
+Divider Divider.qml
+FactGrid FactGrid.qml
+FactorRow FactorRow.qml
+FormField FormField.qml
+GlyphIcon GlyphIcon.qml
+HeroCard HeroCard.qml
+KeyCap KeyCap.qml
+LinkRow LinkRow.qml
+Meter Meter.qml
+MinutesRow MinutesRow.qml
+NavCursor NavCursor.qml
+NavIcon NavIcon.qml
+NavRow NavRow.qml
+NoticeRow NoticeRow.qml
+NumberRow NumberRow.qml
+PercentRow PercentRow.qml
+PickableRow PickableRow.qml
+PickerRow PickerRow.qml
+PictureGrid PictureGrid.qml
+ReadingRow ReadingRow.qml
+SectionBody SectionBody.qml
+SettingGroup SettingGroup.qml
+SettingRow SettingRow.qml
+SignalBars SignalBars.qml
+SpecimenRow SpecimenRow.qml
+SpecRow SpecRow.qml
+StatCard StatCard.qml
+SwitchRow SwitchRow.qml
+Tag Tag.qml
+TextRow TextRow.qml
+ToggleTile ToggleTile.qml
+WidgetRow WidgetRow.qml
+WifiRow WifiRow.qml
