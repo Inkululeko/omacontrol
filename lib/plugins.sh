@@ -129,14 +129,25 @@ plugin_updates() {
   # What an update said about itself outlives a sweep: the sweep is about the
   # counts, and rebuilding the whole document would throw away the answer the
   # page is still showing.
+  #
+  # Carried forward only for what is still installed, though, and a failure
+  # only while the plugin is still behind. A "cannot fast-forward" that the
+  # reader has since mended by hand — or by removing and adding the plugin —
+  # otherwise stayed on its row until the next Update, which there was no
+  # longer any reason to press. A success stays: it is the answer to a button
+  # pressed a moment ago. 0 is "fetched and up to date"; a fetch that failed
+  # (-2) proves nothing, so its failure stands.
   jq -Rn --argjson at "$(date +%s)" --argjson prev "$(plugin_updates_cache)" '
     [inputs | split("\t") | select(length >= 2)] as $rows
+    | ([$rows[] | { key: .[0], value: (.[1] | tonumber) }] | from_entries) as $results
     | { checkedAt: $at,
-        results: ([$rows[] | { key: .[0], value: (.[1] | tonumber) }] | from_entries),
+        results: $results,
         changes: ([$rows[] | select((.[2] // "") != "") | { key: .[0], value: .[2] }] | from_entries),
         versions: ([$rows[] | select((.[3] // "") != "") | { key: .[0], value: .[3] }] | from_entries),
-        running: ($prev.running // {}),
-        last: ($prev.last // {}) }' \
+        running: (($prev.running // {}) | with_entries(.key as $id | select($results | has($id)))),
+        last: (($prev.last // {}) | with_entries(.key as $id
+                | select(($results | has($id))
+                         and (.value.ok == true or $results[$id] != 0)))) }' \
     <"$out" 2>/dev/null | write_update_cache
   rm -f "$out"
 }
