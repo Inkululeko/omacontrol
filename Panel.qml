@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Services.UPower
 import qs.Commons
 import qs.Ui
@@ -21,12 +22,18 @@ BarWidget {
   // for the window it does not own.
   readonly property bool opened: service ? service.opened : false
 
-  function show() { if (service) service.show() }
-  function showPage(page) { if (service) service.showPage(page) }
-  function hide() { if (service) service.hide() }
+  // A replacement bar hands its widgets a facade scoped to the bar plugin, so
+  // serviceFor() answers null and a gear forwarding only to the service did
+  // nothing at all. The IPC route is the service's own and answers under any
+  // bar, so it stands in when the direct path is not there.
+  function ipc(args) { Quickshell.execDetached(["omarchy-shell", "omacontrol"].concat(args)) }
+
+  function show() { if (service) service.show(); else ipc(["show"]) }
+  function showPage(page) { if (service) service.showPage(page); else ipc(["showPage", String(page || "")]) }
+  function hide() { if (service) service.hide(); else ipc(["hide"]) }
   function open() { show() }
   function close() { hide() }
-  function toggle() { if (service) service.toggle() }
+  function toggle() { if (service) service.toggle(); else ipc(["toggle"]) }
 
   // What the Overview page switches, kept current by the service so that one
   // watcher serves every bar. The gear says it is here, and gone, so the
