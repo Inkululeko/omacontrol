@@ -18,12 +18,41 @@ keys_normalise() {
   tr 'a-z' 'A-Z' <<<"$1" | sed -E 's/[[:space:]]*\+[[:space:]]*/ + /g; s/[[:space:]]+/ + /g; s/(\+ ){2,}/+ /g; s/^ *| *$//g'
 }
 
-keys_lua_quote() {
-  # Lua long-string escapes are not worth the corner cases; quote plainly.
-  sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' <<<"$1"
-}
-
 bindings_store() { read_store | jq -c '.bindings // {added: [], disabled: []}'; }
+
+BINDINGS_SCHEMA=1
+
+# Schema 1: a binding is stored as typed. Before it, keys, descriptions and
+# commands were stored Lua-escaped, because the Lua renderer pasted them
+# between bare quotes — and the .conf renderer, which reads the same fields and
+# wants no escaping at all, came out right only because `awk -v` stripped it
+# back off on the way out. The old escaping doubled backslashes and then put
+# one before each quote, so undoing it in the opposite order is exact.
+#
+# Not idempotent: each run halves the backslashes again, so only the flag
+# stands between a store and a second unescape. A flag that is not a number is
+# taken as already done for the same reason. It runs only before a change,
+# never from bindings_state: the state read runs its producers in parallel,
+# and a store write in there races monitor_migrate's own and undoes it.
+bindings_migrate() {
+  local current schema next
+  current=$(read_store)
+  schema=$(jq -r '(.bindingsSchema // 0)' <<<"$current")
+  [[ $schema =~ ^[0-9]+$ ]] || return 0
+  ((schema >= BINDINGS_SCHEMA)) && return 0
+
+  next=$(jq -c '
+    def unescape: if type == "string"
+      then gsub("\\\\\""; "\"") | gsub("\\\\\\\\"; "\\") else . end;
+    if .bindings then
+      .bindings.added = ((.bindings.added // [])
+          | map(.keys |= unescape | .description |= unescape | .command |= unescape))
+      | .bindings.disabled = ((.bindings.disabled // []) | map(unescape))
+    else . end
+    | .bindingsSchema = $v' --argjson v "$BINDINGS_SCHEMA" <<<"$current") \
+    || die "failed to update $STORE"
+  write_file "$STORE" managed <<<"$next" || die "failed to write $STORE"
+}
 
 render_bindings() {
   local store target begin_line body
@@ -35,8 +64,9 @@ render_bindings() {
 
   if [[ $target == *.lua ]]; then
     body=$(jq -r '
-      ((.disabled // [])[] | "hl.unbind(\"" + . + "\")"),
-      ((.added // [])[] | "o.bind(\"" + .keys + "\", \"" + .description + "\", \"" + .command + "\")")
+      ((.disabled // [])[] | "hl.unbind(" + (. | @json) + ")"),
+      ((.added // [])[] | "o.bind(" + (.keys | @json) + ", " + (.description | @json)
+        + ", " + (.command | @json) + ")")
     ' <<<"$store")
   else
     body=$(jq -r '
@@ -48,8 +78,10 @@ render_bindings() {
   backup_once "$target"
 
   # The block is rewritten whole; everything outside it is copied through.
-  awk -v begin_marker="$BINDINGS_BEGIN" -v end_marker="$BINDINGS_END" -v body="$body" '
-    BEGIN { inside = 0; seen = 0 }
+  # The body arrives through the environment: `awk -v` runs escape sequences,
+  # so the \" in a quoted command came back out as a bare quote.
+  OMACONTROL_BODY=$body awk -v begin_marker="$BINDINGS_BEGIN" -v end_marker="$BINDINGS_END" '
+    BEGIN { inside = 0; seen = 0; body = ENVIRON["OMACONTROL_BODY"] }
     # With nothing left to generate the block goes away entirely, rather
     # than leaving a pair of markers around nothing.
     $0 == begin_marker { inside = 1; seen = 1; if (body != "") { print; print body } next }
@@ -135,6 +167,7 @@ bindings_state() {
 
 keys_cmd() {
   local action=${1:-} keys=${2:-} description=${3:-} command=${4:-}
+  case $action in add|remove|disable) bindings_migrate ;; esac
   case $action in
     list) bindings_state ;;
     add)
@@ -142,9 +175,6 @@ keys_cmd() {
       [[ -n $keys ]] || die "no key combination given"
       [[ -n $command ]] || die "no command given"
       [[ -n $description ]] || description="Custom"
-      keys=$(keys_lua_quote "$keys")
-      description=$(keys_lua_quote "$description")
-      command=$(keys_lua_quote "$command")
       # Adding over an existing binding has to unbind it first, or Hyprland
       # keeps the one it already had.
       edit_bindings '
