@@ -64,6 +64,7 @@ Ui.SectionBody {
       // on a page called Network that could be the radio, the connection or
       // the interface. Named, it is the radio.
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: page.hasRadio
         text: "Wi-Fi"
@@ -283,6 +284,7 @@ Ui.SectionBody {
         spacing: Style.space(2)
 
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: page.wifi.connected !== undefined ? page.wifi.connected : ""
           elide: Text.ElideRight
@@ -293,6 +295,7 @@ Ui.SectionBody {
         }
 
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: page.linkSummary
           elide: Text.ElideRight

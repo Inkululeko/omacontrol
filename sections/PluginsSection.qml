@@ -504,6 +504,7 @@ Ui.SectionBody {
         }
 
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: enableSwitch.verticalCenter
           text: "Switch it on once it is added"
           color: Ui.Palette.foreground

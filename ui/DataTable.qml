@@ -205,6 +205,7 @@ Column {
             // direction changes — and so the heading keeps the width the
             // figures under it were lined up against.
             Text {
+              textFormat: Text.PlainText
               anchors.fill: parent
               anchors.verticalCenter: parent.verticalCenter
               // On a right-aligned heading the arrow goes in front of the
@@ -441,6 +442,7 @@ Column {
 
                 Text {
                   id: cellText
+                  textFormat: Text.PlainText
                   readonly property real lead: cellTree.width + cellIcon.width + anchors.leftMargin
                   anchors.left: cellIcon.visible ? cellIcon.right : cellTree.right
                   // A cell that belongs to the row above is stepped in from
@@ -494,6 +496,7 @@ Column {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   visible: String(cell.cellData.mark || "") !== ""
                   anchors.left: cellText.right
                   anchors.leftMargin: Style.space(6)
@@ -660,6 +663,7 @@ Column {
       // An empty table still has to say so, or the outline reads as a table
       // that has not loaded.
       Text {
+        textFormat: Text.PlainText
         visible: table.rows.length === 0
         width: body.width - table.pad * 2
         x: table.pad

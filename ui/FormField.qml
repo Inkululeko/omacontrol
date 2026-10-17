@@ -32,6 +32,7 @@ Column {
   spacing: Style.space(6)
 
   Text {
+    textFormat: Text.PlainText
     text: field.label
     color: field.showsError ? Local.Palette.bad : Local.Palette.foreground
     font.family: Local.Palette.fontFamily
@@ -67,6 +68,7 @@ Column {
   }
 
   Text {
+    textFormat: Text.PlainText
     visible: field.showsError
     width: parent.width
     text: field.error

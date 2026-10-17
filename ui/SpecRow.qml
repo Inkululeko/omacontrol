@@ -22,6 +22,7 @@ NavRow {
   // On the value's first baseline, not its top: the two are set in different
   // sizes, and tops that line up leave the smaller word floating above.
   Text {
+    textFormat: Text.PlainText
     y: specRow.pad + valueText.baselineOffset - baselineOffset
     width: specRow.labelWidth - Style.space(12)
     text: specRow.label.toUpperCase()
@@ -43,6 +44,7 @@ NavRow {
 
     Text {
       id: valueText
+      textFormat: Text.PlainText
       width: Math.min(implicitWidth, parent.width
         - (tagPill.visible ? tagPill.implicitWidth + Style.space(10) : 0))
       text: specRow.value

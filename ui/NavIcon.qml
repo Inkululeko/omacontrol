@@ -20,6 +20,7 @@ Rectangle {
   color: square.inverted ? Local.Palette.onAccentWash(0.20) : square.tint
 
   Text {
+    textFormat: Text.PlainText
     anchors.centerIn: parent
     text: square.glyph
     color: Local.Palette.onAccent

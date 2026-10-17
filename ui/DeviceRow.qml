@@ -89,6 +89,7 @@ Item {
     spacing: Style.space(10)
 
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       // BlueZ reports a freedesktop icon name; these are the kinds that
       // actually turn up, and anything else gets the generic mark.
@@ -112,6 +113,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       text: deviceRow.title
       color: Local.Palette.foreground
@@ -129,6 +131,7 @@ Item {
     spacing: Style.space(8)
 
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       visible: deviceRow.battery >= 0
       // The same ten-step set the bar's power plugin draws a battery with, so
@@ -153,6 +156,7 @@ Item {
       implicitHeight: Style.spacing.controlHeight
 
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: "\udb80\udd59"
         color: forgetMouse.containsMouse ? Local.Palette.accent : Local.Palette.muted

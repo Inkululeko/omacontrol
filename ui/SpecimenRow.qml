@@ -58,6 +58,7 @@ Item {
     spacing: Style.space(2)
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: specimen.family
       elide: Text.ElideRight

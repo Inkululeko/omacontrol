@@ -72,6 +72,7 @@ NavRow {
     color: tile.checked ? Local.Palette.onAccentWash(0.20) : Local.Palette.shade(0.12)
 
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: tile.glyph
       color: tile.checked ? Local.Palette.onAccent : Local.Palette.foreground
@@ -89,6 +90,7 @@ NavRow {
     spacing: 0
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: tile.label
       elide: Text.ElideRight
@@ -99,6 +101,7 @@ NavRow {
     }
 
     Text {
+      textFormat: Text.PlainText
       visible: tile.note !== ""
       width: parent.width
       text: tile.note

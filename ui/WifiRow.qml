@@ -138,6 +138,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       anchors.left: bars.right
       anchors.leftMargin: Style.space(10)
       anchors.verticalCenter: parent.verticalCenter
@@ -170,6 +171,7 @@ Item {
       // Joining takes seconds; saying nothing for them reads as a click that
       // did not land, and invites a second one.
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: wifiRow.connecting
         text: "Connecting…"
@@ -206,6 +208,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: !wifiRow.connecting
         text: wifiRow.signalText
@@ -215,6 +218,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: !wifiRow.connecting && wifiRow.dbmText !== ""
         text: wifiRow.dbmText
@@ -224,6 +228,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: wifiRow.band !== ""
         text: wifiRow.band
@@ -233,6 +238,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: wifiRow.saved && !wifiRow.connecting
         text: "Saved"
@@ -245,6 +251,7 @@ Item {
       // The padlock that used to sit beside the name is gone: "Open" is a fact
       // worth naming, and the absence of a padlock is not.
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: !wifiRow.connecting && wifiRow.security !== ""
         text: wifiRow.security

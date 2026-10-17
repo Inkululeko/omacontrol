@@ -76,6 +76,7 @@ Column {
   // With no card edge between groups, the space above a heading is what
   // separates one from the last.
   Text {
+    textFormat: Text.PlainText
     visible: group.title !== ""
     topPadding: Style.space(8)
     text: group.title
@@ -95,6 +96,7 @@ Column {
   }
 
   Text {
+    textFormat: Text.PlainText
     visible: group.note !== ""
     width: group.width
     text: group.note

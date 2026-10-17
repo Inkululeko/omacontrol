@@ -22,6 +22,7 @@ Rectangle {
 
   Text {
     id: label
+    textFormat: Text.PlainText
     anchors.centerIn: parent
     text: chip.text
     color: chip.on ? Local.Palette.onAccent : Local.Palette.foreground

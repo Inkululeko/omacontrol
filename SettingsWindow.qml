@@ -2074,6 +2074,7 @@ Item {
           spacing: Style.space(8)
 
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: "OmaControl"
             color: root.foreground
@@ -2084,6 +2085,7 @@ Item {
 
           // A number in the name's own weight would be read as part of it.
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             visible: root.selfVersion !== ""
             text: root.selfVersion
@@ -2104,6 +2106,7 @@ Item {
           // a count beside their name read as though it were about them. So
           // the count and what undoes it sit here, together, once.
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             visible: root.changedLabel !== ""
             text: root.changedLabel
@@ -2166,6 +2169,7 @@ Item {
 
               Text {
                 id: searchGlyph
+                textFormat: Text.PlainText
                 anchors.left: parent.left
                 anchors.leftMargin: Style.space(10)
                 anchors.verticalCenter: parent.verticalCenter
@@ -2230,6 +2234,7 @@ Item {
                     spacing: Style.space(2)
 
                     Text {
+                      textFormat: Text.PlainText
                       visible: modelData.title !== ""
                       leftPadding: Style.space(11)
                       bottomPadding: Style.space(2)
@@ -2286,6 +2291,7 @@ Item {
                           }
 
                           Text {
+                            textFormat: Text.PlainText
                             anchors.left: itemIcon.right
                             anchors.leftMargin: Style.space(11)
                             anchors.right: itemCount.left
@@ -2304,6 +2310,7 @@ Item {
                           // item at rest is a number nobody asked for.
                           Text {
                             id: itemCount
+                            textFormat: Text.PlainText
                             anchors.right: parent.right
                             anchors.rightMargin: Style.space(11)
                             anchors.verticalCenter: parent.verticalCenter
@@ -2353,6 +2360,7 @@ Item {
                             }
 
                             Text {
+                              textFormat: Text.PlainText
                               anchors.left: parent.left
                               anchors.leftMargin: Style.space(32)
                               anchors.right: parent.right
@@ -2394,6 +2402,7 @@ Item {
                 // emptied sidebar is otherwise a blank column that reads as a
                 // window which failed to load.
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   visible: root.searching && root.sidebarBlocks.length === 0
                   padding: Style.space(10)
@@ -2414,6 +2423,7 @@ Item {
               spacing: Style.space(2)
 
               Text {
+                textFormat: Text.PlainText
                 text: "\uf0e7  Update available"
                 color: root.accent
                 font.family: root.fontFamily
@@ -2422,6 +2432,7 @@ Item {
 
               Text {
                 id: updateLink
+                textFormat: Text.PlainText
                 text: root.selfBehind === 1 ? "1 commit behind · update"
                   : root.selfBehind + " commits behind · update"
                 color: updateMouse.containsMouse ? root.accent : root.muted
@@ -2474,6 +2485,7 @@ Item {
               // "Overview / Overview" and "Network / Network" say nothing
               // twice, and a crumb that is always there stops being read.
               Text {
+                textFormat: Text.PlainText
                 visible: text !== ""
                 text: root.pageFor(root.pageId).crumb || ""
                 color: root.muted
@@ -2493,6 +2505,7 @@ Item {
                 // baseline: a chip here would be a control beside a heading
                 // rather than the heading saying where it came from.
                 Text {
+                  textFormat: Text.PlainText
                   visible: root.pageHeaderBack
                   anchors.baseline: pageTitleText.baseline
                   text: "\u2039"
@@ -2511,6 +2524,7 @@ Item {
 
                 Text {
                   id: pageTitleText
+                  textFormat: Text.PlainText
                   text: root.pageHeaderTitle
                   color: root.foreground
                   font.family: root.fontFamily
@@ -2522,6 +2536,7 @@ Item {
                 // sizes centred against each other read as two things, and
                 // this is the page said once and then qualified.
                 Text {
+                  textFormat: Text.PlainText
                   anchors.baseline: pageTitleText.baseline
                   visible: root.pageHeaderNote !== ""
                   text: root.pageHeaderNote
@@ -2584,6 +2599,7 @@ Item {
           }
 
           Text {
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             Layout.margins: Style.spacing.panelPadding
             Layout.topMargin: 0
@@ -2643,6 +2659,7 @@ Item {
               }
 
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: modelData.label
                 color: root.muted
@@ -2655,6 +2672,7 @@ Item {
         }
 
         Text {
+          textFormat: Text.PlainText
           anchors.right: parent.right
           anchors.rightMargin: Style.spacing.panelPadding
           anchors.verticalCenter: parent.verticalCenter

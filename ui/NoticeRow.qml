@@ -31,6 +31,7 @@ NavRow {
 
   Text {
     id: mark
+    textFormat: Text.PlainText
     anchors.left: parent.left
     anchors.top: labels.top
     text: notice.glyph
@@ -49,6 +50,7 @@ NavRow {
     spacing: Style.space(2)
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: notice.label
       wrapMode: Text.WordWrap
@@ -59,6 +61,7 @@ NavRow {
     }
 
     Text {
+      textFormat: Text.PlainText
       visible: notice.description !== ""
       width: parent.width
       text: notice.description
@@ -91,6 +94,7 @@ NavRow {
     // A glyph, not a button: it undoes nothing and configures nothing, it just
     // stops the row being shown for a day.
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       visible: notice.dismissable
       text: ""

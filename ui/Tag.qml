@@ -36,6 +36,7 @@ Rectangle {
 
     Text {
       id: glyph
+      textFormat: Text.PlainText
       visible: tag.icon !== ""
       anchors.verticalCenter: parent.verticalCenter
       text: tag.icon
@@ -46,6 +47,7 @@ Rectangle {
 
     Text {
       id: label
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       width: Math.max(0, Math.min(implicitWidth, tag.width - Style.space(18) - tag.iconSpace))
       elide: Text.ElideRight

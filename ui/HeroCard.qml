@@ -52,6 +52,7 @@ Rectangle {
     color: Local.Palette.accent
 
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: hero.glyph
       color: Local.Palette.onAccent
@@ -69,6 +70,7 @@ Rectangle {
     spacing: Style.space(2)
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: hero.title
       elide: Text.ElideRight
@@ -79,6 +81,7 @@ Rectangle {
     }
 
     Text {
+      textFormat: Text.PlainText
       visible: hero.subtitle !== ""
       width: parent.width
       text: hero.subtitle

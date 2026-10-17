@@ -200,6 +200,7 @@ Ui.SectionBody {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.right: parent.right
         visible: Number(waiting.count || 0) === 0
         text: "Up to date"

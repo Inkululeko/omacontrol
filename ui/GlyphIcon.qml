@@ -32,6 +32,7 @@ Item {
   }
 
   Text {
+    textFormat: Text.PlainText
     // Horizontally by the ink, vertically by the line. tightBoundingRect's y
     // is not measured from the item's top, so shifting by it drops every
     // glyph below its own label — which is exactly what it did.
