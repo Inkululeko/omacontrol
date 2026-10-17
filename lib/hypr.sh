@@ -94,6 +94,11 @@ hypr_keyword() {
     # takes either spelling, so this one is what both halves can use.
     tap-to-click) echo "input:touchpad:tap_to_click bool" ;;
     scroll-factor) echo "input:touchpad:scroll_factor float" ;;
+    # No page writes these: they are what a mouse falls back to when it has
+    # no setting of its own. The two above are touchpad-only, and Hyprland
+    # applies them to nothing else.
+    mouse-natural-scroll) echo "input:natural_scroll bool" ;;
+    mouse-scroll-factor) echo "input:scroll_factor float" ;;
     *) return 1 ;;
   esac
 }
@@ -147,6 +152,7 @@ groupbar-stacked groupbar-disable-when-only
 kb-layout kb-variant kb-options repeat-rate repeat-delay numlock
 sensitivity accel-profile follow-mouse natural-scroll
 disable-while-typing clickfinger tap-to-click scroll-factor
+mouse-natural-scroll mouse-scroll-factor
 KEYS
 }
 
