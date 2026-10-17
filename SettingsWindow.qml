@@ -66,7 +66,8 @@ Item {
   readonly property color chrome: Ui.Palette.chrome
   readonly property string fontFamily: Style.font.family
 
-  readonly property string helperPath: String(Qt.resolvedUrl("bin/omacontrol")).replace(/^file:\/\//, "")
+  // Decoded, or a home directory with a space in it runs a path with %20 in it.
+  readonly property string helperPath: decodeURIComponent(String(Qt.resolvedUrl("bin/omacontrol")).replace(/^file:\/\//, ""))
 
   // ---------------- state --------------------------------------------------
   property var state: ({})

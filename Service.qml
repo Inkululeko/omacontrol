@@ -66,7 +66,7 @@ Scope {
   // on a network at all, for the badge on the gear.
   // One watcher however many bars there are, and only while one of them is
   // showing the gear: a plugin enabled with no bar entry has nothing to badge.
-  readonly property string helperPath: String(Qt.resolvedUrl("bin/omacontrol")).replace(/^file:\/\//, "")
+  readonly property string helperPath: sourceDir + "/bin/omacontrol"
   property var switches: ({})
   property int switchWatchers: 0
   function watchSwitches(on) { switchWatchers = Math.max(0, switchWatchers + (on ? 1 : -1)) }
@@ -125,6 +125,18 @@ Scope {
 
   // ---------------- launcher entry -----------------------------------------
 
+  // Where this plugin's own files are, from this file's URL rather than the
+  // manifest: the shell strips __sourceDir from a third-party manifest before
+  // handing it over, so asking there found nothing on every install and the
+  // launcher entry was never written. The URL is percent-encoded, and a home
+  // directory with a space in it is a path the scripts below must still find.
+  readonly property string sourceDir: {
+    var url = String(Qt.resolvedUrl("."))
+    if (url.indexOf("file://") !== 0) return ""
+    try { url = decodeURIComponent(url.substring(7)) } catch (e) { return "" }
+    return url.replace(/\/$/, "")
+  }
+
   readonly property string dest: Quickshell.env("HOME") + "/.local/share/applications/omacontrol.desktop"
   readonly property string marker: "^X-OmaControl-Managed=true$"
 
@@ -151,15 +163,11 @@ Scope {
 
   property bool installed: false
 
-  // The shell assigns manifest after createObject() has already run
-  // Component.onCompleted, so the paths are built when it arrives rather than
-  // bound ahead of it.
-  onManifestChanged: {
-    var dir = manifest && manifest.__sourceDir
-    if (installed || !dir) return
+  Component.onCompleted: {
+    if (installed || sourceDir === "") return
     installed = true
     Quickshell.execDetached(["sh", "-c", installScript, "sh",
-                             dir + "/omacontrol.desktop", dest, marker, dir + "/icon.png"])
+                             sourceDir + "/omacontrol.desktop", dest, marker, sourceDir + "/icon.png"])
   }
 
   // Reached on disable and on remove alike: omarchy-plugin-remove disables
