@@ -13,10 +13,16 @@
 # devices from every list, connected ones included. Strip the colour before
 # reading the line; a `[CHG]` event line arriving mid-listing still fails the
 # match, which is what should happen to it.
+#
+# "Device" alone is not enough either: bluetoothctl also prints metadata lines
+# such as "Device Information", which became phantom rows with the address
+# "Information". Only a full six-byte address makes a line a device.
 bt_addresses() {
   capture bluetoothctl devices ${1:+"$1"} \
     | awk '{ gsub(/\033\[[0-9;]*m/, "") }
-           $1 == "Device" { address = $2; $1 = ""; $2 = ""; sub(/^  /, ""); print address "\t" $0 }'
+           $1 == "Device" && $2 ~ /^([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}$/ {
+             address = $2; $1 = ""; $2 = ""; sub(/^  /, ""); print address "\t" $0
+           }'
 }
 
 # Kind and battery come from a per-device lookup, which is only worth doing
