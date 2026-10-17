@@ -27,6 +27,7 @@ Rectangle {
     spacing: Style.space(6)
 
     Text {
+      textFormat: Text.PlainText
       text: card.label
       color: Local.Palette.muted
       font.family: Local.Palette.fontFamily
@@ -37,6 +38,7 @@ Rectangle {
     }
 
     Text {
+      textFormat: Text.PlainText
       text: card.value
       color: Local.Palette.foreground
       font.family: Local.Palette.fontFamily
@@ -55,6 +57,7 @@ Rectangle {
     }
 
     Text {
+      textFormat: Text.PlainText
       visible: card.note !== ""
       width: parent.width
       text: card.note

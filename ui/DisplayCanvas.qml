@@ -87,6 +87,7 @@ Item {
           spacing: Style.space(2)
 
           Text {
+            textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.max(0, tile.width - Style.space(16))
             horizontalAlignment: Text.AlignHCenter
@@ -102,6 +103,7 @@ Item {
           // else — in a monitor rule someone wrote, in hyprctl, on the row
           // below. A tile too short for a second line keeps the name.
           Text {
+            textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.max(0, tile.width - Style.space(16))
             horizontalAlignment: Text.AlignHCenter

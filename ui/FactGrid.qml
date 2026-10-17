@@ -85,6 +85,7 @@ Item {
           spacing: Style.space(1)
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: cell.rule ? "" : String(cell.modelData.label).toUpperCase()
             elide: Text.ElideRight
@@ -96,6 +97,7 @@ Item {
           }
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             // A value may carry its own line breaks — one name server per
             // line — so the cell grows rather than eliding the second away.

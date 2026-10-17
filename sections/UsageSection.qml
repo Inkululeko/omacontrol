@@ -144,6 +144,7 @@ Ui.SectionBody {
 
             Text {
               id: figure
+              textFormat: Text.PlainText
               anchors.horizontalCenter: parent.horizontalCenter
               anchors.top: parent.top
               text: Number(modelData.tokens) > 0 ? app.formatTokens(modelData.tokens) : ""
@@ -171,6 +172,7 @@ Ui.SectionBody {
 
             Text {
               id: label
+              textFormat: Text.PlainText
               anchors.horizontalCenter: parent.horizontalCenter
               anchors.bottom: parent.bottom
               text: Qt.formatDateTime(new Date(modelData.date + "T12:00:00"), "ddd")

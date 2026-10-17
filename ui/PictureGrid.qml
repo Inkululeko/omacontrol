@@ -129,6 +129,7 @@ Item {
           // A theme with no preview and no backgrounds still has to be
           // pickable, so the tile says its name rather than showing a hole.
           Text {
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             visible: tile.modelData.source === ""
             text: "No preview"
@@ -149,6 +150,7 @@ Item {
 
         Text {
           id: caption
+          textFormat: Text.PlainText
           anchors.top: picture.bottom
           anchors.topMargin: Style.space(6)
           width: parent.width

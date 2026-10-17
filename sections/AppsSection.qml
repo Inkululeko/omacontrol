@@ -220,6 +220,7 @@ Ui.SectionBody {
         visible: creating === "tui"
 
         Text {
+          textFormat: Text.PlainText
           text: "Shown as"
           color: Ui.Palette.foreground
           font.family: Ui.Palette.fontFamily
@@ -257,6 +258,7 @@ Ui.SectionBody {
         }
 
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: siteIconSwitch.verticalCenter
           text: "Use the icon from the site"
           color: Ui.Palette.foreground
@@ -285,6 +287,7 @@ Ui.SectionBody {
         }
 
         Text {
+          textFormat: Text.PlainText
           text: "Find icons at dashboardicons.com"
           color: Ui.Palette.accent
           font.family: Ui.Palette.fontFamily

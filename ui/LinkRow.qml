@@ -40,6 +40,7 @@ NavRow {
   // column.
   Text {
     id: mark
+    textFormat: Text.PlainText
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(16)
@@ -68,6 +69,7 @@ NavRow {
 
   Text {
     id: title
+    textFormat: Text.PlainText
     anchors.left: mark.right
     anchors.right: stamp.left
     anchors.rightMargin: Style.space(14)
@@ -85,6 +87,7 @@ NavRow {
 
   Text {
     id: stamp
+    textFormat: Text.PlainText
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
     text: linkRow.value

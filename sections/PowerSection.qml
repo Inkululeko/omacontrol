@@ -185,6 +185,7 @@ Ui.SectionBody {
 
           Text {
             id: level
+            textFormat: Text.PlainText
             text: reading.percentage !== null && reading.percentage !== undefined
               ? reading.percentage + "%" : "\u2014"
             color: Ui.Palette.foreground
@@ -194,6 +195,7 @@ Ui.SectionBody {
           }
 
           Text {
+            textFormat: Text.PlainText
             anchors.baseline: level.baseline
             text: page.stateLabel
             elide: Text.ElideRight
@@ -205,6 +207,7 @@ Ui.SectionBody {
         }
 
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           visible: page.batterySummary !== ""
           text: page.batterySummary
@@ -236,6 +239,7 @@ Ui.SectionBody {
     // Enough to stop a healthy battery looking broken — it holds more than
     // its rating, and Health sits at 100% anyway — and not a word more.
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: "Capacity is what the battery holds today. Rated capacity is what the manufacturer specified, usually lower than the actual capacity."
       wrapMode: Text.WordWrap

@@ -20,6 +20,7 @@ Rectangle {
   border.color: Local.Palette.divider
 
   Text {
+    textFormat: Text.PlainText
     anchors.fill: parent
     anchors.margins: Style.space(10)
     text: preview.text

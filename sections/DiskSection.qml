@@ -250,6 +250,7 @@ Ui.SectionBody {
           // what a shop, a receipt and a warranty all call it. A drive with
           // no model to give falls back to the name the kernel uses.
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: String(drive.model || "") !== "" ? String(drive.model) : String(drive.device)
             elide: Text.ElideRight
@@ -287,6 +288,7 @@ Ui.SectionBody {
         // share for root — and that part is neither your files nor space you
         // can put a file in. On this drive it is 19 GB of a terabyte.
         Text {
+          textFormat: Text.PlainText
           text: space.known
             ? app.formatBytes(space.used) + " used of " + app.formatBytes(space.total) + " usable"
             : "Nothing on this drive is mounted"
@@ -300,6 +302,7 @@ Ui.SectionBody {
         // a headline figure with an empty gap under it for that long reads as
         // a card that has finished loading and has nothing more to say.
         Text {
+          textFormat: Text.PlainText
           visible: drive.system === true && app.diskBreakdown === null
           text: "Working out what is using the space…"
           color: Ui.Palette.muted
@@ -392,6 +395,7 @@ Ui.SectionBody {
               }
 
               Text {
+                textFormat: Text.PlainText
                 text: modelData.label + " " + app.formatBytes(modelData.bytes)
                 color: Ui.Palette.muted
                 font.family: Ui.Palette.fontFamily
@@ -406,6 +410,7 @@ Ui.SectionBody {
         // there. A `du` that ran out of time is not a small number, it is no
         // number, and the space it could not account for is in System.
         Text {
+          textFormat: Text.PlainText
           visible: drive.system === true && app.diskBreakdown !== null
             && slices.length > 0 && !page.breakdownHasHome
           width: parent.width

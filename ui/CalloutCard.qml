@@ -57,6 +57,7 @@ Rectangle {
   // before, and both of these are measured from their own text.
   Text {
     id: mark
+    textFormat: Text.PlainText
     x: Style.space(14)
     y: Style.space(14)
     text: card.glyph
@@ -73,6 +74,7 @@ Rectangle {
     spacing: Style.space(3)
 
     Text {
+      textFormat: Text.PlainText
       text: card.label
       color: card.tone
       font.family: Local.Palette.fontFamily
@@ -83,6 +85,7 @@ Rectangle {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: card.detail
       elide: Text.ElideRight

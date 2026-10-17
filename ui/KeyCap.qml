@@ -22,6 +22,7 @@ Rectangle {
 
   Text {
     id: label
+    textFormat: Text.PlainText
     anchors.centerIn: parent
     text: cap.key
     color: Local.Palette.shade(0.8)
