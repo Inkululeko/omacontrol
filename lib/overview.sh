@@ -336,7 +336,11 @@ overview_cmd() {
     # and all: starting hyprsunset, telling the bar to redraw its indicator.
     toggle) shift
       case ${1:-} in
-        nightlight) capture_err omarchy-toggle-nightlight ;;
+        # Bar off: the toggle's off leaves a filter on the screen, and the
+        # setter is where that is put right.
+        nightlight)
+          if [[ $(nightlight_enabled) == true ]]; then set_key_apply nightlight false
+          else capture_err omarchy-toggle-nightlight; fi ;;
         dnd) capture_err omarchy-toggle-notification-silencing ;;
         awake) capture_err omarchy-toggle-idle ;;
         dictation) setsid -f voxtype record toggle >/dev/null 2>&1 ;;

@@ -141,7 +141,22 @@ set_key_apply() {
     nightlight)
       # The toggle script has no absolute set, so only flip when the requested
       # state differs from the live one — repeated clicks stay idempotent.
-      [[ $(nightlight_enabled) == "$value" ]] || omarchy-toggle-nightlight ;;
+      #
+      # Off is not the toggle's off. That sets 6500, which is still a matrix on
+      # the screen; unfiltered is `identity`. Identity alone will not do either:
+      # --status reads the last temperature *set*, which identity leaves alone,
+      # so the switch would go on saying on over an unfiltered screen and the
+      # guard would refuse the next request for on. (Omarchy's shipped
+      # hyprsunset.conf sends identity at 07:00 and lands in exactly that.)
+      # So off writes 6500 for the reading, then identity for the screen. The
+      # bar's indicator never polls; the toggle tells it to look, so must this.
+      if [[ $value == false && $(nightlight_enabled) != false ]]; then
+        hyprctl hyprsunset temperature 6500 >/dev/null 2>&1
+        hyprctl hyprsunset identity >/dev/null 2>&1
+        omarchy-shell -q nightlight refresh >/dev/null 2>&1
+      else
+        [[ $(nightlight_enabled) == "$value" ]] || omarchy-toggle-nightlight
+      fi ;;
     bar-position)
       case $value in
         top|bottom|left|right) omarchy bar position "$value" ;;
