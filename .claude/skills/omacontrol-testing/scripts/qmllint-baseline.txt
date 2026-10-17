@@ -65,7 +65,7 @@
 1	Warning	SettingsWindow.qml	Member "title" not found on type "QObject" [missing-property]
 1	Warning	SettingsWindow.qml	Property "state" already exists in base type "QQuickItem", use a different name. [property-override]
 1	Warning	SettingsWindow.qml	Type PanelWindow is not creatable. [uncreatable-type]
-28	Warning	SettingsWindow.qml	Unqualified access [unqualified]
+39	Warning	SettingsWindow.qml	Unqualified access [unqualified]
 1	Warning	sections/AboutSection.qml	Member "body" not found on type "QObject" [missing-property]
 109	Warning	sections/AboutSection.qml	Unqualified access [unqualified]
 2	Warning	sections/AppsSection.qml	Member "bodySmall" not found on type "QObject" [missing-property]

@@ -24,7 +24,8 @@ Item {
 
   // While the search box is being typed into it owns the keyboard, the same
   // way an open dropdown or a field being edited does.
-  readonly property bool searchFocused: searchField.activeFocus
+  readonly property bool searchFocused: searchInput ? searchInput.activeFocus : false
+  readonly property TextField searchInput: searchField.item as TextField
 
   // Which screen the window was opened on. Hyprland knows which one has the
   // focus; Quickshell knows the screens by name, and the two are matched here.
@@ -2015,8 +2016,10 @@ Item {
 
         // The two things every search box answers to.
         if (event.text === "/" || (ctrl && event.key === Qt.Key_F)) {
-          searchField.forceActiveFocus()
-          searchField.selectAll()
+          if (searchInput) {
+            searchInput.forceActiveFocus()
+            searchInput.selectAll()
+          }
           event.accepted = true
           return
         }
@@ -2176,31 +2179,47 @@ Item {
                 z: 1
               }
 
-              TextField {
+              // Built only while the window is shown. A live text field reads
+              // the clipboard whenever another application changes it, with no
+              // size limit and no deadline, so a hidden window that kept one
+              // would let any application stall the whole shell without a
+              // paste. The query outlives the field, so reopening still shows
+              // the last search.
+              Loader {
                 id: searchField
                 anchors.fill: parent
-                // The kit's own knob, not an override of the `leftPadding` it
-                // derives from it — that binding also carries the border
-                // inset, and replacing it means re-deriving something the kit
-                // already gets right.
-                horizontalPadding: Style.space(26)
-                placeholderText: "Search settings"
-                foreground: root.foreground
-                accent: root.accent
-                font.family: root.fontFamily
-                onTextChanged: root.searchQuery = text
-                // Escape gives the keyboard back to the page rather than
-                // closing the window out from under a search.
-                Keys.onPressed: function(event) {
-                  if (event.key === Qt.Key_Escape) {
-                    if (text !== "") text = ""
-                    root.navTakeFocus()
-                    event.accepted = true
-                  } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
-                             || event.key === Qt.Key_Down) {
-                    root.navTakeFocus()
-                    root.navMove(1)
-                    event.accepted = true
+                active: root.shown
+                sourceComponent: searchFieldComponent
+              }
+
+              Component {
+                id: searchFieldComponent
+
+                TextField {
+                  Component.onCompleted: text = root.searchQuery
+                  // The kit's own knob, not an override of the `leftPadding` it
+                  // derives from it — that binding also carries the border
+                  // inset, and replacing it means re-deriving something the kit
+                  // already gets right.
+                  horizontalPadding: Style.space(26)
+                  placeholderText: "Search settings"
+                  foreground: root.foreground
+                  accent: root.accent
+                  font.family: root.fontFamily
+                  onTextChanged: root.searchQuery = text
+                  // Escape gives the keyboard back to the page rather than
+                  // closing the window out from under a search.
+                  Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Escape) {
+                      if (text !== "") text = ""
+                      root.navTakeFocus()
+                      event.accepted = true
+                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                               || event.key === Qt.Key_Down) {
+                      root.navTakeFocus()
+                      root.navMove(1)
+                      event.accepted = true
+                    }
                   }
                 }
               }
