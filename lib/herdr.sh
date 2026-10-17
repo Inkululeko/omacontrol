@@ -113,9 +113,11 @@ herdr_write() {
   local previous
   previous=$(read_file "$HERDR_CONFIG")
 
-  awk -v table="$table" -v name="$name" -v line="$name = $formatted" '
+  # The line arrives through the environment: `awk -v` runs escape sequences,
+  # so the \" jq just wrote came back out as a bare quote and broke the TOML.
+  OMACONTROL_LINE="$name = $formatted" awk -v table="$table" -v name="$name" '
     function trim(v) { gsub(/^[ \t]+|[ \t]+$/, "", v); return v }
-    BEGIN { section = ""; done = 0; lastInTable = 0 }
+    BEGIN { section = ""; done = 0; lastInTable = 0; line = ENVIRON["OMACONTROL_LINE"] }
     {
       lines[NR] = $0
       current = $0
@@ -172,7 +174,9 @@ herdr_cmd() {
     state) herdr_state ;;
     set)
       local type
-      type=$(herdr_schema | awk -F'\t' -v k="$key" '$1 == k { print $2 }')
+      # Matched as typed, not through `awk -v`, whose escapes would let a
+      # backslashed key pass for one it is not.
+      type=$(herdr_schema | OMACONTROL_KEY=$key awk -F'\t' '$1 == ENVIRON["OMACONTROL_KEY"] { print $2 }')
       [[ -n $type ]] || die "unknown herdr setting '$key'"
       local before_herdr
       before_herdr=$(setting_value_now "herdr:$key")

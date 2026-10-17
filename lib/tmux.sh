@@ -103,8 +103,10 @@ tmux_write() {
   local setter="set -g"
   [[ $scope == window ]] && setter="setw -g"
 
-  awk -v key="$key" -v line="$setter $key $formatted" '
-    BEGIN { replaced = 0 }
+  # The line arrives through the environment: `awk -v` runs escape sequences,
+  # and a value is not the place for them.
+  OMACONTROL_LINE="$setter $key $formatted" awk -v key="$key" '
+    BEGIN { replaced = 0; line = ENVIRON["OMACONTROL_LINE"] }
     {
       lines[NR] = $0
       if ($0 ~ /^[ \t]*(set|setw|set-option|set-window-option)[ \t]/ && $0 !~ /^[ \t]*#/) {

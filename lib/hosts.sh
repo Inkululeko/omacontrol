@@ -20,8 +20,11 @@ hosts_list() {
   fi
   local host
   host=$(cat /proc/sys/kernel/hostname 2>/dev/null)
-  awk -v host="$host" -v max="$HOSTS_SHOWN_MAX" '
+  # The hostname through the environment, as the kernel holds it: `awk -v`
+  # would run escape sequences in it.
+  OMACONTROL_HOST=$host awk -v max="$HOSTS_SHOWN_MAX" '
     BEGIN {
+      host = ENVIRON["OMACONTROL_HOST"]
       split("localhost localhost.localdomain ip6-localhost ip6-loopback ip6-localnet ip6-mcastprefix ip6-allnodes ip6-allrouters ip6-allhosts", d, " ")
       for (i in d) usual[d[i]] = 1
       if (host != "") { usual[host] = 1; usual[host ".localdomain"] = 1 }
