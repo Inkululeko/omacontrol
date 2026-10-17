@@ -58,12 +58,19 @@ herdr_read() {
       sub(/[ \t]+#.*$/, "", value)
       if (key == "" || value ~ /^[\[{]/) next
       full = (section == "" ? key : section "." key)
-      # Strings arrive quoted; the window wants the text, not the quoting.
-      if (value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
       printf "%s\t%s\n", full, value
     }
-  ' <(read_file "$HERDR_CONFIG") | jq -R -s -c 'split("\n")
-    | map(select(length > 0) | split("\t") | { key: .[0], value: .[1] })
+  ' <(read_file "$HERDR_CONFIG") | jq -R -s -c '
+    # Strings arrive quoted; the window wants the text, not the quoting. A
+    # basic string is decoded, or the quote in a title written from here comes
+    # back as \" — and is written back doubled by the next edit, or by a reset.
+    # TOML escapes JSON has no word for fall back to the text between quotes.
+    def unquote: ([39] | implode) as $sq
+      | if test("^\".*\"$") then (fromjson? // .[1:-1])
+        elif length >= 2 and startswith($sq) and endswith($sq) then .[1:-1]
+        else . end;
+    split("\n")
+    | map(select(length > 0) | split("\t") | { key: .[0], value: (.[1] // "" | unquote) })
     | from_entries'
 }
 
@@ -79,7 +86,7 @@ herdr_state() {
     def cast(v; t):
       if t == "bool" then (v == "true")
       elif t == "int" then (v | tonumber? // 0)
-      else (v | sub("^\"";"") | sub("\"$";"")) end;
+      else v end;
     { installed: $installed,
       path: $path,
       values: (split("\n")
