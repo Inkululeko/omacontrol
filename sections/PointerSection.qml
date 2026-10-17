@@ -137,6 +137,10 @@ Ui.SectionBody {
       readonly property var settings: modelData.settings || ({})
       readonly property var configured: modelData.configured || ({})
       readonly property bool ours: Object.keys(settings).length > 0
+      // The page's scroll settings are the touchpad's, and Hyprland applies
+      // them to nothing else: a mouse with no setting of its own scrolls by
+      // the plain input ones.
+      readonly property bool touchpad: modelData.touchpad === true
 
       // Not called `value`: inside a row, that name resolves to the row's own
       // value property rather than to this.
@@ -158,8 +162,8 @@ Ui.SectionBody {
         label: "Sensitivity"
         value: (Number(inForce("sensitivity", app.hyprValue("sensitivity", 0))) + 1) / 2
         onCommitted: function(next) { app.setDevice(name, "sensitivity", (next * 2 - 1).toFixed(2), "pointer") }
-        changed: app.isChanged("sensitivity")
-        onResetRequested: app.resetSetting("sensitivity")
+        changed: app.isChanged("device:" + name + ":sensitivity")
+        onResetRequested: app.resetSetting("device:" + name + ":sensitivity")
       }
 
       Ui.PickerRow {
@@ -171,16 +175,16 @@ Ui.SectionBody {
           { value: "adaptive", label: "Adaptive" }
         ]
         onPicked: function(next) { app.setDevice(name, "accel_profile", next, "pointer") }
-        changed: app.isChanged("accel-profile")
-        onResetRequested: app.resetSetting("accel-profile")
+        changed: app.isChanged("device:" + name + ":accel_profile")
+        onResetRequested: app.resetSetting("device:" + name + ":accel_profile")
       }
 
       Ui.SwitchRow {
         label: "Natural scrolling"
-        checked: inForce("natural_scroll", app.hyprValue("natural-scroll", false)) === true
+        checked: inForce("natural_scroll", app.hyprValue(touchpad ? "natural-scroll" : "mouse-natural-scroll", false)) === true
         onRequested: function(next) { app.setDevice(name, "natural_scroll", next ? "true" : "false", "pointer") }
-        changed: app.isChanged("natural-scroll")
-        onResetRequested: app.resetSetting("natural-scroll")
+        changed: app.isChanged("device:" + name + ":natural_scroll")
+        onResetRequested: app.resetSetting("device:" + name + ":natural_scroll")
       }
 
       Ui.SwitchRow {
@@ -195,10 +199,10 @@ Ui.SectionBody {
         label: "Scroll speed"
         minimum: 0.1
         maximum: 3
-        value: Number(inForce("scroll_factor", app.hyprValue("scroll-factor", 1)))
+        value: Number(inForce("scroll_factor", app.hyprValue(touchpad ? "scroll-factor" : "mouse-scroll-factor", 1)))
         onCommitted: function(next) { app.setDevice(name, "scroll_factor", next, "pointer") }
-        changed: app.isChanged("scroll-factor")
-        onResetRequested: app.resetSetting("scroll-factor")
+        changed: app.isChanged("device:" + name + ":scroll_factor")
+        onResetRequested: app.resetSetting("device:" + name + ":scroll_factor")
       }
 
       // No label: what the button removes is the group it sits in, and how
