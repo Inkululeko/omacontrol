@@ -66,37 +66,41 @@ omarchy plugin add https://github.com/twiking/omacontrol.git --enable
 
 ## Coming from OmaSettings
 
-OmaControl is the same window renamed, but a rename is not free for a program
-that writes into other people's files. Six things on disk carry the old name
-and the new window recognises none of them — the store of what you changed and
-what it was before, the generated Hyprland file, the `require` line that loads
-it, the marked block in `bindings.lua`, the `.bak` copies of your originals,
-and the bar slot the gear sits in.
-
-Run this once, **before** opening the OmaControl window:
-
-```sh
-./bin/omacontrol-migrate            # prints what would change, changes nothing
-./bin/omacontrol-migrate --apply    # carries it out
-```
-
-It copies every original into `~/.local/state/omacontrol/migration-<time>/`
-with an `undo.sh` beside them, so the whole thing is one command to reverse. It
-also disables the OmaSettings plugin, since two windows both appending a
-`require` line to one `hyprland.lua` would fight; `--remove-old` removes it
-instead.
-
-Then install and restart:
+Install OmaControl beside it and restart the shell:
 
 ```sh
 omarchy plugin add https://github.com/twiking/omacontrol.git --enable
 omarchy restart shell
 ```
 
-Skipping the migration does not break anything immediately — but the settings
-you had stay applied with no memory of their originals, so "Undo all" has
-nothing to put back, and the keybindings you added end up orphaned in a block
-the new window cannot see.
+Open OmaControl. The Overview page says your OmaSettings settings have not
+come across yet; press **Bring them over**. A few seconds later every setting
+you made in OmaSettings is marked as changed, and "Undo all" can put each one
+back. If the shell reloads its plugins meanwhile, the window closes and comes
+back on its own.
+
+OmaControl is the same window renamed, but a rename is not free for a program
+that writes into other people's files. Six things on disk carry the old name —
+the store of what you changed and what it was before, the generated Hyprland
+file, the `require` line that loads it, the marked block in `bindings.lua`, the
+`.bak` copies of your originals, and the bar slot the gear sits in — and the
+new window recognises none of them until they are renamed. The gear keeps its
+place in the bar, and OmaSettings is switched off but left installed;
+`omarchy plugin remove io.github.twiking.omasettings` removes it.
+
+Every original is copied into `~/.local/state/omacontrol/migration-<time>/`
+first, with an `undo.sh` beside them, so the whole thing is one command to
+reverse.
+
+The offer is only made before you change anything in OmaControl: a change gives
+it a store of its own, and bringing the old one over would overwrite it. To
+see the plan or run it from a terminal instead:
+
+```sh
+P=~/.config/omarchy/plugins/io.github.twiking.omacontrol
+$P/bin/omacontrol-migrate            # prints what would change, changes nothing
+$P/bin/omacontrol-migrate --apply    # carries it out
+```
 
 ## Usage
 

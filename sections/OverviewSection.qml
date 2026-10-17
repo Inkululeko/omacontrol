@@ -152,6 +152,8 @@ Ui.SectionBody {
         onTriggered: {
           if (modelData.update === true) {
             if (app.selfId !== "") app.run(["plugin", "update", app.selfId])
+          } else if (modelData.migrate === true) {
+            app.run(["migrate", "start"])
           } else if (modelData.page !== undefined) {
             app.pageId = modelData.page
           } else if (modelData.action !== undefined) {
