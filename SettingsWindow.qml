@@ -1000,7 +1000,7 @@ Item {
   function resetSetting(key) { run(["reset", key]) }
 
   // Whether this window is itself behind its remote. The cached answer draws
-  // the corner at once; the check behind it corrects the cache a moment later.
+  // the header at once; the check behind it corrects the cache a moment later.
   readonly property var selfUpdate: state.selfUpdate !== undefined ? state.selfUpdate : ({})
   readonly property int selfBehind: selfUpdate.behind !== undefined ? Number(selfUpdate.behind) : 0
   readonly property string selfId: selfUpdate.id !== undefined ? String(selfUpdate.id) : ""
@@ -2108,6 +2108,32 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(8)
 
+          // Beside the count rather than at the foot of the sidebar: being
+          // behind is a fact about the window, like what it has changed, and
+          // the foot of a long menu is the last place anyone reads.
+          Text {
+            textFormat: Text.PlainText
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !root.busy && root.loaded && root.selfBehind > 0
+            text: "\uf0e7  Update available ("
+              + (root.selfBehind === 1 ? "1 commit behind" : root.selfBehind + " commits behind") + ")"
+            color: root.accent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            font.underline: updateMouse.containsMouse
+            rightPadding: Style.space(8)
+
+            MouseArea {
+              id: updateMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(4)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.selfId !== "") root.run(["plugin", "update", root.selfId])
+            }
+          }
+
           // What has changed is a fact about the window, not about the page
           // on screen — the live pages change nothing this window tracks, and
           // a count beside their name read as though it were about them. So
@@ -2438,41 +2464,6 @@ Item {
               }
             }
 
-            // The corner says something only when there is something to say:
-            // when this window is behind its own remote.
-            Column {
-              Layout.fillWidth: true
-              visible: !root.busy && root.loaded && root.selfBehind > 0
-              spacing: Style.space(2)
-
-              Text {
-                textFormat: Text.PlainText
-                text: "\uf0e7  Update available"
-                color: root.accent
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              Text {
-                id: updateLink
-                textFormat: Text.PlainText
-                text: root.selfBehind === 1 ? "1 commit behind · update"
-                  : root.selfBehind + " commits behind · update"
-                color: updateMouse.containsMouse ? root.accent : root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.underline: updateMouse.containsMouse
-
-                MouseArea {
-                  id: updateMouse
-                  anchors.fill: parent
-                  anchors.margins: -Style.space(4)
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: if (root.selfId !== "") root.run(["plugin", "update", root.selfId])
-                }
-              }
-            }
           }
         }
 
