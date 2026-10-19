@@ -256,7 +256,7 @@ out of. And hopefully someone else finds it useful too.
 omarchy plugin add https://github.com/twiking/omacontrol.git --enable
 ```
 
-## Coming from OmaSettings
+## Migrate from OmaSettings
 
 Install OmaControl beside it and restart the shell:
 
