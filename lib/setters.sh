@@ -13,6 +13,17 @@
 #
 # The live pages are deliberately absent — audio, network, bluetooth, power
 # move on their own, so "changed" would mean nothing there.
+# The gear's own switches, by setting key. They are keys of its layout entry
+# beside the id, which is where the bar hands a widget its settings.
+gear_field() {
+  case ${1:-} in
+    bar-active-switch-count) echo showActiveSwitchCount ;;
+    bar-network-warning) echo showNetworkWarning ;;
+    bar-battery-warnings) echo showBatteryWarnings ;;
+    *) return 1 ;;
+  esac
+}
+
 setting_current() {
   local cfg
   case ${1:-} in
@@ -23,6 +34,10 @@ setting_current() {
     bar-position) jq -r '.bar.position // "top"' <<<"$(read_shell_json)" ;;
     bar-transparent) jq -r '((.bar.transparent // false) | tostring)' <<<"$(read_shell_json)" ;;
     bar-center-anchor) jq -r '.bar.centerAnchor // ""' <<<"$(read_shell_json)" ;;
+    bar-active-switch-count|bar-network-warning|bar-battery-warnings)
+      jq -r --arg field "$(gear_field "$1")" '[ (.bar.layout // {})[][]?
+        | select(.id == "io.github.twiking.omacontrol") | .[$field] ] | first | . != false' \
+        <<<"$(read_shell_json)" ;;
     idle-screensaver) jq -r '.idle.screensaver // empty' <<<"$(read_shell_json)" ;;
     idle-lock) jq -r '.idle.lock // empty' <<<"$(read_shell_json)" ;;
     *) return 1 ;;
@@ -170,6 +185,10 @@ set_key_apply() {
     bar-center-anchor)
       [[ -n $value ]] || die "no widget id given"
       edit_shell_json '.bar = ((.bar // {}) | .centerAnchor = $id)' --arg id "$value" ;;
+    bar-active-switch-count|bar-network-warning|bar-battery-warnings)
+      [[ $value == true || $value == false ]] || die "'$value' is not true or false"
+      edit_shell_json '(.bar.layout[]?[]? | select(.id == "io.github.twiking.omacontrol"))
+        |= (.[$field] = $enabled)' --arg field "$(gear_field "$key")" --argjson enabled "$value" ;;
     idle-screensaver|idle-lock)
       local field=${key#idle-}
       [[ $value =~ ^[0-9]+$ ]] || die "'$value' is not a number of seconds"

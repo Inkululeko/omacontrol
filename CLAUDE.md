@@ -93,7 +93,7 @@ setting:
 | --- | --- |
 | Windows, Layout, Effects, Groups, Keyboard, Mouse & touchpad, Workspaces | `~/.config/hypr/omacontrol.lua`, loaded last (`omacontrol.conf` on a `.conf` setup) |
 | Appearance | Omarchy's own config, via `omarchy-theme-set`, `omarchy font set`, `omarchy display text size` |
-| Bar, Idle & Lock, Plugins | `~/.config/omarchy/shell.json` (Plugins also *reads* plugins.omarchy.org, cached) |
+| Bar, Idle & Lock, Plugins, Settings | `~/.config/omarchy/shell.json` (Plugins also *reads* plugins.omarchy.org, cached) |
 | Keybindings | a marked block in `~/.config/hypr/bindings.lua` |
 | Compose Keys | `~/.XCompose` |
 | Herdr, Tmux, Neovim | their own configs, edited in place |

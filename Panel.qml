@@ -47,6 +47,14 @@ BarWidget {
     return on
   }
 
+  // Each part of the badge can be turned off, because the bar may already say
+  // it — Omarchy's indicators, its battery and network widgets. The tooltip
+  // stays complete either way: hovering is asking.
+  readonly property int badgeCount: setting("showActiveSwitchCount", true) !== false
+    ? switchedOn.length : 0
+  readonly property bool warnNetwork: setting("showNetworkWarning", true) !== false
+  readonly property bool warnBattery: setting("showBatteryWarnings", true) !== false
+
   // Offline outranks the count: it is the one thing on the badge that is a
   // problem rather than a choice. Null means NetworkManager could not be
   // asked, which says nothing about the connection, so it marks nothing.
@@ -68,6 +76,13 @@ BarWidget {
   // down with it; before the count, since a choice is never as urgent as a
   // keyboard about to drop off.
   readonly property var lowDevices: Array.isArray(switches.lowDevices) ? switches.lowDevices : []
+
+  // What the badge and the click act on. A warning switched off must not send
+  // the click to its page either, or the gear opens Network for no reason the
+  // reader can see.
+  readonly property bool markOffline: offline && warnNetwork
+  readonly property bool markBattery: batteryLow && warnBattery
+  readonly property bool markDevices: lowDevices.length > 0 && warnBattery
 
   property var watching: null
   onServiceChanged: {
@@ -102,9 +117,9 @@ BarWidget {
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) root.bar.run("omarchy-menu")
       // A problem on the badge sends the click where it can be fixed.
-      else if (root.offline && !root.opened) root.showPage("network")
-      else if (root.batteryLow && !root.opened) root.showPage("power")
-      else if (root.lowDevices.length > 0 && !root.opened) root.showPage("bluetooth")
+      else if (root.markOffline && !root.opened) root.showPage("network")
+      else if (root.markBattery && !root.opened) root.showPage("power")
+      else if (root.markDevices && !root.opened) root.showPage("bluetooth")
       else root.toggle()
     }
   }
@@ -114,7 +129,7 @@ BarWidget {
   // bar gives a widget one icon slot, and widening it for a badge would shove
   // the whole section sideways every time one came on.
   Rectangle {
-    visible: root.offline || root.batteryLow || root.lowDevices.length > 0 || root.switchedOn.length > 0
+    visible: root.markOffline || root.markBattery || root.markDevices || root.badgeCount > 0
     anchors.top: button.top
     anchors.left: button.horizontalCenter
     anchors.leftMargin: Style.space(1)
@@ -130,10 +145,10 @@ BarWidget {
       // the outlined Wi-Fi-off thins to nothing at a badge's size.
       // nf-md-battery_alert (U+F0083) for the laptop, and its Bluetooth
       // variant (U+F094B) for a device, so the two read apart at a glance.
-      text: root.offline ? "\udb81\uddaa"
-        : root.batteryLow ? "\udb80\udc83"
-        : root.lowDevices.length > 0 ? "\udb82\udd4b"
-        : String(root.switchedOn.length)
+      text: root.markOffline ? "\udb81\uddaa"
+        : root.markBattery ? "\udb80\udc83"
+        : root.markDevices ? "\udb82\udd4b"
+        : String(root.badgeCount)
       textFormat: Text.PlainText
       color: Color.bar.background
       font.family: Style.font.family

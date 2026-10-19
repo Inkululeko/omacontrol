@@ -20,6 +20,34 @@
     "description": "Opens the OmaControl window.",
     "category": "System",
     "allowMultiple": false,
-    "defaultSection": "right"
+    "defaultSection": "right",
+    "defaults": {
+      "showActiveSwitchCount": true,
+      "showNetworkWarning": true,
+      "showBatteryWarnings": true
+    },
+    "schema": [
+      {
+        "key": "showActiveSwitchCount",
+        "type": "boolean",
+        "label": "Show active-switch count",
+        "description": "Counts Night light, Do not disturb and Stay awake on the gear.",
+        "defaultValue": true
+      },
+      {
+        "key": "showNetworkWarning",
+        "type": "boolean",
+        "label": "Show network warning",
+        "description": "Marks the gear when there is no network at all. A click then opens Network.",
+        "defaultValue": true
+      },
+      {
+        "key": "showBatteryWarnings",
+        "type": "boolean",
+        "label": "Show battery warnings",
+        "description": "Marks the gear when the laptop or a Bluetooth device is at 10 % or under. A click then opens Power or Bluetooth.",
+        "defaultValue": true
+      }
+    ]
   }
 }

@@ -1673,6 +1673,11 @@ Item {
       { id: "plugins", label: "Plugins", icon: "\uf1e6", pages: ["plugins"] },
       { id: "usage", label: "Usage", icon: "\uf201", pages: ["usage"] },
       { id: "cfg", label: "Configs", icon: "\uf121", pages: ["apps.herdr", "apps.tmux", "apps.nvim"] }
+    ] },
+    // Last and apart: everything above configures the desktop, and this is
+    // the one block about the window itself.
+    { title: "OmaControl", items: [
+      { id: "omacontrol", label: "Settings", icon: "\uf013", pages: ["omacontrol"] }
     ] }
   ]
 
@@ -1741,7 +1746,8 @@ Item {
     "theme": "Theme",
     "font": "Font",
     "wallpaper": "Wallpaper",
-    "branding": "Branding"
+    "branding": "Branding",
+    "omacontrol": "OmaControl settings"
   })
 
   // Which item is open. Driven by the page rather than held on its own: an
@@ -1844,6 +1850,7 @@ Item {
     case "apps.defaults": return "sections/DefaultsSection.qml"
     case "apps.tmux": return "sections/TmuxSection.qml"
     case "apps.nvim": return "sections/NvimSection.qml"
+    case "omacontrol": return "sections/OmaControlSection.qml"
     // Named rather than left to the default: the search index reads these
     // cases to learn which file holds which page, and a page reachable only
     // through the default is a page it cannot see.
