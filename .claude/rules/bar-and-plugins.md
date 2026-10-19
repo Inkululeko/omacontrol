@@ -63,6 +63,13 @@ the batteries, so those wake it at once; night light has no file behind it and i
 fifteen seconds. Dictation is not counted: it is
 on only while someone is speaking, and the bar shows its own mark then.
 
+Each of the three can be turned off on **OmaControl → Settings** — the
+count, the network mark, and the two battery marks together — because the bar
+may already say it. They are keys of the gear's own layout entry
+(`showActiveSwitchCount`, `showNetworkWarning`, `showBatteryWarnings`), so
+`omarchy bar set` reaches them too. A mark switched off also stops sending the
+click to its page; the tooltip always names everything.
+
 ## The launcher entry
 
 The plugin is an app as well as a bar widget: `Service.qml` is also the

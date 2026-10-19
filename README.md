@@ -299,19 +299,26 @@ $P/bin/omacontrol-migrate --apply    # carries it out
 Click the gear in the bar to open the window, or find it in the launcher as
 OmaControl.
 
-### Active-switch count
+### The badge on the gear
 
-The gear counts Night light, Do not disturb and Stay awake by default.
-If you use Omarchy's indicators for these modes, open **OmaControl → Settings**
-and turn off **Show active-switch count**. You can also run:
+By default the gear shows a badge for three things:
+
+- **No network:** a click opens Network.
+- **Battery at 10 % or under**, for the laptop or a Bluetooth device: a click
+  opens Power or Bluetooth.
+- **How many of Night light, Do not disturb and Stay awake are on.**
+
+If your bar already shows any of these, turn that part off in
+**OmaControl → Settings**, or from a terminal:
 
 ```sh
 omarchy bar set io.github.twiking.omacontrol showActiveSwitchCount false --json
+omarchy bar set io.github.twiking.omacontrol showNetworkWarning false --json
+omarchy bar set io.github.twiking.omacontrol showBatteryWarnings false --json
 ```
 
-Network and battery warnings still appear. The tooltip still lists every
-active mode, including any you don't show in Omarchy's indicators. Set the
-same option to `true` to restore the count.
+Hovering over the gear still lists everything, whatever the badge shows. Set an
+option back to `true` to bring that part of the badge back.
 
 ## How it writes
 

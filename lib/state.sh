@@ -52,8 +52,13 @@ BAR_STATE_JQ='{
   position: (($cfg.bar.position // "top") | tostring),
   transparent: (($cfg.bar.transparent // false) == true),
   centerAnchor: (($cfg.bar.centerAnchor // "") | tostring),
-  activeSwitchCount: ([ ($cfg.bar.layout // {})[][]?
-    | select(.id == "io.github.twiking.omacontrol") | .showActiveSwitchCount ] | first | . != false),
+  # The gear absent from the bar has no entry, and reads as every default.
+  gear: ([ ($cfg.bar.layout // {})[][]? | select(.id == "io.github.twiking.omacontrol") ]
+    | (first // {}) | {
+      activeSwitchCount: (.showActiveSwitchCount != false),
+      networkWarning: (.showNetworkWarning != false),
+      batteryWarnings: (.showBatteryWarnings != false)
+    }),
   # Just the ids, in bar order: the window pairs them with the plugin
   # list for names. Settings needed by this page are read separately;
   # the rest stay in shell.json for the widget to read.
