@@ -2,52 +2,244 @@
 
 One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
 
-<p align="center"><img src="preview.png" alt="The OmaControl window" width="800"></p>
+<p align="center"><img src="preview.png" alt="The OmaControl window, open on the Overview page" width="600"></p>
 
-- **Find anything.** Type "blur" or "gaps" and every setting that touches it
+Omarchy's settings live in a dozen places: `shell.json`, the Hyprland config,
+each application's own config, `~/.XCompose`, and a long list of commands.
+OmaControl puts them in one window, alongside the live state of the machine —
+audio, network, bluetooth, power, disks and processes — so a few widgets can
+leave the bar if you want the space for others.
+
+- **Find anything.** Type "blur" or "border" and every setting that touches it
   appears with its current value, whatever file it normally lives in.
-- **Overview.** Opens on what needs you: a partition filling up, a peripheral
-  about to run out of battery. The switches you reach for daily — night light,
-  do not disturb, stay awake, dictation. What is waiting to update. And the
-  latest from omarchy.org, checked every half hour, with a star on anything you
-  have not read yet.
-- **Packages.** What is installed, what is waiting, and how much it weighs —
-  repositories and the AUR together. Plus the housekeeping nobody remembers:
-  the package cache, orphans, and `.pacnew` files waiting to be merged.
-- **Agent usage.** Where your coding agent's rate limits stand, what it spent
-  over the last week, and which models it went to.
-- **About.** What this machine is — model, CPU, GPU, memory, disk, kernel,
-  compositor — as one block you can copy into a bug report.
-- **Disk.** What is holding the space, every mount and how full it is, the
-  drive's SMART health, and your snapshots. Mount a stick, trim the drive,
-  take a snapshot.
-- **Processes.** Per-core CPU, memory, load, and what is heaviest right now —
-  sorted by CPU, memory or name. End something without leaving for a terminal.
-- **Look and feel.** Theme, font, text size, gaps, borders, rounding, opacity,
-  blur, shadows, animations and their speed, window group tabs, tiling layout.
-- **The bar.** Position, transparency, which widgets sit where, and which
-  plugins are enabled, plus add, remove and update them.
-- **Workspaces.** Bind an application to a workspace or a display, open it
-  there in the background, floating, pinned or fullscreen, start it when you
-  log in, keep the screen awake or hide it from screen sharing. And set up the workspaces themselves: name,
-  display, layout, kept when empty, borderless.
-- **Keybindings.** Browse every binding you have, add your own, turn Omarchy's
-  off, put them back. No Lua.
-- **Compose keys.** Your `~/.XCompose` sequences as a list you can add to and
-  remove from.
-- **Input.** Keyboard layout, repeat rate, mouse and touchpad behaviour, and
-  one device can differ from the rest.
-- **Displays.** Resolution, refresh rate, scale, rotation, variable refresh,
-  HDR where the display supports it, mirroring, brightness, and which screens
-  are on — plus the arrangement, dragged into the shape they are on the desk.
-  Settings follow the screen rather than the socket, so a display you have
-  configured keeps what it was given when you plug it back in.
-- **Applications.** Settings for tmux, Herdr and Neovim, written into their
-  real configs.
-- **The live stuff.** Audio, network, bluetooth and power, so those widgets can
-  leave the bar, if you want more space for other widgets.
-- **Undo.** Anything you changed is marked and goes back, one setting or all of
-  them at once.
+- **Undo.** Anything you changed is marked, and goes back one setting at a time
+  or all at once.
+- **Keyboard first.** Arrows or `j`/`k` move, `h`/`l` change a value,
+  `Alt`+arrows change page, `/` searches, `Esc` closes.
+
+<p align="center"><img src="docs/screenshots/search.png" alt="Searching for border: matching settings on the Windows and Configs pages, changed ones marked with a reset link" width="600"></p>
+
+## Everything in the menu
+
+The sections below follow the sidebar, top to bottom. Click a screenshot for
+the full size.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="preview.png"><img src="preview.png" alt="Overview page"></a><br>
+<b>Overview</b><br>
+Opens on what needs you: a partition filling up, a peripheral about to run
+out of battery. The switches you reach for daily — night light, do not
+disturb, stay awake, dictation. What is waiting to update. And the latest from
+omarchy.org, checked every half hour, with a star on anything you have not
+read yet.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/network.png"><img src="docs/screenshots/network.png" alt="Network page"></a><br>
+<b>Network</b><br>
+The connection you are on and how it is doing: addresses, signal, channel,
+traffic, ping to the router, and a warning when something else is crowding
+the channel. Join another network, share this one as a QR code, run a speed
+test, pick the Wi-Fi band and DNS provider, and see the hosts file.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/bluetooth.png"><img src="docs/screenshots/bluetooth.png" alt="Bluetooth page"></a><br>
+<b>Bluetooth</b><br>
+Connected devices with their battery, the ones you have paired, and
+everything nearby. Connect, pair and forget, and let other devices find
+this one.
+</td>
+<td width="50%" valign="top"></td>
+</tr>
+</table>
+
+### Experience
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/appearance.png"><img src="docs/screenshots/appearance.png" alt="Appearance page, on the theme picker"></a><br>
+<b>Appearance</b><br>
+Theme, font and text size, and wallpaper, each picked from previews. Plus
+branding: the text or image on the screensaver and the About screen.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/effects.png"><img src="docs/screenshots/effects.png" alt="Effects page"></a><br>
+<b>Effects</b><br>
+Blur, shadows and the glow around the focused window, down to every knob
+Hyprland has for them.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/bar.png"><img src="docs/screenshots/bar.png" alt="Bar page"></a><br>
+<b>Bar</b><br>
+Position, transparency, which widget the centre is anchored on, and which
+widgets sit left, centre and right — moved, added, disabled and spaced out.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/windows.png"><img src="docs/screenshots/windows.png" alt="Windows page, on the general settings"></a><br>
+<b>Windows</b><br>
+Gaps, borders, rounding, snapping, opacity, dimming and animations. The
+tiling layout — dwindle, master or scrolling — and how each one splits. And
+window groups: the tab bar's height, titles, rounding and gradients.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/workspaces.png"><img src="docs/screenshots/workspaces.png" alt="Workspaces page"></a><br>
+<b>Workspaces</b><br>
+Bind an application to a workspace or a display, open it there in the
+background, floating, pinned or fullscreen, start it when you log in, keep
+the screen awake or hide it from screen sharing. And set up the workspaces
+themselves: name, display, layout, kept when empty, borderless.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/keyboard.png"><img src="docs/screenshots/keyboard.png" alt="Keyboard page, on the keybindings"></a><br>
+<b>Keyboard</b><br>
+Layouts, variant, options and repeat rate, with one keyboard allowed to
+differ from the rest. Browse every keybinding you have, add your own, turn
+Omarchy's off and put them back, with no Lua. And your <code>~/.XCompose</code>
+sequences as a list you can add to and remove from.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/mouse-and-touchpad.png"><img src="docs/screenshots/mouse-and-touchpad.png" alt="Mouse and touchpad page"></a><br>
+<b>Mouse & touchpad</b><br>
+Sensitivity, acceleration, focus follows mouse, natural scrolling, tap to
+click, two-finger right click, disable while typing and scroll speed — and
+one device can differ from the rest.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/sound.png"><img src="docs/screenshots/sound.png" alt="Sound page"></a><br>
+<b>Sound</b><br>
+Volume and mute for output and input, and which device each one uses.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/displays.png"><img src="docs/screenshots/displays.png" alt="Displays page"></a><br>
+<b>Displays</b><br>
+Resolution, refresh rate, scale, rotation, variable refresh, HDR where the
+display supports it, mirroring, brightness, and which screens are on — plus
+the arrangement, dragged into the shape they are on the desk. Settings follow
+the screen rather than the socket, so a display you have configured keeps
+what it was given when you plug it back in.
+</td>
+<td width="50%" valign="top"></td>
+</tr>
+</table>
+
+### System
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/power.png"><img src="docs/screenshots/power.png" alt="Power page"></a><br>
+<b>Power</b><br>
+The battery's charge, health and charge cycles, and the power profile to run
+at on battery and plugged in.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/idle-and-lock.png"><img src="docs/screenshots/idle-and-lock.png" alt="Idle and Lock page"></a><br>
+<b>Idle & Lock</b><br>
+How long before the screensaver starts and the screen locks, and the
+animation shown at start-up and while unlocking.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/security.png"><img src="docs/screenshots/security.png" alt="Security page"></a><br>
+<b>Security</b><br>
+Which incoming connections the firewall lets in, from where, and what is
+listening behind them. Set up a fingerprint reader, a FIDO2 key or the SSH
+server.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/storage.png"><img src="docs/screenshots/storage.png" alt="Storage page"></a><br>
+<b>Storage</b><br>
+What is holding the space, every mount and how full it is, swap, the drive's
+SMART health, and your snapshots. Mount a stick, or take a snapshot.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/processes.png"><img src="docs/screenshots/processes.png" alt="Processes page"></a><br>
+<b>Processes</b><br>
+Per-core CPU, memory, load, what is heaviest right now, and every process as
+a tree. End something without leaving for a terminal.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/date-and-time.png"><img src="docs/screenshots/date-and-time.png" alt="Date and Time page"></a><br>
+<b>Date & Time</b><br>
+The timezone, and whether the clock is synchronised — with a resync when it
+is not.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/about.png"><img src="docs/screenshots/about.png" alt="About page"></a><br>
+<b>About</b><br>
+What this machine is — model, CPU, GPU, memory, disk, kernel, compositor —
+as one block you can copy into a bug report. When it was last updated, and
+the release channel it follows.
+</td>
+<td width="50%" valign="top"></td>
+</tr>
+</table>
+
+### Apps & Packages
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/default-apps.png"><img src="docs/screenshots/default-apps.png" alt="Default Apps page"></a><br>
+<b>Default Apps</b><br>
+The browser, terminal, editor and coding agent everything else opens. One
+you have not installed yet is set up the first time you pick it.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/apps.png"><img src="docs/screenshots/apps.png" alt="Apps page"></a><br>
+<b>Apps</b><br>
+Every application in the launcher, with its version, the workspace it opens
+on, whether it starts at login and what it is the default for. Make a new
+web app or terminal app, or uninstall one.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/packages.png"><img src="docs/screenshots/packages.png" alt="Packages page"></a><br>
+<b>Packages</b><br>
+What is installed, what is waiting, and how much it weighs — repositories
+and the AUR together. Open a package for why it is here and what needs it,
+remove one or several at once, and update everything in one press.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/plugins.png"><img src="docs/screenshots/plugins.png" alt="Plugins page"></a><br>
+<b>Plugins</b><br>
+Your shell plugins and the ones built into Omarchy: switch them on and off,
+update them, remove them, and add new ones from plugins.omarchy.org.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/screenshots/usage.png"><img src="docs/screenshots/usage.png" alt="Agent usage page"></a><br>
+<b>Usage</b><br>
+Where your coding agent's rate limits stand, what it spent over the last
+week, and which models it went to.
+</td>
+<td width="50%" valign="top">
+<a href="docs/screenshots/configs.png"><img src="docs/screenshots/configs.png" alt="Configs page, on tmux"></a><br>
+<b>Configs</b><br>
+Settings for Herdr, tmux and Neovim, written into their real configs, with a
+way into the rest of each file for anything the page does not cover.
+</td>
+</tr>
+</table>
 
 ## Why I built it
 
@@ -121,7 +313,7 @@ app eats someone's setup. Instead:
 - **Everything else**, meaning Herdr, tmux and Neovim, is edited one value at a
   time, in place, keeping the comment attached to the line it belongs to.
 
-Overview, Disk and Processes write nothing at all. They report, and where
+Overview, Storage and Processes write nothing at all. They report, and where
 there is something to *do* they hand off to the command that owns it — the same
 `omarchy-toggle-nightlight` the bar uses, `udisksctl` for a mount, `snapper` for
 a snapshot. That is why those pages cannot disagree with the bar.
@@ -141,10 +333,10 @@ applying the tmux option, and rolled back if it fails.
 | `bluetoothctl`               | Bluetooth                                             |
 | `upower`, `powerprofilesctl` | Power                                                 |
 | `timedatectl`                | Date & Time                                           |
-| `tmux`, `nvim`, `herdr`      | Their own pages under Applications                    |
+| `tmux`, `nvim`, `herdr`      | Their own pages under Configs                         |
 | `xkbcli`                     | Checking a keyboard layout compiles before writing it |
-| `lsblk`, `df`                | Disk                                                  |
-| `smartctl`, `snapper`        | The Disk page's health and snapshot panels             |
+| `lsblk`, `df`                | Storage                                               |
+| `smartctl`, `snapper`        | The Storage page's health and snapshot panels         |
 | `top`                        | Processes                                             |
 | `checkupdates`, `expac`      | Packages                                              |
 | `yay`                        | AUR updates on the Packages page                      |
