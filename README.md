@@ -1,6 +1,8 @@
 # OmaControl
 
-One window for every Omarchy setting, from Hyprland to your keybindings to tmux.
+One window for every Omarchy setting and the machine underneath it: Hyprland,
+keybindings and themes, alongside Wi-Fi, Bluetooth, disks, processes and
+packages.
 
 <p align="center"><img src="preview.png" alt="The OmaControl window, open on the Overview page" width="600"></p>
 
