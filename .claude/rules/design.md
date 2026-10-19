@@ -41,9 +41,13 @@ each get the design in their own colours. Never hardcode a colour in a page.
 cards on it. Anything finer stops being visible once a theme supplies the colours.
 
 **One sidebar, in blocks, and no second column.** `navBlocks` holds
-twenty-four destinations in four blocks: three unheaded at the top — Overview,
+twenty-six destinations in five blocks: three unheaded at the top — Overview,
 Network, Bluetooth, which is what people open this window for mid-task — then
-Experience, System, and Apps & Packages. Every destination is on screen at
+Experience, System, and Apps & Packages, and last, OmaControl, holding the
+window's own Settings. Those sit in a block of their own so a setting about
+OmaControl is never mistaken for one about the desktop — the gear's badge was
+first put on the Bar page, beside settings that belong to Omarchy's bar.
+Every destination is on screen at
 once. An item holding more than one page reveals those pages indented beneath
 it while it is open, so the second level exists only where there is something
 to put in it, and only for as long as you are there.
@@ -75,7 +79,7 @@ for it. One way that reaches every page beats two that each reach some.
 **A search empties the sidebar rather than dimming it.** An item whose pages
 all fail the filter is dropped, and a block that loses all its items goes with
 it; what survives carries a match count. Dimming was right when the sidebar
-was a rail of ten fixed landmarks — with twenty-four items it left a column of
+was a rail of ten fixed landmarks — with twenty-six items it left a column of
 rows you can see and cannot reach.
 
 **The search box sits at the top of the sidebar.** It lived in the window
