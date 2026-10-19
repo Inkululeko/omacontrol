@@ -193,7 +193,7 @@ rather than all at the end; the verdicts outlive the sweep in
 `~/.cache/omarchy/omacontrol/plugin-updates.json`, since a check costs a
 network round trip per plugin.
 
-The window is a plugin too, and says so in its own corner when it is behind:
+The window is a plugin too, and says so in the window header, beside the changed count, when it is behind:
 the cached verdict draws it at once and a single background fetch corrects it
 a moment after opening. The comparison is `omarchy-plugin-update`'s own — fetch
 `origin HEAD`, count `HEAD..FETCH_HEAD` — on purpose, so the count never
