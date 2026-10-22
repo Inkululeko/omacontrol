@@ -126,10 +126,11 @@ overview_attention() {
 # device with days left in it, and still minutes before it drops off
 # mid-sentence.
 OVERVIEW_PERIPHERAL_LOW=10
+OVERVIEW_PERIPHERAL_KINDS='mouse|keyboard|headset|headphones|pen|touchpad'
 
 overview_low_peripherals() {
   local devices
-  devices=$(capture upower -e | grep -E '/(mouse|keyboard|headset|headphones|pen|touchpad)_')
+  devices=$(capture upower -e | grep -E "/($OVERVIEW_PERIPHERAL_KINDS)_")
   [[ -n ${devices:-} ]] || { echo '[]'; return; }
 
   local out=() device info model percent
@@ -264,11 +265,8 @@ overview_online() {
   [[ $state == connected* ]] && printf true || printf false
 }
 
-overview_live() {
-  local switches online low
-  switches=$(overview_switches)
-  online=$(overview_online)
-  low=$(overview_low_peripherals)
+overview_compose() {
+  local switches=$1 online=$2 low=$3
   jq -cn --argjson s "$(emit_json "$switches" '{}')" --argjson online "${online:-null}" \
     --argjson low "$(emit_json "$low" '[]')" \
     '$s + { online: $online, lowDevices: [ $low[] | { name: .device, percent } ] }'
@@ -279,21 +277,54 @@ overview_live() {
 # Omarchy's services, so the gear cannot bind to them the way the bar's own
 # indicators do.
 #
-# Stay awake and do not disturb are files under Omarchy's state directory,
-# NetworkManager reports its own changes, and UPower signals a Bluetooth
-# device's battery moving, so any of those wakes this at once. UPower also
-# signals the laptop's own battery, about once a minute on battery power; a
-# read is twenty milliseconds, so that is not worth filtering.
-# Night light is a temperature held by hyprsunset with no file behind it, so
-# it is asked again every fifteen seconds — one hyprctl call, and only a
-# change is ever printed.
-OVERVIEW_SWITCHES_RECHECK=15
+# This runs for as long as the bar does, so each part is asked only when
+# something says it moved, and on its own clock otherwise. A read of all of it
+# is some fifty processes, and asking everything whenever anything stirred
+# once kept the load near 7 on a laptop.
+#
+# Stay awake and do not disturb are files under Omarchy's state directory, and
+# NetworkManager reports its own changes, so those are asked at once and never
+# on a clock. Night light is a temperature held by hyprsunset with no file
+# behind it, so the switches are asked again every minute: a badge that is a
+# minute late about a choice the reader made costs nothing.
+#
+# UPower signals a Bluetooth device's battery moving, but it also signals the
+# laptop's own battery and its DisplayDevice roughly every second, plugged in
+# or not, mostly nothing but UpdateTime. Nothing here reads that battery, so
+# only the kinds lowDevices lists are acted on. The peripherals are asked again
+# every five minutes besides, in case a signal was missed.
+OVERVIEW_SWITCHES_RECHECK=60
+OVERVIEW_PERIPHERALS_RECHECK=300
 
 overview_watch() {
-  local state="$HOME_DIR/.local/state/omarchy" last next line rc checked=$SECONDS
+  local state="$HOME_DIR/.local/state/omarchy" last next line rc wait_for
+  local switches online low switches_at=$SECONDS low_at=$SECONDS
+  local want_switches=0 want_online=0 want_low=0
   mkdir -p "$state/indicators" 2>/dev/null
-  last=$(overview_live)
+  switches=$(overview_switches)
+  online=$(overview_online)
+  low=$(overview_low_peripherals)
+  last=$(overview_compose "$switches" "$online" "$low")
   printf '%s\n' "$last"
+
+  # Sets a flag rather than printing one, so a wake that wants nothing costs
+  # no process at all.
+  overview_wanted_by() {
+    case $1 in
+      # The state directory is shared with the clipboard history and a dozen
+      # others, so only these two names are worth a read.
+      file:stay-awake|file:notifications.json) want_switches=1 ;;
+      file:*) ;;
+      /org/freedesktop/UPower/devices/*)
+        [[ $1 =~ ^/org/freedesktop/UPower/devices/($OVERVIEW_PERIPHERAL_KINDS)_ ]] \
+          && want_low=1 ;;
+      # A device arriving or leaving.
+      /org/freedesktop/UPower:*) want_low=1 ;;
+      # gdbus announcing itself; the first read has already been done.
+      "Monitoring signals"*|"The name org.freedesktop.UPower"*) ;;
+      *) want_online=1 ;;
+    esac
+  }
 
   local reader=$$
   {
@@ -312,20 +343,28 @@ overview_watch() {
     # be hours off, so the reader is watched instead.
     while kill -0 "$reader" 2>/dev/null; do sleep 2; done
   } | while :; do
-        read -r -t "$OVERVIEW_SWITCHES_RECHECK" line; rc=$?
+        wait_for=$(( switches_at + OVERVIEW_SWITCHES_RECHECK - SECONDS ))
+        (( low_at + OVERVIEW_PERIPHERALS_RECHECK - SECONDS < wait_for )) \
+          && wait_for=$(( low_at + OVERVIEW_PERIPHERALS_RECHECK - SECONDS ))
+        (( wait_for < 1 )) && wait_for=1
+        read -r -t "$wait_for" line; rc=$?
         # End of input is the watcher gone; anything over 128 is the timeout.
         (( rc != 0 && rc <= 128 )) && break
-        # The state directory is shared with the clipboard history and a dozen
-        # others, so only these two names are worth a read — unless night
-        # light is due anyway.
-        if (( rc == 0 )) && [[ $line == file:* && $line != file:stay-awake \
-              && $line != file:notifications.json ]] \
-           && (( SECONDS - checked < OVERVIEW_SWITCHES_RECHECK )); then
-          continue
+        (( rc == 0 )) && overview_wanted_by "$line"
+        # A burst is read whole before anything is asked, or one key press
+        # costs four reads.
+        if (( want_switches || want_online || want_low )); then
+          while read -r -t 0.2 line; do overview_wanted_by "$line"; done
         fi
-        while read -r -t 0.2 _; do :; done
-        checked=$SECONDS
-        next=$(overview_live)
+        (( SECONDS - switches_at >= OVERVIEW_SWITCHES_RECHECK )) && want_switches=1
+        (( SECONDS - low_at >= OVERVIEW_PERIPHERALS_RECHECK )) && want_low=1
+        (( want_switches || want_online || want_low )) || continue
+
+        (( want_switches )) && { switches=$(overview_switches); switches_at=$SECONDS; }
+        (( want_online )) && online=$(overview_online)
+        (( want_low )) && { low=$(overview_low_peripherals); low_at=$SECONDS; }
+        want_switches=0 want_online=0 want_low=0
+        next=$(overview_compose "$switches" "$online" "$low")
         [[ $next != "$last" ]] && { printf '%s\n' "$next"; last=$next; }
       done
 }

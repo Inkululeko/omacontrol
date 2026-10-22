@@ -47,8 +47,8 @@ it: the module is live and not gated, so it needs no watcher. Below that, a
 Bluetooth device under 10 % shows the Bluetooth variant of the mark and the
 click opens the Bluetooth page. The list is the Overview page's own
 "nearly flat" notices, so the page and the badge share one threshold;
-UPower signals each level change, so it costs an idle `gdbus monitor` and no
-polling. AirPods are not on it: their battery comes from Apple's own
+UPower signals each level change, so it is asked on that signal and
+otherwise every five minutes. AirPods are not on it: their battery comes from Apple's own
 broadcast, which OmaPods reads and UPower never sees.
 
 It cannot read them the way the bar's own indicators do. Omarchy hands its
@@ -59,8 +59,19 @@ clone would be untrue, so `Service.qml` runs `overview watch`
 instead: one watcher however many bars there are, running only while a gear
 has said it is there. Stay awake and do not disturb are files under
 `~/.local/state/omarchy`, `nmcli monitor` reports the connection and UPower
-the batteries, so those wake it at once; night light has no file behind it and is asked again every
-fifteen seconds. Dictation is not counted: it is
+the batteries, so those wake it at once; night light has no file behind it, so
+the switches are asked again every minute.
+
+**Each part is asked only for its own reason.** The watcher runs for as long
+as the bar does, and a read of everything is some fifty processes. It once
+re-read everything on any wake, and UPower signals the laptop's own battery
+about once a second, plugged in or not, almost always only `UpdateTime` — so
+it read everything every second and held the load near 7. Battery and
+`DisplayDevice` signals are ignored now (the gear reads the laptop battery
+from Quickshell), the connection is asked only when NetworkManager says it
+moved, and each part keeps its own clock. Before relying on how often a
+system service signals, capture it: the old comment said "about once a
+minute", and nobody had looked. Dictation is not counted: it is
 on only while someone is speaking, and the bar shows its own mark then.
 
 Each of the three can be turned off on **OmaControl → Settings** — the
