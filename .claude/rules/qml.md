@@ -20,8 +20,16 @@ paths:
   singleton: every colour comes back undefined, the window draws black on
   black, and the journal says only `Cannot read property 'text' of undefined`.
   Pages and `ui/` read colours from `Palette`; `Palette.qml` and `Panel.qml`
-  read the theme as `Commons.Color`, through `import qs.Commons as Commons`.
-  On Qt 6.11 the bare name still works, so nothing here will show it.
+  read the theme through `import qs.Commons as Commons`, which no QtQuick can
+  shadow.
+- **Read the theme as `Commons.ShellColor || Commons.Color`, never one name.**
+  Omarchy renamed the singleton `ShellColor` (omacom/omarchy#14560), and two
+  shells both calling themselves 4.0.6 export one name each. A name the shell
+  does not have reads as `undefined` rather than failing to load, so naming
+  either one alone drew the window black on black under the other.
+  `Palette.theme` and the gear's `theme` hold whichever is there. qmllint
+  flags the one this shell lacks, so the baseline carries that pair, and a
+  machine with the other name sees it reported the other way round.
 - **The `Palette` singleton needs an explicit directory import.** Files in
   `ui/` use `import "." as Local` and `Local.Palette.foreground`; the implicit
   directory import does not resolve it here.
@@ -83,7 +91,7 @@ paths:
   ```
 
   What is left on a clean tree is missing-property and nothing else: members
-  of Omarchy's `Style` and `Color` singletons, which declare their groups as
+  of Omarchy's `Style` and colour singletons, which declare their groups as
   untyped objects; `node.app` on the walk a row makes up to its page; and a
   `Loader`'s `item`. Typing that last one in `Service.qml` would name
   `SettingsWindow` there and compile the whole window at shell start, which

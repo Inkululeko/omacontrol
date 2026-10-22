@@ -55,8 +55,8 @@ requires — and exits 255 with no output when it meets one, so `Panel.qml` is
 never linted by it and a clean run from it is worth nothing. The script uses
 `/usr/lib/qt6/bin/qmllint` and links the `qs` import root Quickshell aliases.
 
-Qt 6's emits about seven hundred findings on a clean tree, because it cannot
-type the `Style` and `Color` singletons, the parent chain a row walks to reach
+Qt 6's emits about two hundred findings on a clean tree, because it cannot
+type the `Style` and `ShellColor` singletons, the parent chain a row walks to reach
 its page, or anything reached through a `Loader`'s `item`. Excusing those by
 *category* was tried and removed 679 findings out of 679 — an undefined
 identifier anywhere read as clean. So `qmllint-baseline.txt` records a

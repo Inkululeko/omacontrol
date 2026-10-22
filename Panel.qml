@@ -16,6 +16,9 @@ BarWidget {
   id: root
   moduleName: "io.github.twiking.omacontrol"
 
+  // Either name of Omarchy's theme singleton, as in Palette.qml.
+  readonly property var theme: Commons.ShellColor || Commons.Color
+
   readonly property var service: bar && bar.shell && typeof bar.shell.serviceFor === "function"
     ? bar.shell.serviceFor(moduleName) : null
 
@@ -138,7 +141,7 @@ BarWidget {
     width: Math.max(height, count.implicitWidth + Style.space(8))
     height: Style.space(16)
     radius: height / 2
-    color: Commons.Color.bar.active
+    color: root.theme.bar.active
 
     Text {
       id: count
@@ -152,7 +155,7 @@ BarWidget {
         : root.markDevices ? "\udb82\udd4b"
         : String(root.badgeCount)
       textFormat: Text.PlainText
-      color: Commons.Color.bar.background
+      color: root.theme.bar.background
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       font.bold: true

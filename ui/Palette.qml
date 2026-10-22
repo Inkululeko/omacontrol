@@ -18,12 +18,17 @@ import qs.Commons as Commons
 QtObject {
   id: palette
 
-  readonly property color foreground: Commons.Color.popups.text
+  // Omarchy renamed its theme singleton `ShellColor`, and shells still give
+  // it the old name under the same version number. A name a shell lacks
+  // reads as undefined, so naming one alone drew black on black under the other.
+  readonly property var theme: Commons.ShellColor || Commons.Color
+
+  readonly property color foreground: theme.popups.text
   // Popup surfaces are allowed to be translucent; a window full of text is
   // not, so the same colour is taken at full opacity.
-  readonly property color background: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
-  readonly property color accent: Commons.Color.accent
-  readonly property color urgent: Commons.Color.urgent
+  readonly property color background: Qt.rgba(theme.popups.background.r, theme.popups.background.g, theme.popups.background.b, 1)
+  readonly property color accent: theme.accent
+  readonly property color urgent: theme.urgent
 
   // A charge level is red, amber or green in every window that has ever shown
   // one, and a theme supplies only the red. The other two are struck from that
