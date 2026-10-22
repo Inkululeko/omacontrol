@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
@@ -75,7 +76,7 @@ Ui.SectionBody {
 
   Timer {
     interval: 20000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
     onTriggered: page.app.pollPlugins()
@@ -441,7 +442,7 @@ Ui.SectionBody {
 
   // ================================================================ the list
   Ui.SettingGroup {
-    visible: !searchEmpty && openPlugin === "" && !creating
+    visible: !searchEmpty && page.openPlugin === "" && !page.creating
 
     RowLayout {
       width: parent.width
@@ -465,7 +466,7 @@ Ui.SectionBody {
       Ui.StatCard {
         Layout.fillWidth: true
         label: "On disk"
-        value: page.report.diskBytes > 0 ? app.formatBytes(page.report.diskBytes) : "—"
+        value: page.report.diskBytes > 0 ? page.app.formatBytes(page.report.diskBytes) : "—"
         note: page.yoursCount > 0
           ? "across " + page.yoursCount + " you installed" : ""
       }
@@ -480,7 +481,7 @@ Ui.SectionBody {
   // has to have read — so it is on screen, in the window's own words, above
   // the button that acts on it.
   Ui.SettingGroup {
-    visible: !searchEmpty && creating
+    visible: !searchEmpty && page.creating
     note: "Adding one reloads the shell's plugins, so this window closes for "
       + "a moment and comes back with the result."
 
@@ -578,7 +579,7 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && openPlugin === "" && !creating
+    visible: !searchEmpty && page.openPlugin === "" && !page.creating
     title: "Plugins"
 
     // A clone is seconds of network and then a reload that takes this window
@@ -699,7 +700,7 @@ Ui.SectionBody {
             // and it is not the question here: a plugin's size is a fact you
             // check about the one you are looking at, and twenty bars for it
             // are twenty lengths nobody is comparing.
-            { text: p.bytes > 0 ? app.formatBytes(p.bytes) : "", align: "right" },
+            { text: p.bytes > 0 ? page.app.formatBytes(p.bytes) : "", align: "right" },
             // The one thing there is to do to a row that the row's own state
             // does not cover, on the rows that can be done it. While it is
             // out, and after it has failed, the cell is still the way in — a
@@ -769,9 +770,9 @@ Ui.SectionBody {
   // the left with a value on the right is the shape for a setting being
   // changed, not for twelve readings about a subject the header already names.
   Ui.SettingGroup {
-    visible: !searchEmpty && openPlugin !== ""
+    visible: !searchEmpty && page.openPlugin !== ""
     framed: true
-    note: opened !== null ? String(opened.description) : ""
+    note: page.opened !== null ? String(page.opened.description) : ""
 
     Ui.FactGrid {
       columns: 4
@@ -806,13 +807,13 @@ Ui.SectionBody {
         "license": page.opened !== null && String(page.opened.license) !== ""
           ? String(page.opened.license) : "—",
         "size": page.opened !== null && page.opened.bytes > 0
-          ? app.formatBytes(page.opened.bytes) : "—",
+          ? page.app.formatBytes(page.opened.bytes) : "—",
         // Its own cell rather than a clause after the size: the two together
         // ran past the width of a quarter-grid column and the second half
         // elided away, which is the one way of saying it that is worse than
         // not saying it.
         "history": page.opened !== null && page.opened.gitBytes > 0
-          ? app.formatBytes(page.opened.gitBytes) : "—",
+          ? page.app.formatBytes(page.opened.gitBytes) : "—",
         "provides": page.providesText,
         "category": page.opened !== null && String(page.opened.category) !== ""
           ? String(page.opened.category) : "—",
@@ -869,7 +870,7 @@ Ui.SectionBody {
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && openPlugin !== ""
+    visible: !searchEmpty && page.openPlugin !== ""
 
     // The marketplace's own verdict on whether the plugin still installs, said
     // out loud rather than left in a field: it is about the code in the shell.
@@ -966,7 +967,7 @@ Ui.SectionBody {
       label: "Repository"
       description: page.opened !== null ? String(page.opened.repo) : ""
       buttonText: "Open"
-      onTriggered: { app.run(["plugin", "site", String(page.opened.id)]); app.hide() }
+      onTriggered: { page.app.run(["plugin", "site", String(page.opened.id)]); page.app.hide() }
     }
 
     // Only a plugin you installed can be removed; the built-in ones come back

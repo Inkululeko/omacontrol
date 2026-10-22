@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 import "." as Local
 
 // A fact and its name, in a card of facts. The name is small, in capitals and
@@ -11,7 +10,7 @@ import "." as Local
 //
 // `tag` is a pill after the value, for a qualifier that belongs to it rather
 // than being a fact of its own: the channel beside a version.
-NavRow {
+Local.NavRow {
   id: specRow
   property string value: ""
   property string tag: ""

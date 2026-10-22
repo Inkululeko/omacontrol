@@ -82,11 +82,25 @@ paths:
   /usr/lib/qt6/bin/qmllint -I /tmp/qsimports SettingsWindow.qml sections/*.qml
   ```
 
-  Two warnings are expected and are not yours to fix: `Property "state"
-  already exists in base type` (the window has carried it from the start) and
-  `Type PanelWindow is not creatable`, which Omarchy's own bar and menu raise
-  on the same type. Unqualified-access and missing-property notes on `Style`
-  and `Color` are singletons qmllint cannot follow.
+  What is left on a clean tree is missing-property and nothing else: members
+  of Omarchy's `Style` and `Color` singletons, which declare their groups as
+  untyped objects; `node.app` on the walk a row makes up to its page; and a
+  `Loader`'s `item`. Typing that last one in `Service.qml` would name
+  `SettingsWindow` there and compile the whole window at shell start, which
+  is the cost loading it on first use exists to avoid.
+
+  Every page is qualified: a page's root is `id: page`, and a name read from
+  inside a row or a delegate says whose it is. Qt 6.12's qmllint reports each
+  unqualified one, and the qualifying is what keeps a row type that later
+  gains a property of the same name from quietly answering instead.
+
+- **`qmllint --fix` qualifies with the nearest parent that has an id, not the
+  one the runtime resolves.** A delegate with no id is skipped over, so inside
+  the sidebar's sub-page list `modelData` — the page id, a string — became
+  `block.modelData`, the whole outer block: no sub-page title could be drawn,
+  and a click would have set the page to an object. The lint was clean
+  afterwards; only the journal said "Unable to assign QVariantMap to QString".
+  Give every delegate an id before running it, and open every page after.
 
   Even so, the authoritative check is the shell loading the file.
 

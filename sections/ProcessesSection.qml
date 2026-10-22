@@ -12,6 +12,7 @@ import "../ui" as Ui
 // heaviest by CPU and by memory, then every process in the tree that started
 // it, the way btop draws it.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   readonly property var cores: app.processes.cores !== undefined ? app.processes.cores : []
@@ -123,10 +124,10 @@ Ui.SectionBody {
   // reader is looking for what is heavy, not watching a graph.
   Timer {
     interval: 2000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollProcesses()
+    onTriggered: page.app.pollProcesses()
   }
 
   Ui.SettingGroup {
@@ -139,13 +140,13 @@ Ui.SectionBody {
         Layout.fillHeight: true
         Layout.preferredWidth: 1
         label: "CPU"
-        value: app.processes.cpu !== undefined && app.processes.cpu !== null
-          ? app.processes.cpu + " %" : "—"
+        value: page.app.processes.cpu !== undefined && page.app.processes.cpu !== null
+          ? page.app.processes.cpu + " %" : "—"
         note: {
           var parts = []
-          if (load.cores !== undefined) parts.push(load.cores + " cores")
-          if (app.processes.temperature !== undefined && app.processes.temperature !== null)
-            parts.push(app.processes.temperature + " °C")
+          if (page.load.cores !== undefined) parts.push(page.load.cores + " cores")
+          if (page.app.processes.temperature !== undefined && page.app.processes.temperature !== null)
+            parts.push(page.app.processes.temperature + " °C")
           return parts.join(" · ")
         }
 
@@ -161,7 +162,7 @@ Ui.SectionBody {
           spacing: Style.space(3)
 
           Repeater {
-            model: cores
+            model: page.cores
 
             Rectangle {
               required property var modelData
@@ -188,18 +189,18 @@ Ui.SectionBody {
         Layout.fillHeight: true
         Layout.preferredWidth: 1
         label: "Memory"
-        value: memory.used !== undefined ? app.formatBytes(memory.used) : "—"
+        value: page.memory.used !== undefined ? page.app.formatBytes(page.memory.used) : "—"
         note: {
-          if (memory.total === undefined) return ""
-          var note = "of " + app.formatBytes(memory.total)
-          if (Number(memory.swap) > 0) note += " · swap " + app.formatBytes(memory.swap)
+          if (page.memory.total === undefined) return ""
+          var note = "of " + page.app.formatBytes(page.memory.total)
+          if (Number(page.memory.swap) > 0) note += " · swap " + page.app.formatBytes(page.memory.swap)
           return note
         }
 
         Ui.Meter {
           width: parent.width
-          value: memory.percent !== undefined ? Number(memory.percent) / 100 : 0
-          warn: Number(memory.percent) >= 90
+          value: page.memory.percent !== undefined ? Number(page.memory.percent) / 100 : 0
+          warn: Number(page.memory.percent) >= 90
         }
       }
 
@@ -211,17 +212,17 @@ Ui.SectionBody {
         Layout.fillHeight: true
         Layout.preferredWidth: 1
         label: "Load"
-        value: load.one !== undefined
-          ? [load.one, load.five, load.fifteen].map(function(v) { return Number(v).toFixed(2) }).join("  ")
+        value: page.load.one !== undefined
+          ? [page.load.one, page.load.five, page.load.fifteen].map(function(v) { return Number(v).toFixed(2) }).join("  ")
           : "—"
         // Three bare decimals mean nothing to someone who has not met a load
         // average. The note says what they count — tasks — so that the core
         // count, said in the same unit, is a yardstick they can be held
         // against: up to one per core, nothing is kept waiting.
         note: {
-          if (load.one === undefined) return ""
+          if (page.load.one === undefined) return ""
           var note = "Tasks waiting for the processor over 1, 5 and 15 min."
-          var cores = Number(load.cores)
+          var cores = Number(page.load.cores)
           return cores > 0
             ? note + " With " + cores + " cores, under " + cores + " is fine."
             : note
@@ -248,13 +249,13 @@ Ui.SectionBody {
           { title: "Process", weight: 1.5 },
           { title: "CPU", weight: 1.2 }
         ]
-        currentRow: programRow(busiest, selectedProgram)
+        currentRow: programRow(page.busiest, page.selectedProgram)
         onActivated: function(index) { pickProgram(busiestTable, "cpu", index) }
         emptyNote: "Nothing to report."
         rows: {
           var out = []
-          for (var i = 0; i < busiest.length; i++) {
-            var p = busiest[i]
+          for (var i = 0; i < page.busiest.length; i++) {
+            var p = page.busiest[i]
             out.push({ cells: [
               containerCell(p.name, p.container),
               { text: percent(p.value), meter: cpuShare(p.value) }
@@ -273,16 +274,16 @@ Ui.SectionBody {
           { title: "Process", weight: 1.5 },
           { title: "Memory", weight: 1.2 }
         ]
-        currentRow: programRow(heaviest, selectedProgram)
+        currentRow: programRow(page.heaviest, page.selectedProgram)
         onActivated: function(index) { pickProgram(heaviestTable, "memory", index) }
         emptyNote: "Nothing to report."
         rows: {
           var out = []
-          for (var i = 0; i < heaviest.length; i++) {
-            var p = heaviest[i]
+          for (var i = 0; i < page.heaviest.length; i++) {
+            var p = page.heaviest[i]
             out.push({ cells: [
               containerCell(p.name, p.container),
-              { text: app.formatBytes(p.value), meter: memoryShare(p.value) }
+              { text: page.app.formatBytes(p.value), meter: memoryShare(p.value) }
             ] })
           }
           return out
@@ -298,21 +299,21 @@ Ui.SectionBody {
     // on "brave" is twenty processes, and on a name this window shares with
     // something else it can be more than the reader meant.
     Row {
-      visible: program !== null
+      visible: page.program !== null
       spacing: Style.space(8)
 
       Ui.Chip {
         text: {
-          if (program === null) return ""
-          var n = program.pids !== undefined ? program.pids.length : 0
-          return "End " + program.name + (n > 1 ? " (" + n + " processes)" : "")
+          if (page.program === null) return ""
+          var n = page.program.pids !== undefined ? page.program.pids.length : 0
+          return "End " + page.program.name + (n > 1 ? " (" + n + " processes)" : "")
         }
-        onClicked: if (program !== null) app.run(["processes", "end"].concat(program.pids.map(String)))
+        onClicked: if (page.program !== null) page.app.run(["processes", "end"].concat(page.program.pids.map(String)))
       }
 
       Ui.Chip {
         text: "Force quit"
-        onClicked: if (program !== null) app.run(["processes", "kill"].concat(program.pids.map(String)))
+        onClicked: if (page.program !== null) page.app.run(["processes", "kill"].concat(page.program.pids.map(String)))
       }
     }
   }
@@ -335,17 +336,17 @@ Ui.SectionBody {
       // doing, and a settings window is not the place that decides it may not
       // — so the harder one is a second, separate press rather than the first.
       Ui.Chip {
-        enabled: selected !== null
+        enabled: page.selected !== null
         opacity: enabled ? 1 : 0.4
-        text: selected !== null ? "End " + selected.name : "End process"
-        onClicked: if (selected !== null) app.run(["processes", "end", String(selected.pid)])
+        text: page.selected !== null ? "End " + page.selected.name : "End process"
+        onClicked: if (page.selected !== null) page.app.run(["processes", "end", String(page.selected.pid)])
       }
 
       Ui.Chip {
-        enabled: selected !== null
+        enabled: page.selected !== null
         opacity: enabled ? 1 : 0.4
         text: "Force quit"
-        onClicked: if (selected !== null) app.run(["processes", "kill", String(selected.pid)])
+        onClicked: if (page.selected !== null) page.app.run(["processes", "kill", String(page.selected.pid)])
       }
     }
 
@@ -357,7 +358,7 @@ Ui.SectionBody {
         { title: "Memory", weight: 1.2 }
       ]
       id: processTree
-      currentRow: selectedRow
+      currentRow: page.selectedRow
       emptyNote: "Nothing to report."
       rows: {
         // A folded row stands for its whole branch, so it carries the
@@ -368,38 +369,38 @@ Ui.SectionBody {
         function memoryOf(p) { return p.parent === true && folded(p.pid) ? p.treeMemory : p.memory }
 
         var out = []
-        for (var i = 0; i < shown.length; i++) {
-          var p = shown[i]
+        for (var i = 0; i < page.shown.length; i++) {
+          var p = page.shown[i]
           var cpu = Number(cpuOf(p))
           var mem = Number(memoryOf(p))
           out.push({ cells: [
             { text: String(p.pid) },
             { text: p.name, strong: true, tag: p.container,
-              tagIcon: p.container !== "" ? dockerGlyph : "", tagIconColor: Ui.Palette.docker,
+              tagIcon: p.container !== "" ? page.dockerGlyph : "", tagIconColor: Ui.Palette.docker,
               tree: { depth: p.depth, lines: p.lines, last: p.last,
                       folded: p.parent === true ? folded(p.pid) : undefined } },
             { text: percent(cpu), meter: cpuShare(cpu) },
-            { text: app.formatBytes(mem), meter: memoryShare(mem) }
+            { text: page.app.formatBytes(mem), meter: memoryShare(mem) }
           ] })
         }
         return out
       }
       onActivated: function(index) {
-        if (index >= 0 && index < shown.length) selectedPid = shown[index].pid
-        selectedProgram = ""
+        if (index >= 0 && index < page.shown.length) page.selectedPid = page.shown[index].pid
+        page.selectedProgram = ""
         // The table writes the row it was clicked on into `currentRow`,
         // which replaces the binding — and a row number goes on pointing at
         // whatever slides into it, while End and Force quit still act on the
         // PID. Bound again, the highlight follows the process.
-        processTree.currentRow = Qt.binding(function() { return selectedRow })
+        processTree.currentRow = Qt.binding(function() { return page.selectedRow })
       }
       onFoldRequested: function(index) {
-        if (index < 0 || index >= shown.length) return
-        var pid = shown[index].pid
+        if (index < 0 || index >= page.shown.length) return
+        var pid = page.shown[index].pid
         var next = {}
-        for (var key in folds) next[key] = folds[key]
-        next[String(pid)] = !folded(pid)
-        folds = next
+        for (var key in page.folds) next[key] = page.folds[key]
+        next[String(pid)] = !page.folded(pid)
+        page.folds = next
       }
     }
   }

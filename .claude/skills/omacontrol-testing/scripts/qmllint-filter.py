@@ -2,8 +2,9 @@
 
 qmllint cannot type three things this codebase is built on — the `Style` and
 `Color` singletons, the parent chain a row walks to reach its page, and
-anything reached through a `Loader`'s `item` — so it emits about seven hundred
-findings on a clean tree and will go on doing so.
+anything reached through a `Loader`'s `item` — so it emits about two hundred
+missing-property findings on a clean tree and will go on doing so. Everything
+else it reports is fixable, and was fixed on the move to Qt 6.12.
 
 The first version of this script excused them by *category*, and measured
 afterwards it removed 679 findings out of 679: an undefined identifier dropped

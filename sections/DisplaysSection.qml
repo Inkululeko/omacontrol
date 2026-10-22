@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 import qs.Commons
@@ -8,6 +9,7 @@ import "../ui/displays.js" as Geometry
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   // A display you own is not always plugged in, and Hyprland matches its
@@ -39,10 +41,10 @@ Ui.SectionBody {
   // this window shows.
   Timer {
     interval: 5000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollBrightness()
+    onTriggered: page.app.pollBrightness()
   }
 
   // Where the displays are relative to one another, as a picture. The same
@@ -51,10 +53,10 @@ Ui.SectionBody {
   // shape. Only with two to arrange — one display is not an arrangement.
   Ui.SettingGroup {
     title: "Arrangement"
-    visible: !searchEmpty && arrangeable.length > 1
+    visible: !searchEmpty && page.arrangeable.length > 1
 
     Ui.DisplayCanvas {
-      items: arrangeable
+      items: page.arrangeable
       // Only the displays that actually moved: re-anchoring the layout can
       // shift every one of them, and a write per display per drag would be
       // three state reads to say what one of them already said.
@@ -62,10 +64,10 @@ Ui.SectionBody {
         for (var i = 0; i < positions.length; i++) {
           var wanted = positions[i].x + "x" + positions[i].y
           var was = ""
-          for (var j = 0; j < arrangeable.length; j++)
-            if (arrangeable[j].name === positions[i].name)
-              was = arrangeable[j].x + "x" + arrangeable[j].y
-          if (wanted !== was) app.set("monitor:" + positions[i].name + ":position", wanted)
+          for (var j = 0; j < page.arrangeable.length; j++)
+            if (page.arrangeable[j].name === positions[i].name)
+              was = page.arrangeable[j].x + "x" + page.arrangeable[j].y
+          if (wanted !== was) page.app.set("monitor:" + positions[i].name + ":position", wanted)
         }
       }
     }
@@ -75,7 +77,7 @@ Ui.SectionBody {
   // writes is never in doubt. A display carries its resolution and its scale;
   // both mean nothing without saying which screen they are about.
   Repeater {
-    model: displays
+    model: page.displays
 
     delegate: Ui.SettingGroup {
       id: displayGroup
@@ -126,8 +128,8 @@ Ui.SectionBody {
       // own rule and the one place a connector is the right answer.
       readonly property var mirrorOptions: {
         var out = [{ value: "", label: "Off" }]
-        for (var i = 0; i < displays.length; i++) {
-          var other = displays[i]
+        for (var i = 0; i < page.displays.length; i++) {
+          var other = page.displays[i]
           if (other.name === name || other.connected === false) continue
           if (String(other.output || "") === "") continue
           out.push({ value: String(other.output), label: String(other.label || other.name) })
@@ -136,7 +138,7 @@ Ui.SectionBody {
       }
 
       readonly property int brightness: {
-        var all = app.displayBrightness
+        var all = page.app.displayBrightness
         return output !== "" && all[output] !== undefined ? Number(all[output]) : -1
       }
 
@@ -148,8 +150,8 @@ Ui.SectionBody {
       // is shown, and nothing is written against it.
       Ui.ReadingRow {
         label: "Connector"
-        visible: !searchHidden && connected && output !== ""
-        value: output
+        visible: !searchHidden && displayGroup.connected && displayGroup.output !== ""
+        value: displayGroup.output
       }
 
       // What the display does when it is on can be set while it is off — a
@@ -157,52 +159,52 @@ Ui.SectionBody {
       // needing to turn a screen on to tell it how to come on is a loop.
       Ui.SwitchRow {
         label: "Enabled"
-        visible: !searchHidden && connected
-        checked: !off
+        visible: !searchHidden && displayGroup.connected
+        checked: !displayGroup.off
         onRequested: function(next) {
-          app.set("monitor:" + name + ":disabled", next ? "false" : "true")
+          page.app.set("monitor:" + displayGroup.name + ":disabled", next ? "false" : "true")
         }
-        changed: app.isChanged("monitor:" + name + ":disabled")
-        onResetRequested: app.resetSetting("monitor:" + name + ":disabled")
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":disabled")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":disabled")
       }
 
       Ui.PickerRow {
         label: "Resolution"
         // A display that is not here reports no modes, so what it was given is
         // the only option there is to show.
-        description: connected ? "" : "Applied when the display comes back."
+        description: displayGroup.connected ? "" : "Applied when the display comes back."
         visible: !searchHidden
-        value: resolution
+        value: displayGroup.resolution
         options: {
-          var listed = resolutions
-          if (resolution !== "preferred"
-              && !listed.some(function(item) { return item.value === resolution }))
-            listed = [{ value: resolution, label: resolution.split("x").join(" × ") }].concat(listed)
+          var listed = displayGroup.resolutions
+          if (displayGroup.resolution !== "preferred"
+              && !listed.some(function(item) { return item.value === displayGroup.resolution }))
+            listed = [{ value: displayGroup.resolution, label: displayGroup.resolution.split("x").join(" × ") }].concat(listed)
           return [{ value: "preferred", label: "Preferred (what the display asks for)" }].concat(listed)
         }
         // A resolution is picked as a resolution, so the fastest rate the
         // display can do at it comes with it rather than being a second
         // decision the reader did not know they had made.
         onPicked: function(next) {
-          if (next === "preferred") { app.set("monitor:" + name + ":mode", "preferred"); return }
+          if (next === "preferred") { page.app.set("monitor:" + displayGroup.name + ":mode", "preferred"); return }
           var fastest = ""
-          for (var i = 0; i < modes.length; i++) {
-            var parts = String(modes[i]).split("@")
+          for (var i = 0; i < displayGroup.modes.length; i++) {
+            var parts = String(displayGroup.modes[i]).split("@")
             if (parts[0] !== next || parts.length < 2) continue
             if (fastest === "" || Number(parts[1]) > Number(fastest)) fastest = parts[1]
           }
-          app.set("monitor:" + name + ":mode", fastest === "" ? next : next + "@" + fastest)
+          page.app.set("monitor:" + displayGroup.name + ":mode", fastest === "" ? next : next + "@" + fastest)
         }
-        changed: app.isChanged("monitor:" + name + ":mode")
-        onResetRequested: app.resetSetting("monitor:" + name + ":mode")
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":mode")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":mode")
       }
 
       Ui.PickerRow {
         label: "Refresh rate"
-        visible: !searchHidden && refreshRates.length > 1
-        value: refresh
-        options: refreshRates
-        onPicked: function(next) { app.set("monitor:" + name + ":mode", resolution + "@" + next) }
+        visible: !searchHidden && displayGroup.refreshRates.length > 1
+        value: displayGroup.refresh
+        options: displayGroup.refreshRates
+        onPicked: function(next) { page.app.set("monitor:" + displayGroup.name + ":mode", displayGroup.resolution + "@" + next) }
       }
 
       // Hyprland only takes a scale where the mode divides into whole logical
@@ -230,45 +232,45 @@ Ui.SectionBody {
       Ui.ChoiceRow {
         label: "Scale"
         visible: !searchHidden
-        value: Geometry.normalizeScale(modelData.scale)
-        options: scaleOptions
-        onPicked: function(next) { app.set("monitor:" + name + ":scale", next) }
-        changed: app.isChanged("monitor:" + name + ":scale")
-        onResetRequested: app.resetSetting("monitor:" + name + ":scale")
+        value: Geometry.normalizeScale(displayGroup.modelData.scale)
+        options: displayGroup.scaleOptions
+        onPicked: function(next) { page.app.set("monitor:" + displayGroup.name + ":scale", next) }
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":scale")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":scale")
       }
 
       Ui.ChoiceRow {
         label: "Rotation"
         visible: !searchHidden
-        value: String(Number(modelData.transform) || 0)
+        value: String(Number(displayGroup.modelData.transform) || 0)
         options: [
           { value: "0", label: "None" },
           { value: "1", label: "90°" },
           { value: "2", label: "180°" },
           { value: "3", label: "270°" }
         ]
-        onPicked: function(next) { app.set("monitor:" + name + ":transform", next) }
-        changed: app.isChanged("monitor:" + name + ":transform")
-        onResetRequested: app.resetSetting("monitor:" + name + ":transform")
+        onPicked: function(next) { page.app.set("monitor:" + displayGroup.name + ":transform", next) }
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":transform")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":transform")
       }
 
       Ui.ChoiceRow {
         label: "Variable refresh"
         // The range is the display's own answer to whether this is worth
         // turning on, and it is not anywhere else on the desktop.
-        description: String(modelData.vrrRange || "") !== ""
-          ? "This display varies between " + modelData.vrrRange + " Hz."
+        description: String(displayGroup.modelData.vrrRange || "") !== ""
+          ? "This display varies between " + displayGroup.modelData.vrrRange + " Hz."
           : "Lets the display follow what is being drawn instead of its own clock."
-        visible: !searchHidden && connected
-        value: String(Number(modelData.vrr) || 0)
+        visible: !searchHidden && displayGroup.connected
+        value: String(Number(displayGroup.modelData.vrr) || 0)
         options: [
           { value: "0", label: "Off" },
           { value: "1", label: "On" },
           { value: "2", label: "Fullscreen only" }
         ]
-        onPicked: function(next) { app.set("monitor:" + name + ":vrr", next) }
-        changed: app.isChanged("monitor:" + name + ":vrr")
-        onResetRequested: app.resetSetting("monitor:" + name + ":vrr")
+        onPicked: function(next) { page.app.set("monitor:" + displayGroup.name + ":vrr", next) }
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":vrr")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":vrr")
       }
 
       // Only for a display that says it can: a switch that cannot do anything
@@ -276,24 +278,24 @@ Ui.SectionBody {
       Ui.SwitchRow {
         label: "HDR"
         description: "Wide colour and ten-bit output. Everything that is not HDR is mapped into it, which some desktops render washed out."
-        visible: !searchHidden && modelData.hdrCapable === true
-        checked: modelData.hdr === true
+        visible: !searchHidden && displayGroup.modelData.hdrCapable === true
+        checked: displayGroup.modelData.hdr === true
         onRequested: function(next) {
-          app.set("monitor:" + name + ":hdr", next ? "true" : "false")
+          page.app.set("monitor:" + displayGroup.name + ":hdr", next ? "true" : "false")
         }
-        changed: app.isChanged("monitor:" + name + ":hdr")
-        onResetRequested: app.resetSetting("monitor:" + name + ":hdr")
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":hdr")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":hdr")
       }
 
       Ui.PickerRow {
         label: "Mirror"
         description: "Show what another display is showing."
-        visible: !searchHidden && connected && mirrorOptions.length > 1
-        value: String(modelData.mirror || "")
-        options: mirrorOptions
-        onPicked: function(next) { app.set("monitor:" + name + ":mirror", next) }
-        changed: app.isChanged("monitor:" + name + ":mirror")
-        onResetRequested: app.resetSetting("monitor:" + name + ":mirror")
+        visible: !searchHidden && displayGroup.connected && displayGroup.mirrorOptions.length > 1
+        value: String(displayGroup.modelData.mirror || "")
+        options: displayGroup.mirrorOptions
+        onPicked: function(next) { page.app.set("monitor:" + displayGroup.name + ":mirror", next) }
+        changed: page.app.isChanged("monitor:" + displayGroup.name + ":mirror")
+        onResetRequested: page.app.resetSetting("monitor:" + displayGroup.name + ":mirror")
       }
 
       // The backlight on a laptop panel, DDC over the cable on a desktop
@@ -304,19 +306,19 @@ Ui.SectionBody {
       // setting this window keeps.
       Ui.PercentRow {
         label: "Brightness"
-        visible: !searchHidden && !off && brightness >= 0
-        value: brightness / 100
+        visible: !searchHidden && !displayGroup.off && displayGroup.brightness >= 0
+        value: displayGroup.brightness / 100
         onCommitted: function(next) {
-          app.run(["display", "brightness", name, String(Math.round(next * 100))])
+          page.app.run(["display", "brightness", displayGroup.name, String(Math.round(next * 100))])
         }
       }
 
       // Only once there is something to forget: for a display sitting in front
       // of you with nothing set, there is nothing this would undo.
       Ui.ActionRow {
-        visible: !searchHidden && (Object.keys(settings).length > 0 || !connected)
+        visible: !searchHidden && (Object.keys(displayGroup.settings).length > 0 || !displayGroup.connected)
         buttonText: "Forget Display"
-        onTriggered: app.set("monitor-forget", name)
+        onTriggered: page.app.set("monitor-forget", displayGroup.name)
       }
     }
   }

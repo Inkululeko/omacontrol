@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 import qs.Commons
@@ -51,31 +52,31 @@ Ui.SectionBody {
 
     Ui.PickerRow {
       label: "Position"
-      value: app.barState.position !== undefined ? String(app.barState.position) : "top"
+      value: page.app.barState.position !== undefined ? String(page.app.barState.position) : "top"
       options: ["top", "bottom", "left", "right"]
-      onPicked: function(next) { app.set("bar-position", next) }
-      changed: app.isChanged("bar-position")
-      onResetRequested: app.resetSetting("bar-position")
+      onPicked: function(next) { page.app.set("bar-position", next) }
+      changed: page.app.isChanged("bar-position")
+      onResetRequested: page.app.resetSetting("bar-position")
     }
 
     Ui.SwitchRow {
       label: "Transparent"
       description: "Drops the bar's own background so the wallpaper shows through."
-      checked: app.barState.transparent === true
-      onRequested: function(next) { app.set("bar-transparent", next ? "true" : "false") }
-      changed: app.isChanged("bar-transparent")
-      onResetRequested: app.resetSetting("bar-transparent")
+      checked: page.app.barState.transparent === true
+      onRequested: function(next) { page.app.set("bar-transparent", next ? "true" : "false") }
+      changed: page.app.isChanged("bar-transparent")
+      onResetRequested: page.app.resetSetting("bar-transparent")
     }
 
     Ui.PickerRow {
       label: "Centered widget"
       description: "The widget the centre section is anchored on."
-      value: app.barState.centerAnchor !== undefined ? String(app.barState.centerAnchor) : ""
-      options: app.barWidgetIds()
+      value: page.app.barState.centerAnchor !== undefined ? String(page.app.barState.centerAnchor) : ""
+      options: page.app.barWidgetIds()
       searchable: true
-      onPicked: function(next) { app.set("bar-center-anchor", next) }
-      changed: app.isChanged("bar-center-anchor")
-      onResetRequested: app.resetSetting("bar-center-anchor")
+      onPicked: function(next) { page.app.set("bar-center-anchor", next) }
+      changed: page.app.isChanged("bar-center-anchor")
+      onResetRequested: page.app.resetSetting("bar-center-anchor")
     }
   }
 
@@ -126,7 +127,7 @@ Ui.SectionBody {
       note: page.widgets(modelData.key).length === 0 ? "Nothing here yet." : ""
 
       Repeater {
-        model: page.widgets(modelData.key)
+        model: page.widgets(sectionGroup.modelData.key)
         delegate: Ui.SettingRow {
           id: widgetRow
           required property var modelData

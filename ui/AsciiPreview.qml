@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 import "." as Local
 
 // Branding is ASCII, however it was made — typed, or transcoded from an

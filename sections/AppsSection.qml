@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -141,13 +142,13 @@ Ui.SectionBody {
       spacing: Style.space(8)
 
       Ui.Chip {
-        visible: openClass === "" && creating === ""
+        visible: root.openClass === "" && root.creating === ""
         text: "New web app"
         onClicked: startCreating("webapp")
       }
 
       Ui.Chip {
-        visible: openClass === "" && creating === ""
+        visible: root.openClass === "" && root.creating === ""
         text: "New TUI"
         onClicked: startCreating("tui")
       }
@@ -161,10 +162,10 @@ Ui.SectionBody {
 
   Timer {
     interval: 5000
-    running: app.shown
+    running: root.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollApps()
+    onTriggered: root.app.pollApps()
   }
 
   // ---------------------------------------------------------- a new one
@@ -178,7 +179,7 @@ Ui.SectionBody {
   // it has been left; the button is dead until every rule is satisfied, so a
   // wrong form cannot be sent at all.
   Ui.SettingGroup {
-    visible: creating !== ""
+    visible: root.creating !== ""
 
     Column {
       width: parent.width
@@ -187,27 +188,27 @@ Ui.SectionBody {
       Ui.FormField {
         id: nameField
         label: "Name"
-        placeholder: creating === "webapp" ? "Linear" : "Lazydocker"
+        placeholder: root.creating === "webapp" ? "Linear" : "Lazydocker"
         error: text.trim() === "" ? "Give it a name."
           : text.indexOf("/") >= 0 ? "A name cannot contain a slash."
           : ""
-        onAccepted: creating === "webapp" ? urlField.focusInput() : commandField.focusInput()
+        onAccepted: root.creating === "webapp" ? urlField.focusInput() : commandField.focusInput()
       }
 
       Ui.FormField {
         id: urlField
-        visible: creating === "webapp"
+        visible: root.creating === "webapp"
         label: "Address"
         placeholder: "https://example.com"
         error: text.trim() === "" ? "Give it an address."
           : /\s/.test(text.trim()) ? "An address cannot contain spaces."
           : ""
-        onAccepted: newSiteIcon ? createButton.clicked() : iconField.focusInput()
+        onAccepted: root.newSiteIcon ? createButton.clicked() : iconField.focusInput()
       }
 
       Ui.FormField {
         id: commandField
-        visible: creating === "tui"
+        visible: root.creating === "tui"
         label: "Command"
         placeholder: "lazydocker"
         error: text.trim() === "" ? "Give it a command to run." : ""
@@ -217,7 +218,7 @@ Ui.SectionBody {
       Column {
         width: parent.width
         spacing: Style.space(6)
-        visible: creating === "tui"
+        visible: root.creating === "tui"
 
         Text {
           textFormat: Text.PlainText
@@ -232,10 +233,10 @@ Ui.SectionBody {
             { value: "float", label: "Floating" },
             { value: "tile", label: "Tiled" }
           ]
-          value: newStyle
+          value: root.newStyle
           foreground: Ui.Palette.foreground
           accent: Ui.Palette.accent
-          onChanged: function(next) { newStyle = next }
+          onChanged: function(next) { root.newStyle = next }
         }
       }
 
@@ -247,14 +248,14 @@ Ui.SectionBody {
       // box around one question among four that have none.
       Row {
         spacing: Style.space(10)
-        visible: creating === "webapp"
+        visible: root.creating === "webapp"
 
         ToggleSwitch {
           id: siteIconSwitch
-          checked: newSiteIcon
+          checked: root.newSiteIcon
           foreground: Ui.Palette.foreground
           accent: Ui.Palette.accent
-          onToggled: newSiteIcon = !newSiteIcon
+          onToggled: root.newSiteIcon = !root.newSiteIcon
         }
 
         Text {
@@ -268,7 +269,7 @@ Ui.SectionBody {
           MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: newSiteIcon = !newSiteIcon
+            onClicked: root.newSiteIcon = !root.newSiteIcon
           }
         }
       }
@@ -276,7 +277,7 @@ Ui.SectionBody {
       Column {
         width: parent.width
         spacing: Style.space(6)
-        visible: creating === "tui" || !newSiteIcon
+        visible: root.creating === "tui" || !root.newSiteIcon
 
         Ui.FormField {
           id: iconField
@@ -299,7 +300,7 @@ Ui.SectionBody {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: { app.run(["apps", "icons"]); app.hide() }
+            onClicked: { root.app.run(["apps", "icons"]); root.app.hide() }
           }
         }
       }
@@ -309,9 +310,9 @@ Ui.SectionBody {
 
         Button {
           id: createButton
-          text: creating === "webapp" ? "Create web app" : "Create TUI"
+          text: root.creating === "webapp" ? "Create web app" : "Create TUI"
           bordered: true
-          enabled: newValid
+          enabled: root.newValid
           opacity: enabled ? 1 : 0.4
           foreground: Ui.Palette.foreground
           accent: Ui.Palette.accent
@@ -320,13 +321,13 @@ Ui.SectionBody {
             // Pressing an empty form marks every field, which is what turns a
             // dead button into an answer rather than a wall.
             if (!enabled) { touchAll(); return }
-            if (creating === "webapp")
-              app.run(["apps", "create", "webapp", nameField.text.trim(), urlField.text.trim(),
-                       newSiteIcon ? "" : iconField.text.trim()])
+            if (root.creating === "webapp")
+              root.app.run(["apps", "create", "webapp", nameField.text.trim(), urlField.text.trim(),
+                       root.newSiteIcon ? "" : iconField.text.trim()])
             else
-              app.run(["apps", "create", "tui", nameField.text.trim(), commandField.text.trim(),
-                       newStyle, iconField.text.trim()])
-            creating = ""
+              root.app.run(["apps", "create", "tui", nameField.text.trim(), commandField.text.trim(),
+                       root.newStyle, iconField.text.trim()])
+            root.creating = ""
           }
         }
 
@@ -335,7 +336,7 @@ Ui.SectionBody {
           foreground: Ui.Palette.foreground
           accent: Ui.Palette.accent
           fontFamily: Ui.Palette.fontFamily
-          onClicked: creating = ""
+          onClicked: root.creating = ""
         }
       }
     }
@@ -347,14 +348,14 @@ Ui.SectionBody {
   // installer again with the rest as they stand.
   Ui.SettingGroup {
     id: madeGroup
-    visible: openClass !== "" && openApp !== null
-      && (openApp.kind === "web" || openApp.kind === "tui")
-    title: openApp !== null && openApp.kind === "web" ? "Web app" : "TUI"
+    visible: root.openClass !== "" && root.openApp !== null
+      && (root.openApp.kind === "web" || root.openApp.kind === "tui")
+    title: root.openApp !== null && root.openApp.kind === "web" ? "Web app" : "TUI"
 
     // Read through the group's id rather than `parent`: a row's parent is the
     // group's content item, not the group.
-    readonly property var made: openApp !== null && openApp.madeWith !== undefined
-      && openApp.madeWith !== null ? openApp.madeWith : ({})
+    readonly property var made: root.openApp !== null && root.openApp.madeWith !== undefined
+      && root.openApp.madeWith !== null ? root.openApp.madeWith : ({})
 
     // Each carries its own Save. A setting row commits when it loses focus,
     // which is right for a switch-sized change and wrong here: nothing on
@@ -362,33 +363,33 @@ Ui.SectionBody {
     // clicked away from would be written as it stood.
     Ui.TextRow {
       label: "Address"
-      visible: !searchHidden && openApp !== null && openApp.kind === "web"
+      visible: !searchHidden && root.openApp !== null && root.openApp.kind === "web"
       buttonText: "Save"
       value: String(madeGroup.made.url || "")
       onCommitted: function(next) {
-        if (next.trim() !== "") app.run(["apps", "edit", openApp.id, "url", next.trim()])
+        if (next.trim() !== "") root.app.run(["apps", "edit", root.openApp.id, "url", next.trim()])
       }
     }
 
     Ui.TextRow {
       label: "Command"
-      visible: !searchHidden && openApp !== null && openApp.kind === "tui"
+      visible: !searchHidden && root.openApp !== null && root.openApp.kind === "tui"
       buttonText: "Save"
       value: String(madeGroup.made.command || "")
       onCommitted: function(next) {
-        if (next.trim() !== "") app.run(["apps", "edit", openApp.id, "command", next.trim()])
+        if (next.trim() !== "") root.app.run(["apps", "edit", root.openApp.id, "command", next.trim()])
       }
     }
 
     Ui.ChoiceRow {
       label: "Shown as"
-      visible: !searchHidden && openApp !== null && openApp.kind === "tui"
+      visible: !searchHidden && root.openApp !== null && root.openApp.kind === "tui"
       options: [
         { value: "float", label: "Floating" },
         { value: "tile", label: "Tiled" }
       ]
       value: String(madeGroup.made.style || "float")
-      onPicked: function(next) { app.run(["apps", "edit", openApp.id, "style", next]) }
+      onPicked: function(next) { root.app.run(["apps", "edit", root.openApp.id, "style", next]) }
     }
 
     Ui.TextRow {
@@ -397,7 +398,7 @@ Ui.SectionBody {
       buttonText: "Save"
       value: String(madeGroup.made.icon || "")
       onCommitted: function(next) {
-        if (next.trim() !== "") app.run(["apps", "edit", openApp.id, "icon", next.trim()])
+        if (next.trim() !== "") root.app.run(["apps", "edit", root.openApp.id, "icon", next.trim()])
       }
     }
   }
@@ -407,8 +408,8 @@ Ui.SectionBody {
   // a preference about it. A line rather than only a heading, because the two
   // halves are different kinds of thing.
   Rectangle {
-    visible: openClass !== "" && openApp !== null
-      && (openApp.kind === "web" || openApp.kind === "tui")
+    visible: root.openClass !== "" && root.openApp !== null
+      && (root.openApp.kind === "web" || root.openApp.kind === "tui")
     width: parent.width
     height: 1
     color: Ui.Palette.hairline
@@ -416,13 +417,13 @@ Ui.SectionBody {
 
   // ------------------------------------------------------------- one app
   Ui.SettingGroup {
-    visible: openClass !== ""
+    visible: root.openClass !== ""
 
     Ui.ActionRow {
       label: "Open it now"
-      visible: !searchHidden && openApp !== null && openApp.running !== true
+      visible: !searchHidden && root.openApp !== null && root.openApp.running !== true
       buttonText: "Open"
-      onTriggered: if (openApp !== null) { app.run(["apps", "launch", openApp.id]); app.hide() }
+      onTriggered: if (root.openApp !== null) { root.app.run(["apps", "launch", root.openApp.id]); root.app.hide() }
     }
 
     // Uninstalling asks for a password and names every package going with it,
@@ -430,20 +431,20 @@ Ui.SectionBody {
     // makes that decision on a button press.
     Ui.ActionRow {
       label: "The application itself"
-      description: openApp !== null && (openApp.kind === "web" || openApp.kind === "tui")
+      description: root.openApp !== null && (root.openApp.kind === "web" || root.openApp.kind === "tui")
         ? "Deletes the launcher and its icon. Nothing else is removed."
         : "Removes the package it came from, with whatever else depends on it."
-      buttonText: openApp !== null && (openApp.kind === "web" || openApp.kind === "tui")
+      buttonText: root.openApp !== null && (root.openApp.kind === "web" || root.openApp.kind === "tui")
         ? "Delete…" : "Uninstall…"
-      onTriggered: askUninstall(openApp)
+      onTriggered: askUninstall(root.openApp)
     }
   }
 
   Ui.AppRules {
-    visible: openClass !== ""
+    visible: root.openClass !== ""
     app: root.app
     displays: root.displays
-    modelData: openRule !== null ? openRule : ({})
+    modelData: root.openRule !== null ? root.openRule : ({})
     // The header carries the application's name; a group titled with it again
     // would say it twice, a line apart.
     title: ""
@@ -452,7 +453,7 @@ Ui.SectionBody {
 
   // ---------------------------------------------------------- every app
   Ui.SettingGroup {
-    visible: openClass === "" && creating === ""
+    visible: root.openClass === "" && root.creating === ""
     // No heading and no note: the page name says what these are, and the
     // dot explains itself the moment the reader opens a row that has one.
 
@@ -472,17 +473,17 @@ Ui.SectionBody {
         { id: "uninstall", icon: "\uf1f8", label: "Uninstall" }
       ]
       onRowAction: function(index, id) {
-        if (index < 0 || index >= shown.length) return
-        if (id === "uninstall") { askUninstall(shown[index]); return }
-        selectedApp = index
-        openClass = String(shown[index].class)
+        if (index < 0 || index >= root.shown.length) return
+        if (id === "uninstall") { askUninstall(root.shown[index]); return }
+        root.selectedApp = index
+        root.openClass = String(root.shown[index].class)
       }
-      currentRow: selectedApp
+      currentRow: root.selectedApp
       emptyNote: "Looking for applications…"
       rows: {
         var out = []
-        for (var i = 0; i < shown.length; i++) {
-          var a = shown[i]
+        for (var i = 0; i < root.shown.length; i++) {
+          var a = root.shown[i]
           out.push({ cells: [
             // The dot rides with the name: most of what can be set for an
             // application shows in no column here — a floating size, a pin, no
@@ -510,8 +511,8 @@ Ui.SectionBody {
       // go there; the gear says so, and the bin beside it is the only other
       // thing a row can do.
       onActivated: function(index) {
-        selectedApp = index
-        if (index >= 0 && index < shown.length) openClass = String(shown[index].class)
+        root.selectedApp = index
+        if (index >= 0 && index < root.shown.length) root.openClass = String(root.shown[index].class)
       }
     }
   }

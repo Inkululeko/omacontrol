@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -12,6 +13,7 @@ import "../ui" as Ui
 // panel reads exactly that. A second opinion about someone's rate limits is
 // worse than no opinion.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   readonly property var limits: app.usage.limits !== undefined ? app.usage.limits : []
@@ -52,7 +54,7 @@ Ui.SectionBody {
   property Component headerControl: Component {
     Ui.Chip {
       text: "Refresh"
-      onClicked: app.run(["usage", "refresh"])
+      onClicked: page.app.run(["usage", "refresh"])
     }
   }
 
@@ -60,14 +62,14 @@ Ui.SectionBody {
   // is to find out whether you are about to run into one.
   Timer {
     interval: 30000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollUsage()
+    onTriggered: page.app.pollUsage()
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && app.usage.provider !== undefined && app.usage.provider === ""
+    visible: !searchEmpty && page.app.usage.provider !== undefined && page.app.usage.provider === ""
 
     Ui.ReadingRow {
       label: "No agent usage to report"
@@ -83,9 +85,9 @@ Ui.SectionBody {
   // change to the text would break. The table already lines up columns.
   Ui.SettingGroup {
     title: "Limits"
-    note: app.usage.updatedAt !== undefined && app.usage.updatedAt !== ""
-      ? "The provider's own figures, read " + app.usage.updatedAt.slice(11, 16) + "." : ""
-    visible: !searchEmpty && limits.length > 0
+    note: page.app.usage.updatedAt !== undefined && page.app.usage.updatedAt !== ""
+      ? "The provider's own figures, read " + page.app.usage.updatedAt.slice(11, 16) + "." : ""
+    visible: !searchEmpty && page.limits.length > 0
 
     Ui.DataTable {
       columns: [
@@ -95,8 +97,8 @@ Ui.SectionBody {
       ]
       rows: {
         var out = []
-        for (var i = 0; i < limits.length; i++) {
-          var l = limits[i]
+        for (var i = 0; i < page.limits.length; i++) {
+          var l = page.limits[i]
           out.push({ cells: [
             { text: l.label, strong: true },
             { text: l.percent + " %", meter: Number(l.percent) / 100,
@@ -113,10 +115,10 @@ Ui.SectionBody {
 
   Ui.SettingGroup {
     title: "Last 7 days"
-    note: app.usage.prompts !== null && app.usage.prompts !== undefined
-      ? app.usage.prompts + " prompts all told · " + app.formatTokens(app.usage.tokens) + " tokens"
+    note: page.app.usage.prompts !== null && page.app.usage.prompts !== undefined
+      ? page.app.usage.prompts + " prompts all told · " + page.app.formatTokens(page.app.usage.tokens) + " tokens"
       : ""
-    visible: !searchEmpty && days.length > 0
+    visible: !searchEmpty && page.days.length > 0
 
     // A bar per day. Tokens rather than messages: a message is not a unit of
     // anything comparable — one can be a word, one can be a repository — and
@@ -135,11 +137,11 @@ Ui.SectionBody {
         spacing: Style.space(8)
 
         Repeater {
-          model: days
+          model: page.days
 
           Item {
             required property var modelData
-            width: (parent.width - (days.length - 1) * Style.space(8)) / Math.max(1, days.length)
+            width: (parent.width - (page.days.length - 1) * Style.space(8)) / Math.max(1, page.days.length)
             height: parent.height
 
             Text {
@@ -147,7 +149,7 @@ Ui.SectionBody {
               textFormat: Text.PlainText
               anchors.horizontalCenter: parent.horizontalCenter
               anchors.top: parent.top
-              text: Number(modelData.tokens) > 0 ? app.formatTokens(modelData.tokens) : ""
+              text: Number(modelData.tokens) > 0 ? page.app.formatTokens(modelData.tokens) : ""
               color: Ui.Palette.muted
               font.family: Ui.Palette.fontFamily
               font.pixelSize: Style.font.caption
@@ -161,7 +163,7 @@ Ui.SectionBody {
               // Measured from the busiest day rather than from a ceiling
               // nobody set: the question is which day was heavy.
               height: {
-                var top = busiestDay
+                var top = page.busiestDay
                 var room = parent.height - label.height - figure.height - Style.space(8)
                 if (top <= 0) return Style.spacing.hairline
                 return Math.max(Style.spacing.hairline, room * Number(modelData.tokens) / top)
@@ -189,7 +191,7 @@ Ui.SectionBody {
 
   Ui.SettingGroup {
     title: "By model"
-    visible: !searchEmpty && models.length > 0
+    visible: !searchEmpty && page.models.length > 0
 
     Ui.DataTable {
       columns: [
@@ -200,12 +202,12 @@ Ui.SectionBody {
       rows: {
         var out = []
         var busiest = 0
-        for (var h = 0; h < models.length; h++) busiest = Math.max(busiest, Number(models[h].tokens))
-        for (var i = 0; i < models.length; i++) {
-          var m = models[i]
+        for (var h = 0; h < page.models.length; h++) busiest = Math.max(busiest, Number(page.models[h].tokens))
+        for (var i = 0; i < page.models.length; i++) {
+          var m = page.models[i]
           out.push({ cells: [
             { text: m.model, strong: true },
-            { text: app.formatTokens(m.tokens), align: "right" },
+            { text: page.app.formatTokens(m.tokens), align: "right" },
             { text: m.share + " %", meter: busiest > 0 ? Number(m.tokens) / busiest : 0 }
           ] })
         }

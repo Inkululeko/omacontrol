@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -6,6 +7,7 @@ import "../ui" as Ui
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   readonly property var audio: app.audio
@@ -39,26 +41,26 @@ Ui.SectionBody {
 
     Ui.PercentRow {
       label: "Volume"
-      value: currentOutput ? Number(currentOutput.volume) / 100 : 0
-      onCommitted: function(next) { app.run(["audio", "volume", "output", String(Math.round(next * 100))]) }
+      value: page.currentOutput ? Number(page.currentOutput.volume) / 100 : 0
+      onCommitted: function(next) { page.app.run(["audio", "volume", "output", String(Math.round(next * 100))]) }
     }
 
     Ui.SwitchRow {
       label: "Muted"
-      checked: currentOutput ? currentOutput.muted === true : false
-      onRequested: function(next) { app.run(["audio", "mute", "output", next ? "on" : "off"]) }
+      checked: page.currentOutput ? page.currentOutput.muted === true : false
+      onRequested: function(next) { page.app.run(["audio", "mute", "output", next ? "on" : "off"]) }
     }
 
     Repeater {
-      model: outputs
+      model: page.outputs
       delegate: Ui.PickableRow {
         required property var modelData
         width: parent.width
         label: modelData.description
-        glyph: deviceGlyph(modelData, false)
+        glyph: page.deviceGlyph(modelData, false)
         detail: modelData.volume + "%"
         selected: modelData.default === true
-        onPicked: app.run(["audio", "default", "output", modelData.name])
+        onPicked: page.app.run(["audio", "default", "output", modelData.name])
       }
     }
   }
@@ -69,25 +71,25 @@ Ui.SectionBody {
 
     Ui.PercentRow {
       label: "Volume"
-      value: currentInput ? Number(currentInput.volume) / 100 : 0
-      onCommitted: function(next) { app.run(["audio", "volume", "input", String(Math.round(next * 100))]) }
+      value: page.currentInput ? Number(page.currentInput.volume) / 100 : 0
+      onCommitted: function(next) { page.app.run(["audio", "volume", "input", String(Math.round(next * 100))]) }
     }
 
     Ui.SwitchRow {
       label: "Muted"
-      checked: currentInput ? currentInput.muted === true : false
-      onRequested: function(next) { app.run(["audio", "mute", "input", next ? "on" : "off"]) }
+      checked: page.currentInput ? page.currentInput.muted === true : false
+      onRequested: function(next) { page.app.run(["audio", "mute", "input", next ? "on" : "off"]) }
     }
 
     Repeater {
-      model: inputs
+      model: page.inputs
       delegate: Ui.PickableRow {
         required property var modelData
         width: parent.width
         label: modelData.description
-        glyph: deviceGlyph(modelData, true)
+        glyph: page.deviceGlyph(modelData, true)
         selected: modelData.default === true
-        onPicked: app.run(["audio", "default", "input", modelData.name])
+        onPicked: page.app.run(["audio", "default", "input", modelData.name])
       }
     }
   }

@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -171,10 +172,10 @@ Ui.SectionBody {
   // five seconds is often enough for a `df`.
   Timer {
     interval: 5000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollDisk()
+    onTriggered: page.app.pollDisk()
   }
 
   // Asked once, when the page opens. Walking directories is the only way to
@@ -198,7 +199,7 @@ Ui.SectionBody {
   // grinding behind the one that is idle. On the usual machine there is one
   // card and it reads as the page's own summary.
   Repeater {
-    model: drives
+    model: page.drives
 
     delegate: Ui.SettingGroup {
       required property var modelData
@@ -290,7 +291,7 @@ Ui.SectionBody {
         Text {
           textFormat: Text.PlainText
           text: space.known
-            ? app.formatBytes(space.used) + " used of " + app.formatBytes(space.total) + " usable"
+            ? page.app.formatBytes(space.used) + " used of " + page.app.formatBytes(space.total) + " usable"
             : "Nothing on this drive is mounted"
           color: Ui.Palette.muted
           font.family: Ui.Palette.fontFamily
@@ -303,7 +304,7 @@ Ui.SectionBody {
         // a card that has finished loading and has nothing more to say.
         Text {
           textFormat: Text.PlainText
-          visible: drive.system === true && app.diskBreakdown === null
+          visible: drive.system === true && page.app.diskBreakdown === null
           text: "Working out what is using the space…"
           color: Ui.Palette.muted
           font.family: Ui.Palette.fontFamily
@@ -396,7 +397,7 @@ Ui.SectionBody {
 
               Text {
                 textFormat: Text.PlainText
-                text: modelData.label + " " + app.formatBytes(modelData.bytes)
+                text: modelData.label + " " + page.app.formatBytes(modelData.bytes)
                 color: Ui.Palette.muted
                 font.family: Ui.Palette.fontFamily
                 font.pixelSize: Style.font.caption
@@ -411,7 +412,7 @@ Ui.SectionBody {
         // number, and the space it could not account for is in System.
         Text {
           textFormat: Text.PlainText
-          visible: drive.system === true && app.diskBreakdown !== null
+          visible: drive.system === true && page.app.diskBreakdown !== null
             && slices.length > 0 && !page.breakdownHasHome
           width: parent.width
           text: "Your home directory took too long to measure, so its space is counted under System."
@@ -446,20 +447,20 @@ Ui.SectionBody {
         { title: "Used", weight: 1.3 },
         { title: "Type", weight: 1 }
       ]
-      currentRow: selectedMount
+      currentRow: page.selectedMount
       emptyNote: "Nothing mounted that this window can see."
       rows: {
         var out = []
-        for (var i = 0; i < mountRows.length; i++) {
-          var m = mountRows[i].source
+        for (var i = 0; i < page.mountRows.length; i++) {
+          var m = page.mountRows[i].source
           var mounted = String(m.mount || "") !== ""
           var pct = m.percent !== null && m.percent !== undefined ? Number(m.percent) : null
 
           // The same filesystem, one directory further in. Named and placed,
           // and nothing else: every figure on it belongs to the row above.
-          if (mountRows[i].child) {
+          if (page.mountRows[i].child) {
             out.push({ cells: [
-              { text: mountRows[i].mount, indent: true },
+              { text: page.mountRows[i].mount, indent: true },
               { text: "" },
               { text: "" },
               { text: "" },
@@ -474,11 +475,11 @@ Ui.SectionBody {
             // A partition with no mount point has its label to go by, and
             // failing that its device — it is still the row the reader is
             // looking for, so it is named rather than left blank.
-            { text: mounted ? mountRows[i].mount
+            { text: mounted ? page.mountRows[i].mount
                             : (String(m.label || "") !== "" ? m.label : m.device),
               strong: true },
             { text: m.device, strong: mounted },
-            { text: app.formatBytes(m.size), align: "right" },
+            { text: page.app.formatBytes(m.size), align: "right" },
             mounted && pct !== null
               ? { text: pct + " %", meter: pct / 100, warn: pct >= 90 }
               : { text: "not mounted" },
@@ -487,7 +488,7 @@ Ui.SectionBody {
         }
         return out
       }
-      onActivated: function(index) { selectedMount = index }
+      onActivated: function(index) { page.selectedMount = index }
     }
 
     // The actions the table's selection governs, under it rather than one per
@@ -497,8 +498,8 @@ Ui.SectionBody {
       spacing: Style.space(8)
 
       Ui.Chip {
-        readonly property var picked: selectedMount >= 0 && selectedMount < mountRows.length
-          ? mountRows[selectedMount] : null
+        readonly property var picked: page.selectedMount >= 0 && page.selectedMount < page.mountRows.length
+          ? page.mountRows[page.selectedMount] : null
         // Not offered on a subvolume. Unmounting one takes a directory out
         // from under whatever is using it while the drive it is on stays
         // mounted, which is not what "Unmount" means to anyone reading it.
@@ -513,17 +514,17 @@ Ui.SectionBody {
         text: picked !== null && String(picked.mount || "") !== "" ? "Unmount" : "Mount"
         onClicked: {
           if (picked === null) return
-          app.run(["disk", String(picked.mount || "") !== "" ? "unmount" : "mount",
+          page.app.run(["disk", String(picked.mount || "") !== "" ? "unmount" : "mount",
                    picked.source.path])
         }
       }
 
       Ui.Chip {
-        readonly property var picked: selectedMount >= 0 && selectedMount < mountRows.length
-          ? mountRows[selectedMount] : null
+        readonly property var picked: page.selectedMount >= 0 && page.selectedMount < page.mountRows.length
+          ? page.mountRows[page.selectedMount] : null
         visible: picked !== null && String(picked.mount || "") !== ""
         text: "Open in files"
-        onClicked: if (picked !== null) app.run(["disk", "open", picked.mount])
+        onClicked: if (picked !== null) page.app.run(["disk", "open", picked.mount])
       }
     }
   }
@@ -534,7 +535,7 @@ Ui.SectionBody {
   // no disk at all, which is the distinction the Kind column is there to make.
   Ui.SettingGroup {
     title: "Swap"
-    visible: !searchEmpty && swap.length > 0
+    visible: !searchEmpty && page.swap.length > 0
     note: "Space the system uses when memory runs short."
 
     Ui.DataTable {
@@ -546,14 +547,14 @@ Ui.SectionBody {
       ]
       rows: {
         var out = []
-        for (var i = 0; i < swap.length; i++) {
-          var s = swap[i]
+        for (var i = 0; i < page.swap.length; i++) {
+          var s = page.swap[i]
           var pct = Number(s.size) > 0 ? Number(s.used) / Number(s.size) * 100 : 0
           out.push({ cells: [
             { text: String(s.name || ""), strong: true },
             { text: s.zram === true ? "Compressed memory"
                                     : (s.kind === "file" ? "File on the drive" : "Partition") },
-            { text: app.formatBytes(s.size), align: "right" },
+            { text: page.app.formatBytes(s.size), align: "right" },
             { text: Math.round(pct) + " %", meter: pct / 100, warn: pct >= 90 }
           ] })
         }
@@ -567,42 +568,42 @@ Ui.SectionBody {
   // reader to stop looking at it.
   Ui.SettingGroup {
     title: "Health"
-    visible: !searchEmpty && health.passed !== undefined && health.passed !== null
+    visible: !searchEmpty && page.health.passed !== undefined && page.health.passed !== null
 
     Ui.ReadingRow {
       label: "SMART"
-      value: health.passed === true ? "Passed" : "Failing"
+      value: page.health.passed === true ? "Passed" : "Failing"
     }
 
     Ui.ReadingRow {
-      visible: health.temperature !== undefined && health.temperature !== null
+      visible: page.health.temperature !== undefined && page.health.temperature !== null
       label: "Temperature"
-      value: health.temperature + " °C"
+      value: page.health.temperature + " °C"
     }
 
     Ui.ReadingRow {
-      visible: health.wear !== undefined && health.wear !== null
+      visible: page.health.wear !== undefined && page.health.wear !== null
       label: "Wear"
       description: "How much of the drive's rated write life is used up."
-      value: health.wear + " %"
+      value: page.health.wear + " %"
     }
 
     Ui.ReadingRow {
-      visible: health.hours !== undefined && health.hours !== null
+      visible: page.health.hours !== undefined && page.health.hours !== null
       label: "Powered on"
-      value: app.formatDuration(Number(health.hours) * 3600)
+      value: page.app.formatDuration(Number(page.health.hours) * 3600)
     }
 
     Ui.ReadingRow {
-      visible: health.written !== undefined && health.written !== null
+      visible: page.health.written !== undefined && page.health.written !== null
       label: "Written"
-      value: app.formatBytes(health.written)
+      value: page.app.formatBytes(page.health.written)
     }
   }
 
   Ui.SettingGroup {
     title: "Snapshots"
-    visible: !searchEmpty && snapshots.length > 0
+    visible: !searchEmpty && page.snapshots.length > 0
     note: "Taken by snapper, and by Omarchy before it updates packages."
 
     Ui.DataTable {
@@ -614,12 +615,12 @@ Ui.SectionBody {
       ]
       rows: {
         var out = []
-        for (var i = 0; i < snapshots.length; i++)
+        for (var i = 0; i < page.snapshots.length; i++)
           out.push({ cells: [
-            { text: "#" + snapshots[i].number, strong: true },
-            { text: snapshots[i].kind },
-            { text: snapshots[i].description },
-            { text: snapshots[i].date, align: "right" }
+            { text: "#" + page.snapshots[i].number, strong: true },
+            { text: page.snapshots[i].kind },
+            { text: page.snapshots[i].description },
+            { text: page.snapshots[i].date, align: "right" }
           ] })
         return out
       }
@@ -627,7 +628,7 @@ Ui.SectionBody {
 
     Ui.Chip {
       text: "Snapshot now"
-      onClicked: app.run(["disk", "snapshot"])
+      onClicked: page.app.run(["disk", "snapshot"])
     }
   }
 }

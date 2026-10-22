@@ -1,12 +1,11 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell.Io
-import qs.Commons
-import qs.Ui
 import "../ui" as Ui
 
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
   Ui.SettingGroup {
     title: "Layout"
@@ -15,28 +14,28 @@ Ui.SectionBody {
     Ui.TextRow {
       label: "Layouts"
       placeholder: "us,se"
-      value: String(app.hyprValue("kb-layout", ""))
-      onCommitted: function(next) { app.setHypr("kb-layout", next) }
-      changed: app.isChanged("kb-layout")
-      onResetRequested: app.resetSetting("kb-layout")
+      value: String(page.app.hyprValue("kb-layout", ""))
+      onCommitted: function(next) { page.app.setHypr("kb-layout", next) }
+      changed: page.app.isChanged("kb-layout")
+      onResetRequested: page.app.resetSetting("kb-layout")
     }
 
     Ui.TextRow {
       label: "Variant"
       placeholder: "intl"
-      value: String(app.hyprValue("kb-variant", ""))
-      onCommitted: function(next) { app.setHypr("kb-variant", next) }
-      changed: app.isChanged("kb-variant")
-      onResetRequested: app.resetSetting("kb-variant")
+      value: String(page.app.hyprValue("kb-variant", ""))
+      onCommitted: function(next) { page.app.setHypr("kb-variant", next) }
+      changed: page.app.isChanged("kb-variant")
+      onResetRequested: page.app.resetSetting("kb-variant")
     }
 
     Ui.TextRow {
       label: "Options"
       placeholder: "compose:caps,grp:alts_toggle"
-      value: String(app.hyprValue("kb-options", ""))
-      onCommitted: function(next) { app.setHypr("kb-options", next) }
-      changed: app.isChanged("kb-options")
-      onResetRequested: app.resetSetting("kb-options")
+      value: String(page.app.hyprValue("kb-options", ""))
+      onCommitted: function(next) { page.app.setHypr("kb-options", next) }
+      changed: page.app.isChanged("kb-options")
+      onResetRequested: page.app.resetSetting("kb-options")
     }
   }
 
@@ -46,32 +45,32 @@ Ui.SectionBody {
     Ui.NumberRow {
       label: "Repeat rate"
       suffix: "keys/s"
-      value: app.hyprValue("repeat-rate", 25)
+      value: page.app.hyprValue("repeat-rate", 25)
       from: 1
       to: 100
-      onCommitted: function(next) { app.setHypr("repeat-rate", next) }
-      changed: app.isChanged("repeat-rate")
-      onResetRequested: app.resetSetting("repeat-rate")
+      onCommitted: function(next) { page.app.setHypr("repeat-rate", next) }
+      changed: page.app.isChanged("repeat-rate")
+      onResetRequested: page.app.resetSetting("repeat-rate")
     }
 
     Ui.NumberRow {
       label: "Repeat delay"
       suffix: "ms"
-      value: app.hyprValue("repeat-delay", 600)
+      value: page.app.hyprValue("repeat-delay", 600)
       from: 100
       to: 1000
       step: 50
-      onCommitted: function(next) { app.setHypr("repeat-delay", next) }
-      changed: app.isChanged("repeat-delay")
-      onResetRequested: app.resetSetting("repeat-delay")
+      onCommitted: function(next) { page.app.setHypr("repeat-delay", next) }
+      changed: page.app.isChanged("repeat-delay")
+      onResetRequested: page.app.resetSetting("repeat-delay")
     }
 
     Ui.SwitchRow {
       label: "Num lock on at login"
-      checked: app.hyprValue("numlock", false) === true
-      onRequested: function(next) { app.setHypr("numlock", next ? "true" : "false") }
-      changed: app.isChanged("numlock")
-      onResetRequested: app.resetSetting("numlock")
+      checked: page.app.hyprValue("numlock", false) === true
+      onRequested: function(next) { page.app.setHypr("numlock", next ? "true" : "false") }
+      changed: page.app.isChanged("numlock")
+      onResetRequested: page.app.resetSetting("numlock")
     }
   }
 
@@ -107,9 +106,10 @@ Ui.SectionBody {
   }
 
   Repeater {
-    model: customised
+    model: page.customised
 
     delegate: Ui.SettingGroup {
+      id: deviceGroup
       required property var modelData
 
       readonly property string name: String(modelData.name)
@@ -135,27 +135,27 @@ Ui.SectionBody {
 
       Ui.TextRow {
         label: "Layouts"
-        placeholder: String(app.hyprValue("kb-layout", ""))
-        value: String(inForce("kb_layout", app.hyprValue("kb-layout", "")))
-        onCommitted: function(next) { app.setDevice(name, "kb_layout", next, "keyboard") }
-        changed: app.isChanged("kb-layout")
-        onResetRequested: app.resetSetting("kb-layout")
+        placeholder: String(page.app.hyprValue("kb-layout", ""))
+        value: String(deviceGroup.inForce("kb_layout", page.app.hyprValue("kb-layout", "")))
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "kb_layout", next, "keyboard") }
+        changed: page.app.isChanged("kb-layout")
+        onResetRequested: page.app.resetSetting("kb-layout")
       }
 
       Ui.TextRow {
         label: "Variant"
-        value: String(inForce("kb_variant", app.hyprValue("kb-variant", "")))
-        onCommitted: function(next) { app.setDevice(name, "kb_variant", next, "keyboard") }
-        changed: app.isChanged("kb-variant")
-        onResetRequested: app.resetSetting("kb-variant")
+        value: String(deviceGroup.inForce("kb_variant", page.app.hyprValue("kb-variant", "")))
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "kb_variant", next, "keyboard") }
+        changed: page.app.isChanged("kb-variant")
+        onResetRequested: page.app.resetSetting("kb-variant")
       }
 
       Ui.TextRow {
         label: "Options"
-        value: String(inForce("kb_options", app.hyprValue("kb-options", "")))
-        onCommitted: function(next) { app.setDevice(name, "kb_options", next, "keyboard") }
-        changed: app.isChanged("kb-options")
-        onResetRequested: app.resetSetting("kb-options")
+        value: String(deviceGroup.inForce("kb_options", page.app.hyprValue("kb-options", "")))
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "kb_options", next, "keyboard") }
+        changed: page.app.isChanged("kb-options")
+        onResetRequested: page.app.resetSetting("kb-options")
       }
 
       Ui.NumberRow {
@@ -163,10 +163,10 @@ Ui.SectionBody {
         suffix: "keys/s"
         from: 1
         to: 100
-        value: Number(inForce("repeat_rate", app.hyprValue("repeat-rate", 25)))
-        onCommitted: function(next) { app.setDevice(name, "repeat_rate", next, "keyboard") }
-        changed: app.isChanged("repeat-rate")
-        onResetRequested: app.resetSetting("repeat-rate")
+        value: Number(deviceGroup.inForce("repeat_rate", page.app.hyprValue("repeat-rate", 25)))
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "repeat_rate", next, "keyboard") }
+        changed: page.app.isChanged("repeat-rate")
+        onResetRequested: page.app.resetSetting("repeat-rate")
       }
 
       Ui.NumberRow {
@@ -175,41 +175,41 @@ Ui.SectionBody {
         from: 100
         to: 1000
         step: 50
-        value: Number(inForce("repeat_delay", app.hyprValue("repeat-delay", 600)))
-        onCommitted: function(next) { app.setDevice(name, "repeat_delay", next, "keyboard") }
-        changed: app.isChanged("repeat-delay")
-        onResetRequested: app.resetSetting("repeat-delay")
+        value: Number(deviceGroup.inForce("repeat_delay", page.app.hyprValue("repeat-delay", 600)))
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "repeat_delay", next, "keyboard") }
+        changed: page.app.isChanged("repeat-delay")
+        onResetRequested: page.app.resetSetting("repeat-delay")
       }
 
       // No label: what the button removes is the group it sits in, and how
       // that is undone in a config file is not the reader's problem.
       Ui.ActionRow {
-        readonly property bool theirs: Object.keys(configured).length > 0
+        readonly property bool theirs: Object.keys(deviceGroup.configured).length > 0
 
         buttonText: "Remove Device"
         onTriggered: {
-          if (theirs) app.removeDevice(name)
-          else if (ours) app.clearDevice(name)
-          else closeDevice(name)
+          if (theirs) page.app.removeDevice(deviceGroup.name)
+          else if (deviceGroup.ours) page.app.clearDevice(deviceGroup.name)
+          else page.closeDevice(deviceGroup.name)
         }
       }
     }
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && untouched.length > 0
+    visible: !searchEmpty && page.untouched.length > 0
 
     Ui.PickerRow {
       label: "Settings for one keyboard"
       description: "Give a single keyboard its own settings, apart from the ones above."
       value: ""
-      options: [{ value: "", label: "Pick a keyboard…" }].concat(untouched.map(function(device) {
+      options: [{ value: "", label: "Pick a keyboard…" }].concat(page.untouched.map(function(device) {
         return {
           value: String(device.name),
           label: String(device.name) + (device.connected === false ? " (not connected)" : "")
         }
       }))
-      onPicked: function(next) { if (next !== "") openDevice(next) }
+      onPicked: function(next) { if (next !== "") page.openDevice(next) }
     }
   }
 }

@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -14,6 +15,7 @@ import "../ui" as Ui
 // notice points at the page that can actually fix it, and both are shown
 // rather than kept — so this page cannot disagree with the bar.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   readonly property var toggles: app.overview.toggles !== undefined ? app.overview.toggles : []
@@ -67,10 +69,10 @@ Ui.SectionBody {
   // with them rather than arguing.
   Timer {
     interval: 5000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollOverview()
+    onTriggered: page.app.pollOverview()
   }
 
   // The one thing in this window that leaves the machine, and the *cache's
@@ -82,9 +84,9 @@ Ui.SectionBody {
 
   Timer {
     interval: 1800000
-    running: app.shown
+    running: page.app.shown
     repeat: true
-    onTriggered: app.fetchNews()
+    onTriggered: page.app.fetchNews()
   }
 
   // First, and tiles across rather than rows down, with no heading over them.
@@ -101,7 +103,7 @@ Ui.SectionBody {
       spacing: Style.space(10)
 
       Repeater {
-        model: toggles
+        model: page.toggles
 
         Ui.ToggleTile {
           required property var modelData
@@ -110,7 +112,7 @@ Ui.SectionBody {
           // share of the row.
           width: (toggleGrid.width - (toggleGrid.columns - 1) * toggleGrid.spacing)
             / toggleGrid.columns
-          glyph: toggleGlyphs[modelData.id] !== undefined ? toggleGlyphs[modelData.id] : ""
+          glyph: page.toggleGlyphs[modelData.id] !== undefined ? page.toggleGlyphs[modelData.id] : ""
           label: modelData.label
           note: modelData.note !== undefined ? modelData.note : ""
           checked: modelData.on === true
@@ -118,7 +120,7 @@ Ui.SectionBody {
           // effects and all — starting hyprsunset, telling the bar to redraw.
           // Then the page asks again rather than assuming it worked.
           onRequested: {
-            app.run(["overview", "toggle", modelData.id])
+            page.app.run(["overview", "toggle", modelData.id])
           }
         }
       }
@@ -134,10 +136,10 @@ Ui.SectionBody {
   Ui.SettingGroup {
     framed: true
     title: "Needs attention"
-    visible: !searchEmpty && attention.length > 0
+    visible: !searchEmpty && page.attention.length > 0
 
     Repeater {
-      model: attention
+      model: page.attention
 
       Ui.NoticeRow {
         required property var modelData
@@ -151,18 +153,18 @@ Ui.SectionBody {
 
         onTriggered: {
           if (modelData.update === true) {
-            if (app.selfId !== "") app.run(["plugin", "update", app.selfId])
+            if (page.app.selfId !== "") page.app.run(["plugin", "update", page.app.selfId])
           } else if (modelData.migrate === true) {
-            app.run(["migrate", "start"])
+            page.app.run(["migrate", "start"])
           } else if (modelData.page !== undefined) {
-            app.pageId = modelData.page
+            page.app.pageId = modelData.page
           } else if (modelData.action !== undefined) {
-            app.pageId = modelData.action
+            page.app.pageId = modelData.action
           }
         }
 
         onDismissed: {
-          app.run(["overview", "dismiss", modelData.id])
+          page.app.run(["overview", "dismiss", modelData.id])
         }
       }
     }
@@ -174,39 +176,39 @@ Ui.SectionBody {
   Ui.SettingGroup {
     framed: true
     title: "Updates"
-    note: updates.checkedAt > 0
-      ? "Mirrors last checked " + app.formatWhen(updates.checkedAt)
+    note: page.updates.checkedAt > 0
+      ? "Mirrors last checked " + page.app.formatWhen(page.updates.checkedAt)
       : "Mirrors have not been checked yet."
-    visible: !searchEmpty && hasUpdates
+    visible: !searchEmpty && page.hasUpdates
 
     // Omarchy ships as a package, so its row is that package pulled out of
     // the list and named as the thing the reader actually thinks about.
     Ui.NoticeRow {
-      visible: !searchHidden && updates.omarchy !== undefined && updates.omarchy !== null
+      visible: !searchHidden && page.updates.omarchy !== undefined && page.updates.omarchy !== null
       glyph: ""
-      label: updates.omarchy ? "Omarchy " + updates.omarchy.available : ""
-      description: "You are on " + updates.version
-        + (updates.channel !== "" ? " · " + updates.channel + " channel" : "")
+      label: page.updates.omarchy ? "Omarchy " + page.updates.omarchy.available : ""
+      description: "You are on " + page.updates.version
+        + (page.updates.channel !== "" ? " · " + page.updates.channel + " channel" : "")
       actionText: "Update"
-      onTriggered: { app.run(["packages", "update"]); app.hide() }
+      onTriggered: { page.app.run(["packages", "update"]); page.app.hide() }
     }
 
     Ui.NoticeRow {
-      visible: !searchHidden && updates.packages > 0
+      visible: !searchHidden && page.updates.packages > 0
       glyph: ""
-      label: updates.packages === 1 ? "1 package" : updates.packages + " packages"
+      label: page.updates.packages === 1 ? "1 package" : page.updates.packages + " packages"
       description: "Waiting in the repositories and the AUR."
       actionText: "Open Packages"
-      onTriggered: app.pageId = "packages"
+      onTriggered: page.app.pageId = "packages"
     }
 
     Ui.NoticeRow {
-      visible: !searchHidden && updatePlugins.length > 0
+      visible: !searchHidden && page.updatePlugins.length > 0
       glyph: ""
-      label: updatePlugins.length === 1 ? "1 plugin" : updatePlugins.length + " plugins"
-      description: updatePlugins.join(" · ")
+      label: page.updatePlugins.length === 1 ? "1 plugin" : page.updatePlugins.length + " plugins"
+      description: page.updatePlugins.join(" · ")
       actionText: "Open Plugins"
-      onTriggered: app.pageId = "plugins"
+      onTriggered: page.app.pageId = "plugins"
     }
   }
 
@@ -218,13 +220,13 @@ Ui.SectionBody {
     // The count first, because it is the only part of this heading anyone
     // scans for; the age second, because a headline with no age on it is one
     // you cannot judge.
-    note: (unreadNews > 0 ? (unreadNews === 1 ? "1 new · " : unreadNews + " new · ") : "")
-      + (news.fetchedAt !== undefined && news.fetchedAt > 0
-         ? "fetched " + app.formatWhen(news.fetchedAt) : "")
-    visible: !searchEmpty && newsItems.length > 0
+    note: (page.unreadNews > 0 ? (page.unreadNews === 1 ? "1 new · " : page.unreadNews + " new · ") : "")
+      + (page.news.fetchedAt !== undefined && page.news.fetchedAt > 0
+         ? "fetched " + page.app.formatWhen(page.news.fetchedAt) : "")
+    visible: !searchEmpty && page.newsItems.length > 0
 
     Repeater {
-      model: newsItems.slice(0, 5)
+      model: page.newsItems.slice(0, 5)
 
       // A headline is a link, so the whole row is one. A Read button beside
       // each of five rows is five buttons doing what clicking the headline
@@ -244,15 +246,15 @@ Ui.SectionBody {
         // exclusively while it is open, so leaving it up means the article you
         // just asked for is behind a settings window you have to dismiss.
         // `news open` follows the browser to its workspace from its side.
-        onTriggered: { app.run(["news", "open", modelData.url]); app.hide() }
-        onStarred: app.run(["news", "read", modelData.url])
+        onTriggered: { page.app.run(["news", "open", modelData.url]); page.app.hide() }
+        onStarred: page.app.run(["news", "read", modelData.url])
       }
     }
 
     Ui.Chip {
-      visible: unreadNews > 0
+      visible: page.unreadNews > 0
       text: "Mark all as read"
-      onClicked: app.run(["news", "read-all"])
+      onClicked: page.app.run(["news", "read-all"])
     }
   }
 }

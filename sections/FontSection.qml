@@ -1,6 +1,5 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import qs.Commons
-import qs.Ui
 import "../ui" as Ui
 
 // Injected by the window when the page is loaded: the state every
@@ -18,12 +17,12 @@ Ui.SectionBody {
       label: "Text size"
       description: "Scales the shell, GTK apps, and terminals together."
       suffix: "px"
-      value: app.state.textScale !== undefined ? Number(app.state.textScale) : 12
+      value: page.app.state.textScale !== undefined ? Number(page.app.state.textScale) : 12
       from: 9
       to: 20
-      onCommitted: function(next) { app.set("text-scale", next) }
-      changed: app.isChanged("text-scale")
-      onResetRequested: app.resetSetting("text-scale")
+      onCommitted: function(next) { page.app.set("text-scale", next) }
+      changed: page.app.isChanged("text-scale")
+      onResetRequested: page.app.resetSetting("text-scale")
     }
   }
 
@@ -43,7 +42,7 @@ Ui.SectionBody {
         width: parent.width
         family: String(modelData)
         current: String(modelData) === page.chosen
-        onChose: app.setFont(String(modelData))
+        onChose: page.app.setFont(String(modelData))
       }
     }
   }

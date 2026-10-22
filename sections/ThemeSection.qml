@@ -25,7 +25,7 @@ Ui.SectionBody {
     Ui.PictureGrid {
       items: page.themeTiles
       columns: 2
-      onChose: function(name) { app.setTheme(name) }
+      onChose: function(name) { page.app.setTheme(name) }
     }
   }
 

@@ -1,11 +1,10 @@
 import QtQuick
-import qs.Commons
-import qs.Ui
 import "../ui" as Ui
 
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   // A group each, because the two are the same three choices about different
@@ -24,13 +23,13 @@ Ui.SectionBody {
 
     Ui.AsciiPreview {
       visible: text !== ""
-      text: app.branding.screensaver !== undefined ? app.branding.screensaver : ""
+      text: page.app.branding.screensaver !== undefined ? page.app.branding.screensaver : ""
     }
 
     Ui.BrandingRow {
       onChose: function(variant) {
-        app.hide()
-        app.run(["menu", "run", "style.screensaver." + variant])
+        page.app.hide()
+        page.app.run(["menu", "run", "style.screensaver." + variant])
       }
     }
   }
@@ -40,13 +39,13 @@ Ui.SectionBody {
 
     Ui.AsciiPreview {
       visible: text !== ""
-      text: app.branding.about !== undefined ? app.branding.about : ""
+      text: page.app.branding.about !== undefined ? page.app.branding.about : ""
     }
 
     Ui.BrandingRow {
       onChose: function(variant) {
-        app.hide()
-        app.run(["menu", "run", "style.about." + variant])
+        page.app.hide()
+        page.app.run(["menu", "run", "style.about." + variant])
       }
     }
   }

@@ -16,7 +16,7 @@ Ui.SectionBody {
     // ~/.config/omarchy/backgrounds for it — the two places Omarchy's own
     // "next background" walks, in its order.
     title: ""
-    note: app.wallpaperList.length === 0
+    note: page.app.wallpaperList.length === 0
       ? "This theme ships no backgrounds." : ""
 
     Ui.PictureGrid {
@@ -25,7 +25,7 @@ Ui.SectionBody {
       // and four across is a thumbnail of a thumbnail.
       columns: 2
       aspect: 16 / 9
-      onChose: function(path) { app.run(["theme", "bg", path]) }
+      onChose: function(path) { page.app.run(["theme", "bg", path]) }
     }
   }
 

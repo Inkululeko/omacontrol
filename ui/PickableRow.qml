@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 import "." as Local
 
 // One thing in a list you pick from: a name, an optional detail, and the

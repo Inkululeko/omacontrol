@@ -1,5 +1,5 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "../ui" as Ui
@@ -7,6 +7,7 @@ import "../ui" as Ui
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
   Ui.SettingGroup {
     title: "Add a sequence"
@@ -20,28 +21,28 @@ Ui.SectionBody {
         id: keysField
         width: (parent.width - addButton.width - Style.space(16)) * 0.45
         placeholderText: "<Multi_key> <s> <e>"
-        foreground: app.foreground
-        accent: app.accent
+        foreground: page.app.foreground
+        accent: page.app.accent
       }
 
       TextField {
         id: textField
         width: (parent.width - addButton.width - Style.space(16)) * 0.55
         placeholderText: "text it types"
-        foreground: app.foreground
-        accent: app.accent
+        foreground: page.app.foreground
+        accent: page.app.accent
       }
 
       Button {
         id: addButton
         text: "Add"
         bordered: true
-        foreground: app.foreground
-        accent: app.accent
+        foreground: page.app.foreground
+        accent: page.app.accent
         anchors.verticalCenter: parent.verticalCenter
         onClicked: {
           if (keysField.text.trim() === "" || textField.text === "") return
-          app.run(["compose", "add", keysField.text.trim(), textField.text])
+          page.app.run(["compose", "add", keysField.text.trim(), textField.text])
           keysField.text = ""
           textField.text = ""
         }
@@ -51,11 +52,12 @@ Ui.SectionBody {
 
   Ui.SettingGroup {
     title: "Your sequences"
-    note: app.composeEntries.length === 0 ? "Nothing defined yet." : ""
+    note: page.app.composeEntries.length === 0 ? "Nothing defined yet." : ""
 
     Repeater {
-      model: app.composeEntries
+      model: page.app.composeEntries
       delegate: Item {
+        id: composeEntry
         required property var modelData
         width: parent.width
         implicitHeight: Style.spacing.controlHeight
@@ -66,9 +68,9 @@ Ui.SectionBody {
           anchors.verticalCenter: parent.verticalCenter
           width: parent.width * 0.45
           elide: Text.ElideRight
-          text: modelData.keys
-          color: app.foreground
-          font.family: app.fontFamily
+          text: composeEntry.modelData.keys
+          color: page.app.foreground
+          font.family: page.app.fontFamily
           font.pixelSize: Style.font.body
         }
 
@@ -79,9 +81,9 @@ Ui.SectionBody {
           anchors.verticalCenter: parent.verticalCenter
           width: parent.width * 0.4
           elide: Text.ElideRight
-          text: modelData.text
-          color: app.muted
-          font.family: app.fontFamily
+          text: composeEntry.modelData.text
+          color: page.app.muted
+          font.family: page.app.fontFamily
           font.pixelSize: Style.font.body
         }
 
@@ -90,8 +92,8 @@ Ui.SectionBody {
           anchors.verticalCenter: parent.verticalCenter
           iconText: "\uf00d"
           tooltipText: "Remove"
-          foreground: app.foreground
-          onClicked: app.run(["compose", "remove", modelData.keys])
+          foreground: page.app.foreground
+          onClicked: page.app.run(["compose", "remove", composeEntry.modelData.keys])
         }
       }
     }

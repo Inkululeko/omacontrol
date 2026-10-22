@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -6,6 +7,7 @@ import "../ui" as Ui
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   readonly property var bluetooth: app.bluetooth
@@ -29,10 +31,10 @@ Ui.SectionBody {
   // name and the summary replaces the file path under it.
   property Component headerControl: Component {
     ToggleSwitch {
-      checked: bluetooth.powered === true
+      checked: page.bluetooth.powered === true
       foreground: Ui.Palette.foreground
       accent: Ui.Palette.accent
-      onToggled: app.run(["bluetooth", "power", bluetooth.powered === true ? "off" : "on"])
+      onToggled: page.app.run(["bluetooth", "power", page.bluetooth.powered === true ? "off" : "on"])
     }
   }
 
@@ -48,19 +50,19 @@ Ui.SectionBody {
   // while it is the page on screen and the window is open.
   Timer {
     interval: 5000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollBluetooth()
+    onTriggered: page.app.pollBluetooth()
   }
 
   Ui.SettingGroup {
     rowSpacing: Style.space(2)
     title: "Connected"
-    visible: !searchEmpty && bluetooth.powered === true && connectedDevices.length > 0
+    visible: !searchEmpty && page.bluetooth.powered === true && page.connectedDevices.length > 0
 
     Repeater {
-      model: connectedDevices
+      model: page.connectedDevices
       delegate: DeviceDelegate {}
     }
   }
@@ -68,10 +70,10 @@ Ui.SectionBody {
   Ui.SettingGroup {
     rowSpacing: Style.space(2)
     title: "Paired"
-    visible: !searchEmpty && bluetooth.powered === true && pairedDevices.length > 0
+    visible: !searchEmpty && page.bluetooth.powered === true && page.pairedDevices.length > 0
 
     Repeater {
-      model: pairedDevices
+      model: page.pairedDevices
       delegate: DeviceDelegate {}
     }
   }
@@ -79,10 +81,10 @@ Ui.SectionBody {
   Ui.SettingGroup {
     rowSpacing: Style.space(2)
     title: "Nearby"
-    visible: !searchEmpty && bluetooth.powered === true
+    visible: !searchEmpty && page.bluetooth.powered === true
 
     Repeater {
-      model: nearbyDevices
+      model: page.nearbyDevices
       delegate: DeviceDelegate {}
     }
   }
@@ -91,15 +93,15 @@ Ui.SectionBody {
   // machine, and only the other direction needs this.
   Ui.SettingGroup {
     title: "This computer"
-    visible: !searchEmpty && bluetooth.powered === true
+    visible: !searchEmpty && page.bluetooth.powered === true
 
     Ui.SwitchRow {
       label: "Let other devices find this one"
-      description: bluetooth.adapter !== undefined && bluetooth.adapter !== ""
-        ? "Phones and headsets pairing from their own side see it as \u201c" + bluetooth.adapter + "\u201d. Switches itself off again after a few minutes."
+      description: page.bluetooth.adapter !== undefined && page.bluetooth.adapter !== ""
+        ? "Phones and headsets pairing from their own side see it as \u201c" + page.bluetooth.adapter + "\u201d. Switches itself off again after a few minutes."
         : "Needed only when the other device is doing the pairing. Switches itself off again after a few minutes."
-      checked: bluetooth.discoverable === true
-      onRequested: function(next) { app.run(["bluetooth", "discoverable", next ? "on" : "off"]) }
+      checked: page.bluetooth.discoverable === true
+      onRequested: function(next) { page.app.run(["bluetooth", "discoverable", next ? "on" : "off"]) }
     }
   }
 
@@ -116,9 +118,9 @@ Ui.SectionBody {
     connected: modelData.connected === true
     battery: modelData.battery !== null && modelData.battery !== undefined ? Number(modelData.battery) : -1
     rssi: modelData.rssi !== null && modelData.rssi !== undefined ? Number(modelData.rssi) : -200
-    onConnectRequested: app.run(["bluetooth", "connect", modelData.address])
-    onDisconnectRequested: app.run(["bluetooth", "disconnect", modelData.address])
-    onPairRequested: app.run(["bluetooth", "pair", modelData.address])
-    onForgetRequested: app.run(["bluetooth", "forget", modelData.address])
+    onConnectRequested: page.app.run(["bluetooth", "connect", modelData.address])
+    onDisconnectRequested: page.app.run(["bluetooth", "disconnect", modelData.address])
+    onPairRequested: page.app.run(["bluetooth", "pair", modelData.address])
+    onForgetRequested: page.app.run(["bluetooth", "forget", modelData.address])
   }
 }

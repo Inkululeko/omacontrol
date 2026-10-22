@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -2025,9 +2026,9 @@ Item {
 
         // The two things every search box answers to.
         if (event.text === "/" || (ctrl && event.key === Qt.Key_F)) {
-          if (searchInput) {
-            searchInput.forceActiveFocus()
-            searchInput.selectAll()
+          if (root.searchInput) {
+            root.searchInput.forceActiveFocus()
+            root.searchInput.selectAll()
           }
           event.accepted = true
           return
@@ -2289,10 +2290,10 @@ Item {
 
                     Text {
                       textFormat: Text.PlainText
-                      visible: modelData.title !== ""
+                      visible: block.modelData.title !== ""
                       leftPadding: Style.space(11)
                       bottomPadding: Style.space(2)
-                      text: modelData.title
+                      text: block.modelData.title
                       color: root.muted
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -2302,7 +2303,7 @@ Item {
                     }
 
                     Repeater {
-                      model: modelData.items
+                      model: block.modelData.items
 
                       delegate: Column {
                         id: entry
@@ -2385,6 +2386,7 @@ Item {
                             ? entry.modelData.pages : []
 
                           delegate: Rectangle {
+                            id: subPage
                             required property var modelData
                             readonly property bool current: modelData === root.pageId
                             width: entry.width
@@ -2397,7 +2399,7 @@ Item {
                               anchors.fill: parent
                               hoverEnabled: true
                               cursorShape: Qt.PointingHandCursor
-                              onClicked: root.pageId = modelData
+                              onClicked: root.pageId = subPage.modelData
                             }
 
                             // A tick rather than a fill: the item above is
@@ -2420,8 +2422,8 @@ Item {
                               anchors.right: parent.right
                               anchors.rightMargin: Style.space(10)
                               anchors.verticalCenter: parent.verticalCenter
-                              text: root.pageTitles[modelData] !== undefined
-                                ? root.pageTitles[modelData] : modelData
+                              text: root.pageTitles[subPage.modelData] !== undefined
+                                ? root.pageTitles[subPage.modelData] : subPage.modelData
                               elide: Text.ElideRight
                               color: parent.current ? root.foreground : root.muted
                               font.family: root.fontFamily
@@ -2661,6 +2663,7 @@ Item {
             model: root.navLegend
 
             delegate: Row {
+              id: legendKey
               required property var modelData
               spacing: Style.space(5)
 
@@ -2668,7 +2671,7 @@ Item {
               // and an arrow — and a cap per key is what says they are
               // pressed together rather than one key called "alt ↑".
               Repeater {
-                model: modelData.keys
+                model: legendKey.modelData.keys
 
                 delegate: Ui.KeyCap {
                   required property var modelData
@@ -2680,7 +2683,7 @@ Item {
               Text {
                 textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
-                text: modelData.label
+                text: legendKey.modelData.label
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
