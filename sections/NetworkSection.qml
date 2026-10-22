@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -225,16 +226,16 @@ Ui.SectionBody {
   // it the address would be however old the last visit left it.
   Component.onCompleted: { app.readPublicIp(); app.pollHosts() }
   Connections {
-    target: app
-    function onShownChanged() { if (app.shown) { app.readPublicIp(); app.pollHosts() } }
+    target: page.app
+    function onShownChanged() { if (page.app.shown) { page.app.readPublicIp(); page.app.pollHosts() } }
   }
 
   Timer {
     interval: 2000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: { app.pollWifiLink(); app.pollWifiWired() }
+    onTriggered: { page.app.pollWifiLink(); page.app.pollWifiWired() }
   }
 
   // The networks themselves, which used to arrive with the state document and
@@ -244,10 +245,10 @@ Ui.SectionBody {
   // than by the second.
   Timer {
     interval: 5000
-    running: app.shown
+    running: page.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollWifi()
+    onTriggered: page.app.pollWifi()
   }
 
   // ---- what you are on -----------------------------------------------------
@@ -258,8 +259,8 @@ Ui.SectionBody {
   Ui.SettingGroup {
     framed: true
     visible: page.connected
-      && (app.searching !== true
-          || app.rowMatches(page.wifi.connected + " " + page.linkSummary, "", ""))
+      && (page.app.searching !== true
+          || page.app.rowMatches(page.wifi.connected + " " + page.linkSummary, "", ""))
 
     Item {
       width: parent.width
@@ -269,7 +270,7 @@ Ui.SectionBody {
         id: strength
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        strength: app.activeNetwork !== null ? Number(app.activeNetwork.signal) : 0
+        strength: page.app.activeNetwork !== null ? Number(page.app.activeNetwork.signal) : 0
         accented: true
         unit: 1.4
       }
@@ -342,7 +343,7 @@ Ui.SectionBody {
   // understand it.
   Rectangle {
     id: busy
-    visible: page.channelBusy && app.searching !== true
+    visible: page.channelBusy && page.app.searching !== true
     width: parent.width
     implicitHeight: busyText.implicitHeight + Style.space(20)
     radius: Ui.Palette.cardRadius
@@ -378,20 +379,20 @@ Ui.SectionBody {
   // ---- the reason people open this page ------------------------------------
   Ui.SettingGroup {
     rowSpacing: Style.space(2)
-    framed: app.otherNetworks.length > 0
+    framed: page.app.otherNetworks.length > 0
     title: page.connected ? "Other networks" : "Networks"
     // Nothing while there is a list — the list is the answer. "Looking" only
     // until the first scan lands, and once the network we are on proves one
     // has, an empty list means there is genuinely nothing else here.
-    note: !page.radioOn || app.otherNetworks.length > 0 ? ""
-      : app.wifiNetworks.length > 0 ? "Nothing else in range."
+    note: !page.radioOn || page.app.otherNetworks.length > 0 ? ""
+      : page.app.wifiNetworks.length > 0 ? "Nothing else in range."
                                     : "Looking for networks…"
     visible: !searchEmpty && page.radioOn
     // No card around nothing: an empty rounded box reads as a list that failed
     // to load, where the note above it has already given the answer.
 
     Repeater {
-      model: page.radioOn ? app.otherNetworks : []
+      model: page.radioOn ? page.app.otherNetworks : []
       delegate: Ui.WifiRow {
         required property var modelData
         width: parent.width
@@ -403,12 +404,12 @@ Ui.SectionBody {
         dbm: modelData.dbm !== undefined && modelData.dbm !== null ? Number(modelData.dbm) : 0
         saved: modelData.saved === true
         active: modelData.active === true
-        connecting: app.wifiConnecting === modelData.ssid
-        prompting: app.wifiPrompting === modelData.ssid
-        onPromptToggled: app.wifiPrompting = (app.wifiPrompting === modelData.ssid ? "" : modelData.ssid)
-        onConnectRequested: function(password) { app.connectWifi(modelData.ssid, password) }
-        onDisconnectRequested: app.run(["wifi", "disconnect"])
-        onForgetRequested: app.run(["wifi", "forget", modelData.ssid])
+        connecting: page.app.wifiConnecting === modelData.ssid
+        prompting: page.app.wifiPrompting === modelData.ssid
+        onPromptToggled: page.app.wifiPrompting = (page.app.wifiPrompting === modelData.ssid ? "" : modelData.ssid)
+        onConnectRequested: function(password) { page.app.connectWifi(modelData.ssid, password) }
+        onDisconnectRequested: page.app.run(["wifi", "disconnect"])
+        onForgetRequested: page.app.run(["wifi", "forget", modelData.ssid])
       }
     }
   }
@@ -419,17 +420,17 @@ Ui.SectionBody {
 
     Ui.PickerRow {
       label: "Band"
-      visible: !searchHidden && page.connected && app.bandOptions().length > 1
-      value: app.wifiBand.selected !== undefined ? String(app.wifiBand.selected) : "auto"
-      options: app.bandOptions()
-      onPicked: function(next) { app.run(["wifi", "band", next]) }
+      visible: !searchHidden && page.connected && page.app.bandOptions().length > 1
+      value: page.app.wifiBand.selected !== undefined ? String(page.app.wifiBand.selected) : "auto"
+      options: page.app.bandOptions()
+      onPicked: function(next) { page.app.run(["wifi", "band", next]) }
     }
 
     Ui.ChoiceRow {
       label: "DNS provider"
-      value: app.group("dns").current
-      options: app.groupOptions("dns")
-      onPicked: function(next) { app.run(["menu", "run", "setup.network.dns." + next]) }
+      value: page.app.group("dns").current
+      options: page.app.groupOptions("dns")
+      onPicked: function(next) { page.app.run(["menu", "run", "setup.network.dns." + next]) }
     }
 
   }
@@ -480,7 +481,7 @@ Ui.SectionBody {
       label: "Local names"
       description: "Resolved locally, before DNS. An entry here overrides what any DNS server returns."
       buttonText: "Edit hosts file…"
-      onTriggered: { app.run(["hosts", "edit"]); app.hide() }
+      onTriggered: { page.app.run(["hosts", "edit"]); page.app.hide() }
     }
 
     Ui.DataTable {

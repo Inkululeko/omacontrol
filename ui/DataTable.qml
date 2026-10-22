@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.Commons
@@ -213,16 +214,16 @@ Column {
               // are lined up against, and an arrow hanging off it reads as
               // belonging to the heading beside it instead.
               text: {
-                if (!headerCell.sorted) return modelData.title || ""
+                if (!headerCell.sorted) return headerCell.modelData.title || ""
                 var arrow = table.sortAscending ? "\u2191" : "\u2193"
-                return modelData.align === "right"
-                  ? arrow + "  " + (modelData.title || "")
-                  : (modelData.title || "") + "  " + arrow
+                return headerCell.modelData.align === "right"
+                  ? arrow + "  " + (headerCell.modelData.title || "")
+                  : (headerCell.modelData.title || "") + "  " + arrow
               }
               elide: Text.ElideRight
               verticalAlignment: Text.AlignVCenter
-              horizontalAlignment: modelData.align === "right" ? Text.AlignRight
-                : modelData.align === "center" ? Text.AlignHCenter : Text.AlignLeft
+              horizontalAlignment: headerCell.modelData.align === "right" ? Text.AlignRight
+                : headerCell.modelData.align === "center" ? Text.AlignHCenter : Text.AlignLeft
               color: headerCell.sorted || headerPress.containsMouse
                 ? Local.Palette.foreground : Local.Palette.muted
               font.family: Local.Palette.fontFamily
@@ -285,7 +286,7 @@ Column {
           // a line above the first one, immediately under the header's own
           // edge, and the two together read as a double rule.
           Rectangle {
-            visible: index > 0
+            visible: tableRow.index > 0
             width: parent.width
             height: Style.spacing.hairline
             color: Local.Palette.divider
@@ -465,7 +466,7 @@ Column {
                   elide: Text.ElideRight
                   horizontalAlignment: cell.column.align === "right" ? Text.AlignRight
                     : cell.column.align === "center" ? Text.AlignHCenter : Text.AlignLeft
-                  color: cell.cellData.strong === true || current
+                  color: cell.cellData.strong === true || tableRow.current
                     ? Local.Palette.foreground : Local.Palette.muted
                   font.family: Local.Palette.fontFamily
                   font.pixelSize: Style.font.bodySmall
@@ -577,7 +578,7 @@ Column {
           // is not the one being pointed at reads as a disabled control.
           Row {
             visible: table.navigable && table.rowActions.length > 0
-              && (rowMouse.containsMouse || current)
+              && (rowMouse.containsMouse || tableRow.current)
             // Above the row's own click area, which is declared after it and
             // would otherwise take every press: a sibling later in the file is
             // a sibling on top, and the icons would look live and do nothing.
@@ -591,6 +592,7 @@ Column {
               model: table.rowActions
 
               delegate: Item {
+                id: actionCell
                 required property var modelData
 
                 width: Style.space(22)
@@ -598,10 +600,10 @@ Column {
 
                 Local.GlyphIcon {
                   anchors.fill: parent
-                  glyph: String(modelData.icon || "")
+                  glyph: String(actionCell.modelData.icon || "")
                   size: Style.font.bodySmall
                   color: iconMouse.containsMouse ? Local.Palette.accent
-                    : (current ? Local.Palette.foreground : Local.Palette.muted)
+                    : (tableRow.current ? Local.Palette.foreground : Local.Palette.muted)
                 }
 
                 // Its own click, taken before the row's: the icon is the one
@@ -613,7 +615,7 @@ Column {
                   cursorShape: Qt.PointingHandCursor
                   onClicked: function(mouse) {
                     mouse.accepted = true
-                    table.rowAction(index, String(modelData.id || ""))
+                    table.rowAction(tableRow.index, String(actionCell.modelData.id || ""))
                   }
                 }
               }
@@ -653,8 +655,8 @@ Column {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              table.currentRow = index
-              table.activated(index)
+              table.currentRow = tableRow.index
+              table.activated(tableRow.index)
             }
           }
         }

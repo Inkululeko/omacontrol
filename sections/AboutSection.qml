@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 import "../ui" as Ui
 
 // Injected by the window when the page is loaded: the state every
@@ -34,19 +33,19 @@ Ui.SectionBody {
   // apart, and the version and uptime are the two facts anyone helping with a
   // problem asks for first.
   Ui.HeroCard {
-    glyph: about.chassis === "laptop" ? "" : ""
-    title: known(about.model) ? about.model : "This computer"
+    glyph: root.about.chassis === "laptop" ? "" : ""
+    title: root.known(root.about.model) ? root.about.model : "This computer"
     subtitle: {
       var parts = []
-      if (known(about.sku)) parts.push(about.sku)
-      if (known(about.version)) parts.push("Omarchy " + about.version)
-      if (hasUptime) parts.push("up " + app.formatDuration(about.uptimeSeconds))
+      if (root.known(root.about.sku)) parts.push(root.about.sku)
+      if (root.known(root.about.version)) parts.push("Omarchy " + root.about.version)
+      if (root.hasUptime) parts.push("up " + root.app.formatDuration(root.about.uptimeSeconds))
       return parts.join(" · ")
     }
 
     Ui.Chip {
       text: "Copy as text"
-      onClicked: app.run(["about", "copy"])
+      onClicked: root.app.run(["about", "copy"])
     }
   }
 
@@ -69,46 +68,46 @@ Ui.SectionBody {
 
       Ui.SpecRow {
         label: "Model"
-        value: (known(about.model) ? about.model : "")
-          + (known(about.sku) ? " (" + about.sku + ")" : "")
+        value: (root.known(root.about.model) ? root.about.model : "")
+          + (root.known(root.about.sku) ? " (" + root.about.sku + ")" : "")
       }
 
       Ui.Divider {}
 
       Ui.SpecRow {
         label: "CPU"
-        value: (known(about.cpu) ? about.cpu : "")
-          + (known(about.cpuCores)
-             ? " (" + about.cpuCores + " cores, " + about.cpuThreads + " threads)" : "")
-          + (about.cpuFrequency ? " @ " + (Number(about.cpuFrequency) / 1000).toFixed(2) + " GHz" : "")
+        value: (root.known(root.about.cpu) ? root.about.cpu : "")
+          + (root.known(root.about.cpuCores)
+             ? " (" + root.about.cpuCores + " cores, " + root.about.cpuThreads + " threads)" : "")
+          + (root.about.cpuFrequency ? " @ " + (Number(root.about.cpuFrequency) / 1000).toFixed(2) + " GHz" : "")
       }
 
       // One line each: a laptop with switchable graphics has two, and calling
       // one of them "the" GPU is how a bug report ends up describing the
       // wrong one.
-      Ui.Divider { visible: !searchHidden && gpus.length > 0 }
+      Ui.Divider { visible: !searchHidden && root.gpus.length > 0 }
 
       Ui.SpecRow {
-        visible: !searchHidden && gpus.length > 0
+        visible: !searchHidden && root.gpus.length > 0
         label: "GPU"
-        value: gpus.join("\n")
+        value: root.gpus.join("\n")
       }
 
-      Ui.Divider { visible: !searchHidden && known(about.memoryBytes) }
+      Ui.Divider { visible: !searchHidden && root.known(root.about.memoryBytes) }
 
       Ui.SpecRow {
-        visible: !searchHidden && known(about.memoryBytes)
+        visible: !searchHidden && root.known(root.about.memoryBytes)
         label: "Memory"
-        value: app.formatBytes(about.memoryBytes)
+        value: root.app.formatBytes(root.about.memoryBytes)
       }
 
-      Ui.Divider { visible: !searchHidden && about.disk !== undefined && known(about.disk.model) }
+      Ui.Divider { visible: !searchHidden && root.about.disk !== undefined && root.known(root.about.disk.model) }
 
       Ui.SpecRow {
-        visible: !searchHidden && about.disk !== undefined && known(about.disk.model)
+        visible: !searchHidden && root.about.disk !== undefined && root.known(root.about.disk.model)
         label: "Disk"
-        value: about.disk !== undefined
-          ? about.disk.model + (about.disk.size ? " · " + app.formatBytes(about.disk.size) : "")
+        value: root.about.disk !== undefined
+          ? root.about.disk.model + (root.about.disk.size ? " · " + root.app.formatBytes(root.about.disk.size) : "")
           : ""
       }
     }
@@ -123,48 +122,48 @@ Ui.SectionBody {
       // stable it says nothing a version number does not, on every machine.
       Ui.SpecRow {
         label: "OS"
-        value: known(about.version) ? "Omarchy " + about.version : ""
-        tag: known(about.channel) && about.channel !== "stable" ? about.channel + " channel" : ""
+        value: root.known(root.about.version) ? "Omarchy " + root.about.version : ""
+        tag: root.known(root.about.channel) && root.about.channel !== "stable" ? root.about.channel + " channel" : ""
       }
 
       Ui.Divider {}
 
       Ui.SpecRow {
         label: "Kernel"
-        value: known(about.kernel) ? about.kernel : ""
+        value: root.known(root.about.kernel) ? root.about.kernel : ""
       }
 
       Ui.Divider {}
 
       Ui.SpecRow {
         label: "Compositor"
-        value: known(about.compositor) ? about.compositor : ""
+        value: root.known(root.about.compositor) ? root.about.compositor : ""
       }
 
-      Ui.Divider { visible: !searchHidden && known(about.packages) }
+      Ui.Divider { visible: !searchHidden && root.known(root.about.packages) }
 
       Ui.SpecRow {
-        visible: !searchHidden && known(about.packages)
+        visible: !searchHidden && root.known(root.about.packages)
         label: "Packages"
-        value: about.packages + " (pacman)"
+        value: root.about.packages + " (pacman)"
       }
 
-      Ui.Divider { visible: !searchHidden && hasUptime }
+      Ui.Divider { visible: !searchHidden && root.hasUptime }
 
       Ui.SpecRow {
-        visible: !searchHidden && hasUptime
+        visible: !searchHidden && root.hasUptime
         label: "Uptime"
-        value: app.formatDuration(about.uptimeSeconds)
+        value: root.app.formatDuration(root.about.uptimeSeconds)
       }
 
       // Dated from the first line pacman ever wrote, which is the closest
       // thing an Arch install has to a birthday.
-      Ui.Divider { visible: !searchHidden && known(about.osAgeDays) }
+      Ui.Divider { visible: !searchHidden && root.known(root.about.osAgeDays) }
 
       Ui.SpecRow {
-        visible: !searchHidden && known(about.osAgeDays)
+        visible: !searchHidden && root.known(root.about.osAgeDays)
         label: "OS age"
-        value: about.osAgeDays + " days"
+        value: root.about.osAgeDays + " days"
       }
     }
   }
@@ -175,34 +174,34 @@ Ui.SectionBody {
     rowSpacing: Style.space(10)
 
     Ui.ReadingRow {
-      visible: !searchHidden && known(about.lastUpdate)
+      visible: !searchHidden && root.known(root.about.lastUpdate)
       label: "Last updated"
-      description: known(about.lastUpdate) ? about.lastUpdate : ""
-      value: known(about.lastUpdateAt) ? app.formatWhen(about.lastUpdateAt) : ""
+      description: root.known(root.about.lastUpdate) ? root.about.lastUpdate : ""
+      value: root.known(root.about.lastUpdateAt) ? root.app.formatWhen(root.about.lastUpdateAt) : ""
     }
 
     // From the Packages page's own last check, so the two pages give one
     // answer. Absent until something has checked: a count of zero from a
     // check that never happened would read as "up to date".
-    Ui.Divider { visible: !searchHidden && known(about.lastUpdate) && Number(waiting.checkedAt || 0) > 0 }
+    Ui.Divider { visible: !searchHidden && root.known(root.about.lastUpdate) && Number(root.waiting.checkedAt || 0) > 0 }
 
     Ui.SettingRow {
-      visible: !searchHidden && Number(waiting.checkedAt || 0) > 0
+      visible: !searchHidden && Number(root.waiting.checkedAt || 0) > 0
       label: "Waiting now"
-      navKeys: Number(waiting.count || 0) > 0 ? [{ key: "↵", label: "Open Packages" }] : []
-      onNavActivate: if (Number(waiting.count || 0) > 0) app.pageId = "packages"
+      navKeys: Number(root.waiting.count || 0) > 0 ? [{ key: "↵", label: "Open Packages" }] : []
+      onNavActivate: if (Number(root.waiting.count || 0) > 0) root.app.pageId = "packages"
 
       Ui.Chip {
         anchors.right: parent.right
-        visible: Number(waiting.count || 0) > 0
-        text: waiting.count + (Number(waiting.count) === 1 ? " package waiting" : " packages waiting")
-        onClicked: app.pageId = "packages"
+        visible: Number(root.waiting.count || 0) > 0
+        text: root.waiting.count + (Number(root.waiting.count) === 1 ? " package waiting" : " packages waiting")
+        onClicked: root.app.pageId = "packages"
       }
 
       Text {
         textFormat: Text.PlainText
         anchors.right: parent.right
-        visible: Number(waiting.count || 0) === 0
+        visible: Number(root.waiting.count || 0) === 0
         text: "Up to date"
         color: Ui.Palette.muted
         font.family: Ui.Palette.fontFamily
@@ -210,21 +209,21 @@ Ui.SectionBody {
       }
     }
 
-    Ui.Divider { visible: !searchHidden && (known(about.lastUpdate) || Number(waiting.checkedAt || 0) > 0) }
+    Ui.Divider { visible: !searchHidden && (root.known(root.about.lastUpdate) || Number(root.waiting.checkedAt || 0) > 0) }
 
     // Changing it changes what every future update pulls, so it goes to
     // Omarchy's own command and its confirmation rather than being applied
     // from here.
     Ui.PickerRow {
       label: "Release channel"
-      description: known(about.channel) && about.channel !== "stable"
-        ? about.channel + " takes updates before they reach stable" : ""
+      description: root.known(root.about.channel) && root.about.channel !== "stable"
+        ? root.about.channel + " takes updates before they reach stable" : ""
       options: ["stable", "rc", "dev"]
-      value: about.channel !== undefined ? about.channel : ""
+      value: root.about.channel !== undefined ? root.about.channel : ""
       onPicked: function(next) {
-        if (next === about.channel) return
-        app.run(["about", "channel", next])
-        app.hide()
+        if (next === root.about.channel) return
+        root.app.run(["about", "channel", next])
+        root.app.hide()
       }
     }
   }

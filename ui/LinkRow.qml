@@ -1,13 +1,12 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 import "." as Local
 
 // A row that is entirely a link: the whole width is the target, with whatever
 // the source calls the date at the far end. For lists where every row goes
 // somewhere and none of them has a second thing you could do to it — a button
 // per row would be one button per row doing what the row already does.
-NavRow {
+Local.NavRow {
   id: linkRow
   property string value: ""
   // Unread rows carry a star. It is both the mark and the way to clear it:

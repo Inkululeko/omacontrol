@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 import "." as Local
 
 // One Bluetooth device: what it is, how it is doing, and the actions that

@@ -20,7 +20,7 @@ import "." as Local
 // Everything on one line rather than stacked, because these sit above the
 // page's real content and a two-line tile pushed it off the fold. They are a
 // strip of chrome across the top, not the subject of the page.
-NavRow {
+Local.NavRow {
   id: tile
 
   property string glyph: ""

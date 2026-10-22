@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 import qs.Commons
@@ -7,6 +8,7 @@ import "../ui" as Ui
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
   // "super+shift+r", "SUPER + SHIFT + R" and "Super Shift R" are one chord;
   // the helper canonicalises the same way before it compares.
@@ -38,37 +40,37 @@ Ui.SectionBody {
         id: keysField
         width: (parent.width - addBindingButton.width - Style.space(24)) * 0.3
         placeholderText: "SUPER + SHIFT + R"
-        foreground: app.foreground
-        accent: app.accent
+        foreground: page.app.foreground
+        accent: page.app.accent
       }
 
       TextField {
         id: bindingDescriptionField
         width: (parent.width - addBindingButton.width - Style.space(24)) * 0.25
         placeholderText: "what it does"
-        foreground: app.foreground
-        accent: app.accent
+        foreground: page.app.foreground
+        accent: page.app.accent
       }
 
       TextField {
         id: commandField
         width: (parent.width - addBindingButton.width - Style.space(24)) * 0.45
         placeholderText: "command to run"
-        foreground: app.foreground
-        accent: app.accent
+        foreground: page.app.foreground
+        accent: page.app.accent
       }
 
       Button {
         id: addBindingButton
         text: "Add"
         bordered: true
-        foreground: app.foreground
-        accent: app.accent
-        fontFamily: app.fontFamily
+        foreground: page.app.foreground
+        accent: page.app.accent
+        fontFamily: page.app.fontFamily
         anchors.verticalCenter: parent.verticalCenter
         onClicked: {
           if (keysField.text.trim() === "" || commandField.text.trim() === "") return
-          app.run(["keys", "add", keysField.text.trim(),
+          page.app.run(["keys", "add", keysField.text.trim(),
                     bindingDescriptionField.text.trim(), commandField.text.trim()])
           keysField.text = ""
           bindingDescriptionField.text = ""
@@ -81,13 +83,13 @@ Ui.SectionBody {
     // binding is gone.
     Text {
       textFormat: Text.PlainText
-      readonly property var clash: bindingFor(keysField.text)
+      readonly property var clash: page.bindingFor(keysField.text)
 
       width: parent.width
       visible: clash !== null
       wrapMode: Text.WordWrap
       text: clash
-        ? canonicalKeys(keysField.text) + " already runs " +
+        ? page.canonicalKeys(keysField.text) + " already runs " +
           (String(clash.description) !== "" ? String(clash.description) : "something else") +
           ". Adding this replaces it."
         : ""
@@ -106,26 +108,26 @@ Ui.SectionBody {
     // one box doing less.
     TextField {
       width: parent.width
-      visible: !app.searching
+      visible: !page.app.searching
       placeholderText: "Search keys or actions…"
-      text: app.bindingFilter
-      foreground: app.foreground
-      accent: app.accent
-      onTextChanged: app.bindingFilter = text
+      text: page.app.bindingFilter
+      foreground: page.app.foreground
+      accent: page.app.accent
+      onTextChanged: page.app.bindingFilter = text
     }
 
     Text {
       textFormat: Text.PlainText
       width: parent.width
-      visible: !app.searching
-      text: app.visibleBindings.length + " of " + (app.bindings.items !== undefined ? app.bindings.items.length : 0)
-      color: app.muted
-      font.family: app.fontFamily
+      visible: !page.app.searching
+      text: page.app.visibleBindings.length + " of " + (page.app.bindings.items !== undefined ? page.app.bindings.items.length : 0)
+      color: page.app.muted
+      font.family: page.app.fontFamily
       font.pixelSize: Style.font.caption
     }
 
     Repeater {
-      model: app.visibleBindings
+      model: page.app.visibleBindings
       delegate: Ui.BindingRow {
         required property var modelData
         width: parent.width
@@ -133,8 +135,8 @@ Ui.SectionBody {
         description: modelData.description
         command: modelData.command
         source: modelData.source
-        onRemoveRequested: app.run(["keys", "remove", modelData.keys])
-        onDisableRequested: app.run(["keys", "disable", modelData.keys])
+        onRemoveRequested: page.app.run(["keys", "remove", modelData.keys])
+        onDisableRequested: page.app.run(["keys", "disable", modelData.keys])
       }
     }
   }

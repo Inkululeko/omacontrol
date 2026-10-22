@@ -11,6 +11,7 @@ import "." as Local
 // Every row writes through `workspaces set <class>`, which creates the rule
 // on the first write: there is nothing to add first.
 SettingGroup {
+  id: appRules
   property var app: null
   property var displays: []
 
@@ -43,25 +44,25 @@ SettingGroup {
 
   Local.PickerRow {
     label: "Opens on"
-    value: String(modelData.workspace || "")
-    options: workspaceOptions()
-    onPicked: function(next) { app.run(["workspaces", "set", cls, "workspace", next]) }
+    value: String(appRules.modelData.workspace || "")
+    options: appRules.workspaceOptions()
+    onPicked: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "workspace", next]) }
   }
 
   Local.SwitchRow {
     label: "Open in the background"
     description: "Send the window to its workspace without switching to it."
-    visible: onWorkspace
-    checked: modelData.silent === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "silent", next ? "true" : "false"]) }
+    visible: appRules.onWorkspace
+    checked: appRules.modelData.silent === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "silent", next ? "true" : "false"]) }
   }
 
   Local.PickerRow {
     label: "Open on display"
-    visible: displays.length > 1
-    value: String(modelData.monitor || "")
-    options: displayOptions("Whichever has the focus")
-    onPicked: function(next) { app.run(["workspaces", "set", cls, "monitor", next]) }
+    visible: appRules.displays.length > 1
+    value: String(appRules.modelData.monitor || "")
+    options: appRules.displayOptions("Whichever has the focus")
+    onPicked: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "monitor", next]) }
   }
 
   // One choice, not two switches: a fullscreen window is neither tiled nor
@@ -75,8 +76,8 @@ SettingGroup {
       { value: "floating", label: "Floating" },
       { value: "fullscreen", label: "Fullscreen" }
     ]
-    value: String(modelData.shown || "tiled")
-    onPicked: function(next) { app.run(["workspaces", "set", cls, "shown", next]) }
+    value: String(appRules.modelData.shown || "tiled")
+    onPicked: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "shown", next]) }
   }
 
   // What only a floating window can do sits under Floating, and goes away
@@ -86,64 +87,64 @@ SettingGroup {
   Local.TextRow {
     label: "Width"
     description: "Percent of the screen. Leave empty to let the application decide."
-    visible: floating
-    value: Number(modelData.width) > 0 ? String(modelData.width) : ""
+    visible: appRules.floating
+    value: Number(appRules.modelData.width) > 0 ? String(appRules.modelData.width) : ""
     placeholder: "e.g. 60"
-    onCommitted: function(next) { app.run(["workspaces", "set", cls, "width", next.trim()]) }
+    onCommitted: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "width", next.trim()]) }
   }
 
   Local.TextRow {
     label: "Height"
     description: "Percent of the screen."
-    visible: floating
-    value: Number(modelData.height) > 0 ? String(modelData.height) : ""
+    visible: appRules.floating
+    value: Number(appRules.modelData.height) > 0 ? String(appRules.modelData.height) : ""
     placeholder: "e.g. 60"
-    onCommitted: function(next) { app.run(["workspaces", "set", cls, "height", next.trim()]) }
+    onCommitted: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "height", next.trim()]) }
   }
 
   Local.SwitchRow {
     label: "Centred"
     description: "Opens in the middle of the screen."
-    visible: floating
-    checked: modelData.center === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "center", next ? "true" : "false"]) }
+    visible: appRules.floating
+    checked: appRules.modelData.center === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "center", next ? "true" : "false"]) }
   }
 
   Local.SwitchRow {
     label: "Pinned"
     description: "Stays on screen whichever workspace you switch to."
-    visible: floating
-    checked: modelData.pin === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "pin", next ? "true" : "false"]) }
+    visible: appRules.floating
+    checked: appRules.modelData.pin === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "pin", next ? "true" : "false"]) }
   }
 
   // Only for an application with a desktop entry: that is what says how
   // to launch it. A bare window class has no command to start.
   Local.SwitchRow {
     label: "Start when you log in"
-    visible: String(modelData.desktop || "") !== ""
-    checked: modelData.autostart === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "autostart", next ? String(modelData.desktop) : ""]) }
+    visible: String(appRules.modelData.desktop || "") !== ""
+    checked: appRules.modelData.autostart === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "autostart", next ? String(appRules.modelData.desktop) : ""]) }
   }
 
   Local.SwitchRow {
     label: "Don't take focus when opening"
     description: "The window appears without pulling you away from what you were doing."
-    checked: modelData.noInitialFocus === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "no_initial_focus", next ? "true" : "false"]) }
+    checked: appRules.modelData.noInitialFocus === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "no_initial_focus", next ? "true" : "false"]) }
   }
 
   Local.SwitchRow {
     label: "Keep the screen awake"
     description: "No dimming or locking while a window of this application is open."
-    checked: modelData.idleInhibit === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "idle_inhibit", next ? "true" : "false"]) }
+    checked: appRules.modelData.idleInhibit === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "idle_inhibit", next ? "true" : "false"]) }
   }
 
   Local.SwitchRow {
     label: "Hide from screen sharing"
     description: "Shows as a black rectangle to anyone you share your screen with."
-    checked: modelData.noScreenShare === true
-    onRequested: function(next) { app.run(["workspaces", "set", cls, "no_screen_share", next ? "true" : "false"]) }
+    checked: appRules.modelData.noScreenShare === true
+    onRequested: function(next) { appRules.app.run(["workspaces", "set", appRules.cls, "no_screen_share", next ? "true" : "false"]) }
   }
 }

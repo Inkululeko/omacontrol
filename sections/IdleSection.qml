@@ -7,6 +7,7 @@ import "../ui" as Ui
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
 
   // Read when the page opens: an unlock screen changes when somebody changes
@@ -17,18 +18,18 @@ Ui.SectionBody {
 
     Ui.MinutesRow {
       label: "Screensaver after"
-      seconds: app.idleState.screensaver !== undefined ? Number(app.idleState.screensaver) : 150
-      onCommitted: function(mins) { app.set("idle-screensaver", mins * 60) }
-      changed: app.isChanged("idle-screensaver")
-      onResetRequested: app.resetSetting("idle-screensaver")
+      seconds: page.app.idleState.screensaver !== undefined ? Number(page.app.idleState.screensaver) : 150
+      onCommitted: function(mins) { page.app.set("idle-screensaver", mins * 60) }
+      changed: page.app.isChanged("idle-screensaver")
+      onResetRequested: page.app.resetSetting("idle-screensaver")
     }
 
     Ui.MinutesRow {
       label: "Lock after"
-      seconds: app.idleState.lock !== undefined ? Number(app.idleState.lock) : 300
-      onCommitted: function(mins) { app.set("idle-lock", mins * 60) }
-      changed: app.isChanged("idle-lock")
-      onResetRequested: app.resetSetting("idle-lock")
+      seconds: page.app.idleState.lock !== undefined ? Number(page.app.idleState.lock) : 300
+      onCommitted: function(mins) { page.app.set("idle-lock", mins * 60) }
+      changed: page.app.isChanged("idle-lock")
+      onResetRequested: page.app.resetSetting("idle-lock")
     }
   }
 
@@ -40,20 +41,20 @@ Ui.SectionBody {
   Ui.SettingGroup {
     title: "Unlock animation"
     note: "Shown while the machine starts up and while it unlocks."
-    visible: !searchEmpty && app.unlockList.length > 0
+    visible: !searchEmpty && page.app.unlockList.length > 0
 
     Ui.PictureGrid {
       items: {
         var out = []
-        var list = app.unlockList
+        var list = page.app.unlockList
         for (var i = 0; i < list.length; i++)
           out.push({ source: list[i].preview, title: list[i].title, value: list[i].name,
-                     current: app.unlockPending !== "" ? list[i].name === app.unlockPending
+                     current: page.app.unlockPending !== "" ? list[i].name === page.app.unlockPending
                                                        : list[i].current === true })
         return out
       }
       columns: 2
-      onChose: function(name) { app.setUnlock(name) }
+      onChose: function(name) { page.app.setUnlock(name) }
     }
   }
 }

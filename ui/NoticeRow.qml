@@ -11,7 +11,7 @@ import "." as Local
 // button, because the two are not equals. The action is what the notice is
 // for; dismissing is a way to stop reading it. Two buttons of the same weight
 // at the same end of a row makes that a coin toss.
-NavRow {
+Local.NavRow {
   id: notice
 
   property string glyph: ""

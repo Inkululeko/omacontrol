@@ -79,7 +79,7 @@ Scope {
       splitMarker: "\n"
       onRead: function(line) {
         try {
-          var next = JSON.parse(line)
+          const next = JSON.parse(line)
           if (next && typeof next === "object") root.switches = next
         } catch (e) {
           // A half-written line is not worth acting on; the next change

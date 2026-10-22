@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
@@ -59,8 +60,8 @@ Ui.SectionBody {
   property Component headerControl: Component {
     Ui.Chip {
       visible: root.openPackage === ""
-      text: app.packagesSyncing ? "Checking…" : "Check for updates"
-      onClicked: app.refreshPackages()
+      text: root.app.packagesSyncing ? "Checking…" : "Check for updates"
+      onClicked: root.app.refreshPackages()
     }
   }
 
@@ -310,10 +311,10 @@ Ui.SectionBody {
   // a button.
   Timer {
     interval: 10000
-    running: app.shown
+    running: root.app.shown
     repeat: true
     triggeredOnStart: true
-    onTriggered: app.pollPackages()
+    onTriggered: root.app.pollPackages()
   }
 
   // ============================================================== the list
@@ -323,7 +324,7 @@ Ui.SectionBody {
   // below it — the cache figure belongs beside the button that clears it, at
   // the foot of the page, and not up here where the button is not.
   Ui.SettingGroup {
-    visible: !searchEmpty && openPackage === ""
+    visible: !searchEmpty && root.openPackage === ""
 
     RowLayout {
       width: parent.width
@@ -332,43 +333,43 @@ Ui.SectionBody {
       Ui.StatCard {
         Layout.fillWidth: true
         label: "Waiting"
-        value: checkedAt === 0 ? "—" : (pending.length === 0 ? "None" : String(pending.length))
+        value: root.checkedAt === 0 ? "—" : (root.pending.length === 0 ? "None" : String(root.pending.length))
         // Only the repositories publish a download size — an AUR package is
         // built rather than fetched — so the figure says what it leaves out
         // rather than presenting a partial sum as a total.
-        note: pendingBytes > 0
-          ? app.formatBytes(pendingBytes) + " to download"
-            + (aurWaiting ? ", plus what is built" : "")
-          : (checkedAt === 0 ? "Not checked yet" : "")
+        note: root.pendingBytes > 0
+          ? root.app.formatBytes(root.pendingBytes) + " to download"
+            + (root.aurWaiting ? ", plus what is built" : "")
+          : (root.checkedAt === 0 ? "Not checked yet" : "")
       }
 
       Ui.StatCard {
         Layout.fillWidth: true
         label: "Last updated"
-        value: updatedAt > 0 ? app.formatWhen(updatedAt) : "—"
-        note: updatedAt > 0 ? "When a package was last replaced" : ""
+        value: root.updatedAt > 0 ? root.app.formatWhen(root.updatedAt) : "—"
+        note: root.updatedAt > 0 ? "When a package was last replaced" : ""
       }
 
       Ui.StatCard {
         Layout.fillWidth: true
         label: "On disk"
-        value: app.packages.diskBytes > 0 ? app.formatBytes(app.packages.diskBytes) : "—"
-        note: app.packages.installed !== undefined
-          ? "across " + app.packages.installed + " packages" : ""
+        value: root.app.packages.diskBytes > 0 ? root.app.formatBytes(root.app.packages.diskBytes) : "—"
+        note: root.app.packages.installed !== undefined
+          ? "across " + root.app.packages.installed + " packages" : ""
       }
     }
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && openPackage === ""
+    visible: !searchEmpty && root.openPackage === ""
     title: "Waiting to update"
     // The remainder goes here rather than into a summary row at the foot of
     // the table. A table declared navigable makes every row a cursor stop
     // offering ⏎ Open, and a row that is a count of other rows has nothing to
     // open — the legend would promise it once per visit and do nothing.
-    note: checkedAt === 0
+    note: root.checkedAt === 0
       ? "Mirrors have not been checked yet — nothing here is known to be current."
-      : "Mirrors last checked " + app.formatWhen(checkedAt) + ""
+      : "Mirrors last checked " + root.app.formatWhen(root.checkedAt) + ""
 
     // First in the section, above the filters that can take them off screen and
     // above the table they would otherwise be rows four and eight of. Two of
@@ -423,11 +424,11 @@ Ui.SectionBody {
   // question about the other's rows — what is waiting never said what it
   // costs, and what is biggest never said an update was there for it.
   Ui.SettingGroup {
-    visible: !searchEmpty && openPackage === "" && all.length > 0
+    visible: !searchEmpty && root.openPackage === "" && root.all.length > 0
     title: "Every package"
     note: "Open one to see what it is and what would go with it."
-      + (shown.length > listCap
-         ? " Showing the first " + listCap + " of " + shown.length
+      + (root.shown.length > root.listCap
+         ? " Showing the first " + root.listCap + " of " + root.shown.length
            + " — type a name to reach the rest." : "")
 
     // What, then in what order. Two rows rather than one of seven chips: they
@@ -456,8 +457,8 @@ Ui.SectionBody {
         Ui.Chip {
           required property var modelData
           text: modelData.title
-          on: filter === modelData.id
-          onClicked: filter = modelData.id
+          on: root.filter === modelData.id
+          onClicked: root.filter = modelData.id
         }
       }
     }
@@ -497,10 +498,10 @@ Ui.SectionBody {
                                        : "Nothing here."
       rows: {
         var out = []
-        var capped = Math.min(shown.length, listCap)
+        var capped = Math.min(root.shown.length, root.listCap)
         for (var i = 0; i < capped; i++) {
-          var p = shown[i]
-          var waiting = updateFor[p.name]
+          var p = root.shown[i]
+          var waiting = root.updateFor[p.name]
           var cells = [
             // A grey pill after the name, and nothing at all on the ones
             // you asked for: the answer to "what could go" is the rows that
@@ -513,14 +514,14 @@ Ui.SectionBody {
               strong: waiting !== undefined }
           ]
           if (root.sized)
-            cells.push({ text: app.formatBytes(p.bytes), align: "right" })
+            cells.push({ text: root.app.formatBytes(p.bytes), align: "right" })
           cells.push({ text: root.originOf(p) })
           out.push({ cells: cells })
         }
         return out
       }
       onActivated: function(index) {
-        if (index < shown.length) openPackage = String(shown[index].name)
+        if (index < root.shown.length) root.openPackage = String(root.shown[index].name)
       }
     }
 
@@ -533,17 +534,17 @@ Ui.SectionBody {
       description: "Search the ones you chose by name, with each one's details beside it. "
         + "What you pick there is removed without asking again."
       buttonText: "Search"
-      onTriggered: { app.run(["packages", "pick"]); app.hide() }
+      onTriggered: { root.app.run(["packages", "pick"]); root.app.hide() }
     }
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && openPackage !== ""
+    visible: !searchEmpty && root.openPackage !== ""
     framed: true
     // The package's own one-line description of itself, which is the one
     // thing its name never says.
-    note: openPackage === "" ? ""
-      : (info.description !== undefined ? String(info.description) : "")
+    note: root.openPackage === "" ? ""
+      : (root.info.description !== undefined ? String(root.info.description) : "")
 
     Ui.FactGrid {
       columns: 4
@@ -557,35 +558,35 @@ Ui.SectionBody {
         { key: "needed", label: "Needed by", span: 3 }
       ]
       values: ({
-        "size": info.bytes !== undefined ? app.formatBytes(info.bytes) : "—",
-        "version": info.version !== undefined ? info.version : "—",
+        "size": root.info.bytes !== undefined ? root.app.formatBytes(root.info.bytes) : "—",
+        "version": root.info.version !== undefined ? root.info.version : "—",
         "from": root.openOrigin,
-        "why": info.reason === undefined ? "—"
-          : (info.reason === "explicit" ? "You asked for it" : "Something else needs it"),
-        "when": info.installed !== undefined ? info.installed : "—",
+        "why": root.info.reason === undefined ? "—"
+          : (root.info.reason === "explicit" ? "You asked for it" : "Something else needs it"),
+        "when": root.info.installed !== undefined ? root.info.installed : "—",
         "needed": root.neededBy
       })
     }
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && openPackage !== ""
+    visible: !searchEmpty && root.openPackage !== ""
 
     Ui.NoticeRow {
-      visible: !searchHidden && openPending !== null
+      visible: !searchHidden && root.openPending !== null
       glyph: ""
       label: "An update is waiting for this one"
-      description: openPending !== null
-        ? openPending.installed + " installed, " + openPending.available + " available."
+      description: root.openPending !== null
+        ? root.openPending.installed + " installed, " + root.openPending.available + " available."
         : ""
     }
 
     Ui.ActionRow {
-      visible: !searchHidden && String(info.url !== undefined ? info.url : "") !== ""
+      visible: !searchHidden && String(root.info.url !== undefined ? root.info.url : "") !== ""
       label: "Home page"
-      description: String(info.url !== undefined ? info.url : "")
+      description: String(root.info.url !== undefined ? root.info.url : "")
       buttonText: "Open"
-      onTriggered: { app.run(["packages", "site", openPackage]); app.hide() }
+      onTriggered: { root.app.run(["packages", "site", root.openPackage]); root.app.hide() }
     }
 
     // pacman asks again in the terminal, and its list of what else goes is the
@@ -594,13 +595,13 @@ Ui.SectionBody {
     Ui.ActionRow {
       label: "Remove this package"
       description: {
-        var by = info.requiredBy !== undefined ? info.requiredBy : []
+        var by = root.info.requiredBy !== undefined ? root.info.requiredBy : []
         if (by.length > 0)
           return "Other packages need this one, so pacman will refuse until they go first."
         return "Removes it and anything that came in only for it. The terminal lists them and asks."
       }
       buttonText: "Remove"
-      onTriggered: askRemove(openPackage)
+      onTriggered: root.askRemove(root.openPackage)
     }
   }
 }

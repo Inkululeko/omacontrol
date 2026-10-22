@@ -140,7 +140,7 @@ Ui.SectionBody {
 
   Ui.SettingGroup {
     framed: true
-    visible: !searchEmpty && power.hasBattery === true
+    visible: !searchEmpty && page.power.hasBattery === true
 
     Item {
       width: parent.width
@@ -161,8 +161,8 @@ Ui.SectionBody {
         // gauge towering over one line.
         height: identity.implicitHeight
         width: Math.round(height * 2.1)
-        level: Number(reading.percentage || 0) / 100
-        charging: String(reading.state || "") === "charging"
+        level: Number(page.reading.percentage || 0) / 100
+        charging: String(page.reading.state || "") === "charging"
         fill: page.levelColor
       }
 
@@ -186,8 +186,8 @@ Ui.SectionBody {
           Text {
             id: level
             textFormat: Text.PlainText
-            text: reading.percentage !== null && reading.percentage !== undefined
-              ? reading.percentage + "%" : "\u2014"
+            text: page.reading.percentage !== null && page.reading.percentage !== undefined
+              ? page.reading.percentage + "%" : "\u2014"
             color: Ui.Palette.foreground
             font.family: Ui.Palette.fontFamily
             font.pixelSize: Style.font.display
@@ -257,16 +257,16 @@ Ui.SectionBody {
 
     Ui.ChoiceRow {
       label: "On battery"
-      value: power.forBattery !== undefined ? String(power.forBattery) : ""
-      options: profileOptions()
-      onPicked: function(next) { app.run(["power", "profile", "battery", next]) }
+      value: page.power.forBattery !== undefined ? String(page.power.forBattery) : ""
+      options: page.profileOptions()
+      onPicked: function(next) { page.app.run(["power", "profile", "battery", next]) }
     }
 
     Ui.ChoiceRow {
       label: "Plugged in"
-      value: power.ac !== undefined ? String(power.ac) : ""
-      options: profileOptions()
-      onPicked: function(next) { app.run(["power", "profile", "ac", next]) }
+      value: page.power.ac !== undefined ? String(page.power.ac) : ""
+      options: page.profileOptions()
+      onPicked: function(next) { page.app.run(["power", "profile", "ac", next]) }
     }
   }
 }

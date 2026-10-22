@@ -1,49 +1,48 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell.Io
-import qs.Commons
-import qs.Ui
 import "../ui" as Ui
 
 // Injected by the window when the page is loaded: the state every
 // row reads, and the calls every control makes.
 Ui.SectionBody {
+  id: page
   property var app: null
   Ui.SettingGroup {
 
     Ui.PercentRow {
       label: "Sensitivity"
       description: "How far the pointer travels for the same hand movement."
-      value: (Number(app.hyprValue("sensitivity", 0)) + 1) / 2
-      onCommitted: function(next) { app.setHypr("sensitivity", (next * 2 - 1).toFixed(2)) }
-      changed: app.isChanged("sensitivity")
-      onResetRequested: app.resetSetting("sensitivity")
+      value: (Number(page.app.hyprValue("sensitivity", 0)) + 1) / 2
+      onCommitted: function(next) { page.app.setHypr("sensitivity", (next * 2 - 1).toFixed(2)) }
+      changed: page.app.isChanged("sensitivity")
+      onResetRequested: page.app.resetSetting("sensitivity")
     }
 
     Ui.PickerRow {
       label: "Acceleration"
-      value: String(app.hyprValue("accel-profile", ""))
+      value: String(page.app.hyprValue("accel-profile", ""))
       options: [
         { value: "", label: "Default (adaptive)" },
         { value: "flat", label: "Flat — no acceleration" },
         { value: "adaptive", label: "Adaptive" }
       ]
-      onPicked: function(next) { app.setHypr("accel-profile", next) }
-      changed: app.isChanged("accel-profile")
-      onResetRequested: app.resetSetting("accel-profile")
+      onPicked: function(next) { page.app.setHypr("accel-profile", next) }
+      changed: page.app.isChanged("accel-profile")
+      onResetRequested: page.app.resetSetting("accel-profile")
     }
 
     Ui.PickerRow {
       label: "Focus follows mouse"
-      value: String(app.hyprValue("follow-mouse", 1))
+      value: String(page.app.hyprValue("follow-mouse", 1))
       options: [
         { value: "0", label: "Off — click to focus" },
         { value: "1", label: "On" },
         { value: "2", label: "On, but keyboard stays" },
         { value: "3", label: "On, without raising" }
       ]
-      onPicked: function(next) { app.setHypr("follow-mouse", next) }
-      changed: app.isChanged("follow-mouse")
-      onResetRequested: app.resetSetting("follow-mouse")
+      onPicked: function(next) { page.app.setHypr("follow-mouse", next) }
+      changed: page.app.isChanged("follow-mouse")
+      onResetRequested: page.app.resetSetting("follow-mouse")
     }
   }
 
@@ -52,43 +51,43 @@ Ui.SectionBody {
 
     Ui.SwitchRow {
       label: "Natural scrolling"
-      checked: app.hyprValue("natural-scroll", false) === true
-      onRequested: function(next) { app.setHypr("natural-scroll", next ? "true" : "false") }
-      changed: app.isChanged("natural-scroll")
-      onResetRequested: app.resetSetting("natural-scroll")
+      checked: page.app.hyprValue("natural-scroll", false) === true
+      onRequested: function(next) { page.app.setHypr("natural-scroll", next ? "true" : "false") }
+      changed: page.app.isChanged("natural-scroll")
+      onResetRequested: page.app.resetSetting("natural-scroll")
     }
 
     Ui.SwitchRow {
       label: "Tap to click"
-      checked: app.hyprValue("tap-to-click", true) === true
-      onRequested: function(next) { app.setHypr("tap-to-click", next ? "true" : "false") }
-      changed: app.isChanged("tap-to-click")
-      onResetRequested: app.resetSetting("tap-to-click")
+      checked: page.app.hyprValue("tap-to-click", true) === true
+      onRequested: function(next) { page.app.setHypr("tap-to-click", next ? "true" : "false") }
+      changed: page.app.isChanged("tap-to-click")
+      onResetRequested: page.app.resetSetting("tap-to-click")
     }
 
     Ui.SwitchRow {
       label: "Two-finger right click"
       description: "Off uses the lower-right corner instead."
-      checked: app.hyprValue("clickfinger", false) === true
-      onRequested: function(next) { app.setHypr("clickfinger", next ? "true" : "false") }
-      changed: app.isChanged("clickfinger")
-      onResetRequested: app.resetSetting("clickfinger")
+      checked: page.app.hyprValue("clickfinger", false) === true
+      onRequested: function(next) { page.app.setHypr("clickfinger", next ? "true" : "false") }
+      changed: page.app.isChanged("clickfinger")
+      onResetRequested: page.app.resetSetting("clickfinger")
     }
 
     Ui.SwitchRow {
       label: "Disable while typing"
-      checked: app.hyprValue("disable-while-typing", true) === true
-      onRequested: function(next) { app.setHypr("disable-while-typing", next ? "true" : "false") }
-      changed: app.isChanged("disable-while-typing")
-      onResetRequested: app.resetSetting("disable-while-typing")
+      checked: page.app.hyprValue("disable-while-typing", true) === true
+      onRequested: function(next) { page.app.setHypr("disable-while-typing", next ? "true" : "false") }
+      changed: page.app.isChanged("disable-while-typing")
+      onResetRequested: page.app.resetSetting("disable-while-typing")
     }
 
     Ui.FactorRow {
       label: "Scroll speed"
-      value: Number(app.hyprValue("scroll-factor", 1))
-      onCommitted: function(next) { app.setHypr("scroll-factor", next) }
-      changed: app.isChanged("scroll-factor")
-      onResetRequested: app.resetSetting("scroll-factor")
+      value: Number(page.app.hyprValue("scroll-factor", 1))
+      onCommitted: function(next) { page.app.setHypr("scroll-factor", next) }
+      changed: page.app.isChanged("scroll-factor")
+      onResetRequested: page.app.resetSetting("scroll-factor")
     }
   }
 
@@ -128,9 +127,10 @@ Ui.SectionBody {
   }
 
   Repeater {
-    model: customised
+    model: page.customised
 
     delegate: Ui.SettingGroup {
+      id: deviceGroup
       required property var modelData
 
       readonly property string name: String(modelData.name)
@@ -160,80 +160,80 @@ Ui.SectionBody {
 
       Ui.PercentRow {
         label: "Sensitivity"
-        value: (Number(inForce("sensitivity", app.hyprValue("sensitivity", 0))) + 1) / 2
-        onCommitted: function(next) { app.setDevice(name, "sensitivity", (next * 2 - 1).toFixed(2), "pointer") }
-        changed: app.isChanged("device:" + name + ":sensitivity")
-        onResetRequested: app.resetSetting("device:" + name + ":sensitivity")
+        value: (Number(deviceGroup.inForce("sensitivity", page.app.hyprValue("sensitivity", 0))) + 1) / 2
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "sensitivity", (next * 2 - 1).toFixed(2), "pointer") }
+        changed: page.app.isChanged("device:" + deviceGroup.name + ":sensitivity")
+        onResetRequested: page.app.resetSetting("device:" + deviceGroup.name + ":sensitivity")
       }
 
       Ui.PickerRow {
         label: "Acceleration"
-        value: String(inForce("accel_profile", app.hyprValue("accel-profile", "")))
+        value: String(deviceGroup.inForce("accel_profile", page.app.hyprValue("accel-profile", "")))
         options: [
           { value: "", label: "Default (adaptive)" },
           { value: "flat", label: "Flat — no acceleration" },
           { value: "adaptive", label: "Adaptive" }
         ]
-        onPicked: function(next) { app.setDevice(name, "accel_profile", next, "pointer") }
-        changed: app.isChanged("device:" + name + ":accel_profile")
-        onResetRequested: app.resetSetting("device:" + name + ":accel_profile")
+        onPicked: function(next) { page.app.setDevice(deviceGroup.name, "accel_profile", next, "pointer") }
+        changed: page.app.isChanged("device:" + deviceGroup.name + ":accel_profile")
+        onResetRequested: page.app.resetSetting("device:" + deviceGroup.name + ":accel_profile")
       }
 
       Ui.SwitchRow {
         label: "Natural scrolling"
-        checked: inForce("natural_scroll", app.hyprValue(touchpad ? "natural-scroll" : "mouse-natural-scroll", false)) === true
-        onRequested: function(next) { app.setDevice(name, "natural_scroll", next ? "true" : "false", "pointer") }
-        changed: app.isChanged("device:" + name + ":natural_scroll")
-        onResetRequested: app.resetSetting("device:" + name + ":natural_scroll")
+        checked: deviceGroup.inForce("natural_scroll", page.app.hyprValue(deviceGroup.touchpad ? "natural-scroll" : "mouse-natural-scroll", false)) === true
+        onRequested: function(next) { page.app.setDevice(deviceGroup.name, "natural_scroll", next ? "true" : "false", "pointer") }
+        changed: page.app.isChanged("device:" + deviceGroup.name + ":natural_scroll")
+        onResetRequested: page.app.resetSetting("device:" + deviceGroup.name + ":natural_scroll")
       }
 
       Ui.SwitchRow {
         label: "Left handed"
-        checked: inForce("left_handed", false) === true
-        onRequested: function(next) { app.setDevice(name, "left_handed", next ? "true" : "false", "pointer") }
-        changed: app.isChanged("device:" + name + ":left_handed")
-        onResetRequested: app.resetSetting("device:" + name + ":left_handed")
+        checked: deviceGroup.inForce("left_handed", false) === true
+        onRequested: function(next) { page.app.setDevice(deviceGroup.name, "left_handed", next ? "true" : "false", "pointer") }
+        changed: page.app.isChanged("device:" + deviceGroup.name + ":left_handed")
+        onResetRequested: page.app.resetSetting("device:" + deviceGroup.name + ":left_handed")
       }
 
       Ui.FactorRow {
         label: "Scroll speed"
         minimum: 0.1
         maximum: 3
-        value: Number(inForce("scroll_factor", app.hyprValue(touchpad ? "scroll-factor" : "mouse-scroll-factor", 1)))
-        onCommitted: function(next) { app.setDevice(name, "scroll_factor", next, "pointer") }
-        changed: app.isChanged("device:" + name + ":scroll_factor")
-        onResetRequested: app.resetSetting("device:" + name + ":scroll_factor")
+        value: Number(deviceGroup.inForce("scroll_factor", page.app.hyprValue(deviceGroup.touchpad ? "scroll-factor" : "mouse-scroll-factor", 1)))
+        onCommitted: function(next) { page.app.setDevice(deviceGroup.name, "scroll_factor", next, "pointer") }
+        changed: page.app.isChanged("device:" + deviceGroup.name + ":scroll_factor")
+        onResetRequested: page.app.resetSetting("device:" + deviceGroup.name + ":scroll_factor")
       }
 
       // No label: what the button removes is the group it sits in, and how
       // that is undone in a config file is not the reader's problem.
       Ui.ActionRow {
-        readonly property bool theirs: Object.keys(configured).length > 0
+        readonly property bool theirs: Object.keys(deviceGroup.configured).length > 0
 
         buttonText: "Remove Device"
         onTriggered: {
-          if (theirs) app.removeDevice(name)
-          else if (ours) app.clearDevice(name)
-          else closeDevice(name)
+          if (theirs) page.app.removeDevice(deviceGroup.name)
+          else if (deviceGroup.ours) page.app.clearDevice(deviceGroup.name)
+          else page.closeDevice(deviceGroup.name)
         }
       }
     }
   }
 
   Ui.SettingGroup {
-    visible: !searchEmpty && untouched.length > 0
+    visible: !searchEmpty && page.untouched.length > 0
 
     Ui.PickerRow {
       label: "Settings for one device"
       description: "Give a single mouse or touchpad its own settings, apart from the ones above."
       value: ""
-      options: [{ value: "", label: "Pick a device…" }].concat(untouched.map(function(device) {
+      options: [{ value: "", label: "Pick a device…" }].concat(page.untouched.map(function(device) {
         return {
           value: String(device.name),
           label: String(device.name) + (device.connected === false ? " (not connected)" : "")
         }
       }))
-      onPicked: function(next) { if (next !== "") openDevice(next) }
+      onPicked: function(next) { if (next !== "") page.openDevice(next) }
     }
   }
 }

@@ -60,8 +60,15 @@ else
 fi
 
 step "journal since $since"
+# Another plugin's warning names its own directory, and is not this change's
+# to answer for: one with an undefined colour failed every run here while it
+# was installed. A line that names no plugin at all is still ours to explain.
 log=$(journalctl --user --since "$since" --no-pager 2>/dev/null \
-      | grep -iE 'omacontrol|qml|binding loop|unable to assign|cannot assign|not a type|non-existent property|TypeError|ReferenceError|case mismatch')
+      | grep -iE 'omacontrol|qml|binding loop|unable to assign|cannot assign|not a type|non-existent property|TypeError|ReferenceError|case mismatch' \
+      | grep -vE '/plugins/[^/ ]+/' \
+      ; journalctl --user --since "$since" --no-pager 2>/dev/null \
+      | grep -E '/plugins/io\.github\.twiking\.omacontrol/' \
+      | grep -iE 'qml|binding loop|unable to assign|cannot assign|not a type|non-existent property|TypeError|ReferenceError|case mismatch')
 [ -n "$log" ] && printf '%s\n' "$log" || echo "(nothing)"
 
 # Every one of these has shipped here and none of them contains the word

@@ -1,11 +1,10 @@
 import QtQuick
-import qs.Commons
 import qs.Ui
 import "." as Local
 
 // A row whose setting lives behind someone else's flow: the state is shown,
 // and the button hands off to the command that owns it.
-SettingRow {
+Local.SettingRow {
   id: actionRow
   property string buttonText: ""
   signal triggered()
