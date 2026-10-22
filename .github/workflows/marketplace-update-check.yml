@@ -8,11 +8,12 @@
 
 name: Marketplace update check
 
-# pull_request_target so fork PRs can be commented on too. That is only safe
-# because no job checks out or runs the PR's code: the head commit is read
-# through the GitHub API as data. Keep it that way.
+# pull_request rather than pull_request_target: the latter only ever runs the
+# copy of this file on main, so a change to the check could not be seen
+# working on its own PR. The cost is that a fork PR's token cannot comment;
+# those get the report in the run summary instead.
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
 
@@ -36,7 +37,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Check out the check script from the base branch
+      - name: Check out the check script
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: self
@@ -92,6 +93,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
       ANALYZE_RESULT: ${{ needs.analyze.result }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -123,6 +125,11 @@ jobs:
               "⚠️ **The check could not complete**, so nothing is known yet about \`${HEAD_SHA:0:7}\`. GitHub or the marketplace may have been unreachable, or the marketplace changed a script this check relies on." \
               '' \
               "<sub>[run]($RUN_URL)</sub>" > "$body"
+          fi
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$HEAD_REPO" != "$GH_REPO" ]; then
+            echo "A fork PR's token cannot comment; the report is in the run summary."
+            exit 0
           fi
 
           # A newer push has its own run coming; a report for the old head
