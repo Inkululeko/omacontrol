@@ -1,0 +1,180 @@
+# The marketplace's validate-plugin-update workflow, run on our PRs instead of
+# on a [Verify]: issue, so a release is known to pass before it is submitted.
+#
+# Dropped from upstream: labels, the global catalog-writes queue and the
+# issue-trust guard. They protect the marketplace's registry, which nothing
+# here writes. Kept: analysis and publication in separate jobs, so the
+# marketplace's code never runs holding a token that can write.
+
+name: Marketplace update check
+
+# pull_request rather than pull_request_target: the latter only ever runs the
+# copy of this file on main, so a change to the check could not be seen
+# working on its own PR. The cost is that a fork PR's token cannot comment;
+# those get the report in the run summary instead.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: marketplace-update-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  MARKETPLACE_REPO: omacom/omarchy-plugin-marketplace
+  # main is what will judge the [Verify]: issue. Pin a SHA here if a
+  # marketplace change ever needs to be held back.
+  MARKETPLACE_REF: main
+  PLUGIN_ID: io.github.twiking.omacontrol
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the check script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: self
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Check out the marketplace
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.MARKETPLACE_REPO }}
+          ref: ${{ env.MARKETPLACE_REF }}
+          path: marketplace
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+
+      - name: Install marketplace dependencies
+        run: npm ci --prefix marketplace --ignore-scripts --no-audit --no-fund
+
+      - name: Run the marketplace's update verification at the PR head
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MARKETPLACE_DIR: marketplace
+          REPO_URL: https://github.com/${{ github.repository }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          OUT_DIR: ${{ runner.temp }}/report
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          MARKETPLACE_SHA="$(git -C marketplace rev-parse HEAD)" \
+            node self/.github/scripts/marketplace-update-check.mjs
+
+      - name: Upload the report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: marketplace-update-check-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/report
+          if-no-files-found: error
+          retention-days: 1
+
+  report:
+    needs: analyze
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      ANALYZE_RESULT: ${{ needs.analyze.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Download the report
+        if: needs.analyze.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: marketplace-update-check-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/report
+
+      - name: Post the report on the PR
+        id: post
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/report"
+          if [ "$ANALYZE_RESULT" = success ]; then
+            analyzed="$(jq -r .commitSha "$report/result.json")"
+            if [ "$analyzed" != "$HEAD_SHA" ]; then
+              echo "::error::The report is for $analyzed, not the PR head $HEAD_SHA."
+              exit 1
+            fi
+            body="$report/comment.md"
+          else
+            body="$RUNNER_TEMP/comment.md"
+            printf '%s\n' \
+              '<!-- omacontrol-marketplace-check -->' \
+              '## Marketplace update check' \
+              '' \
+              "⚠️ **The check could not complete**, so nothing is known yet about \`${HEAD_SHA:0:7}\`. GitHub or the marketplace may have been unreachable, or the marketplace changed a script this check relies on." \
+              '' \
+              "<sub>[run]($RUN_URL)</sub>" > "$body"
+          fi
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$HEAD_REPO" != "$GH_REPO" ]; then
+            echo "A fork PR's token cannot comment; the report is in the run summary."
+            exit 0
+          fi
+
+          # A newer push has its own run coming; a report for the old head
+          # would sit on the PR looking current.
+          live_head="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha)"
+          if [ "$live_head" != "$HEAD_SHA" ]; then
+            echo "The PR moved on to $live_head; leaving the comment to its run."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          comment_id="$(
+            gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments?per_page=100" \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- omacontrol-marketplace-check -->"))) | .id' \
+              | tail -n 1
+          )"
+          if [ -n "$comment_id" ]; then
+            jq -Rs '{body: .}' "$body" \
+              | gh api --method PATCH "repos/$GH_REPO/issues/comments/$comment_id" --input - >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body-file "$body"
+          fi
+
+      # The same line the marketplace draws with its labels: needs-fixes blocks
+      # approval, review-required only asks a maintainer to look.
+      - name: Fail if the marketplace would reject this update
+        if: steps.post.outputs.stale != 'true'
+        run: |
+          set -euo pipefail
+          if [ "$ANALYZE_RESULT" != success ]; then
+            echo "::error::The marketplace check could not complete."
+            exit 1
+          fi
+          result="$RUNNER_TEMP/report/result.json"
+          compatibility="$(jq -r .compatibility "$result")"
+          baseline="$(jq -r .baseline "$result")"
+          disposition="$(jq -r .disposition "$result")"
+          if [ "$compatibility" != validated ]; then
+            echo "::error::The marketplace would reject this update as incompatible."
+            exit 1
+          fi
+          if [ "$baseline" = scan-error ] || [ "$disposition" = needs-fixes ]; then
+            echo "::error::The security baseline has findings the marketplace will not accept."
+            exit 1
+          fi
+          if [ "$disposition" = review-required ]; then
+            echo "::warning::The security baseline needs a marketplace maintainer's review before this update is verified."
+          fi
